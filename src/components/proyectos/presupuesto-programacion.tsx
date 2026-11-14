@@ -1,7 +1,8 @@
 // Programación mensual (P) de la sección "Presupuesto" (S5 U5): una columna por
 // mes del proyecto y una fila por línea del presupuesto (actividad + rubro, T11 S8). "Falta por programar" (A − celdas) es
 // informativo mientras se edita; T13 (S7): el Gestor confirma la programación cuando queda en $ 0 en todas las líneas, y
-// la línea base exige esa confirmación.
+// la línea base exige esa confirmación. T13 (S4): en ejecución la grilla es de solo lectura y el Gestor mueve valores
+// entre meses de una misma línea, sin aprobación (`MoverValor`).
 
 "use client";
 
@@ -10,19 +11,23 @@ import { ChevronDown, ChevronRight, LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { mesLegible } from "@/components/proyectos/project-display";
-import { InlineError } from "@/components/proyectos/ui";
+import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
+import { InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
 import { MONTO_INVALIDO, formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useConfirmProgramming,
+  useMoveProgramming,
   useProjectProgramming,
   useUpdateProgramming,
   type ProjectListRow,
   type ProjectProgramming,
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { periodosAbiertos } from "@/lib/proyectos/traslado-simple";
+import { periodOf, todayInBogota } from "@/lib/proyectos/weeks";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const PROGRAMMING_ERROR = "No pudimos cargar la programación. Inténtalo de nuevo.";
@@ -60,6 +65,10 @@ export function MontoInput({
 
 export function PresupuestoProgramacion({ proyecto, canEdit }: { proyecto: ProjectListRow; canEdit: boolean }) {
   const query = useProjectProgramming(proyecto.id);
+  // T13 (S4): who may edit the project's data moves values while it runs (the same gate as the API).
+  const enEjecucion = proyecto.estado === "EN_EJECUCION";
+  const { canWrite } = useEjecucionPermisos(enEjecucion ? proyecto.id : "");
+  const puedeMover = enEjecucion && canWrite;
 
   return (
     <div data-testid="programacion" className="mt-4">
@@ -76,6 +85,93 @@ export function PresupuestoProgramacion({ proyecto, canEdit }: { proyecto: Proje
           canEdit={canEdit}
         />
       )}
+      {puedeMover && query.data?.periodos && query.data.control_por_linea.length > 0 && (
+        <MoverValor proyectoId={proyecto.id} data={query.data} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * T13 (S4): «El Gestor puede mover valores entre meses de una misma línea sin aprobación, siempre que el total de la
+ * línea no cambie.» Only the current month and the later ones are offered («Los meses ya cerrados no se
+ * modifican»); the API decides the rest (value available in the origin month) and its refusal shows inline.
+ */
+function MoverValor({ proyectoId, data }: { proyectoId: string; data: ProjectProgramming }) {
+  const mover = useMoveProgramming(proyectoId);
+  const [linea, setLinea] = useState("");
+  const [origen, setOrigen] = useState("");
+  const [destino, setDestino] = useState("");
+  const [valor, setValor] = useState("");
+  const abiertos = periodosAbiertos(data.periodos, periodOf(todayInBogota()));
+  const monto = valor.trim() === "" ? null : parseMontoInput(valor);
+  const listo = linea !== "" && origen !== "" && destino !== "" && monto !== null && toCents(monto) > toCents("0");
+
+  function cambiarOrigen(siguiente: string) {
+    setOrigen(siguiente);
+    if (siguiente === destino) setDestino("");
+  }
+
+  const error =
+    valor.trim() !== "" && monto === null
+      ? MONTO_INVALIDO
+      : mover.isError
+        ? errorMessage(mover.error, "No pudimos mover el valor. Inténtalo de nuevo.")
+        : null;
+
+  return (
+    <div data-testid="programacion-mover" className="mt-3 flex flex-col gap-2 rounded-inner border border-border bg-panel p-3">
+      <h5 className="text-[12.5px] font-semibold text-ink-800">Mover valor entre meses</h5>
+      <p className="text-[12px] text-ink-500">
+        Pasa un valor de un mes a otro de la misma línea sin cambiar su total. Solo el mes en curso y los siguientes; los
+        meses cerrados no se modifican.
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+        <label className="flex min-w-0 flex-col gap-1 text-[12px] text-ink-600">
+          Línea
+          <select aria-label="Línea" value={linea} onChange={(event) => setLinea(event.target.value)} className={SELECT_CLASS}>
+            <option value="">Elige una línea</option>
+            {data.control_por_linea.map((c) => (
+              <option key={c.linea_id} value={c.linea_id}>
+                {nombreLinea(c)} {c.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-[12px] text-ink-600">
+          Mes de origen
+          <select aria-label="Mes de origen" value={origen} onChange={(event) => cambiarOrigen(event.target.value)} className={SELECT_CLASS}>
+            <option value="">Elige un mes</option>
+            {abiertos.map((periodo) => (
+              <option key={periodo} value={periodo}>{mesLegible(periodo)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-[12px] text-ink-600">
+          Mes de destino
+          <select aria-label="Mes de destino" value={destino} onChange={(event) => setDestino(event.target.value)} className={SELECT_CLASS}>
+            <option value="">Elige un mes</option>
+            {abiertos.filter((periodo) => periodo !== origen).map((periodo) => (
+              <option key={periodo} value={periodo}>{mesLegible(periodo)}</option>
+            ))}
+          </select>
+        </label>
+        <div className="flex min-w-0 flex-col gap-1 text-[12px] text-ink-600">
+          Valor
+          <MontoInput label="Valor a mover" value={valor} onChange={setValor} />
+        </div>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        className="self-start"
+        disabled={!listo || mover.isPending}
+        onClick={() => mover.mutate({ linea_id: linea, origen, destino, valor: monto as string }, { onSuccess: () => setValor("") })}
+      >
+        {mover.isPending && <LoaderCircle className="size-4 animate-spin" />}
+        Mover valor
+      </Button>
+      <InlineError message={error} />
     </div>
   );
 }

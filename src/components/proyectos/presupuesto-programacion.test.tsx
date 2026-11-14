@@ -3,7 +3,7 @@
 // solo se burla `fetch`.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -300,6 +300,122 @@ describe("PresupuestoProgramacion", () => {
     setup({ data: { ...COMPLETA, programacion_confirmada: { at: "2026-11-14T15:00:00.000Z", por_id: "u1" } } })
     expect(await screen.findByText("Programación confirmada")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Confirmar programación" })).not.toBeInTheDocument()
+  })
+
+  describe("T13 (S4): moving a value between months of one line after the baseline", () => {
+    // Today is 2026-11-14 in Bogota: October is closed, November is the current month, December is future.
+    const EN_EJECUCION = {
+      ...POR_ACTIVIDAD,
+      estado: "EN_EJECUCION",
+      filas: [
+        { linea_id: "lt", rubro_id: "r5", periodo: "2026-10", valor: "5000000.00" },
+        { linea_id: "lt", rubro_id: "r5", periodo: "2026-11", valor: "5000000.00" },
+        { linea_id: "lt", rubro_id: "r5", periodo: "2026-12", valor: "5000000.00" },
+        { linea_id: "lf", rubro_id: "r5", periodo: "2026-11", valor: "8000000.00" },
+      ],
+      programacion_pendiente: false,
+    }
+    const GESTOR = { id: "u1", rol: "GERENCIA", nombre: "Gerencia", email: "g@muttu.co" }
+
+    function enEjecucion({ usuario = GESTOR, move = () => jsonResponse(EN_EJECUCION) }: { usuario?: unknown; move?: () => Response } = {}) {
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith("/programming/move") && init?.method === "POST") return Promise.resolve(move())
+        if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(EN_EJECUCION))
+        if (url.endsWith("/auth/me")) return Promise.resolve(jsonResponse({ usuario }))
+        if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
+        return Promise.resolve(jsonResponse({}))
+      })
+      return render(<PresupuestoProgramacion proyecto={{ ...PROYECTO, estado: "EN_EJECUCION" }} canEdit={false} />, { wrapper: createWrapper() })
+    }
+    const moves = () =>
+      fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/programming/move") && (init as RequestInit | undefined)?.method === "POST")
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(new Date("2026-11-14T15:00:00.000Z"))
+    })
+    afterEach(() => vi.useRealTimers())
+
+    it("«El Gestor pasa $2.000.000 de Transporte de noviembre a diciembre en una actividad, sin aprobación»", async () => {
+      const user = userEvent.setup()
+      enEjecucion()
+
+      const form = await screen.findByTestId("programacion-mover")
+      const linea = within(form).getByRole("combobox", { name: "Línea" })
+      expect(within(linea).getAllByRole("option").map((o) => o.textContent)).toEqual(["Elige una línea", "1.1 R05 Formación", "1.2 R05 Formación"])
+      await user.selectOptions(linea, "lt")
+      // «Los meses ya cerrados no se modifican»: October is not offered on either side.
+      const origen = within(form).getByRole("combobox", { name: "Mes de origen" })
+      expect(within(origen).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["", "2026-11", "2026-12"])
+      await user.selectOptions(origen, "2026-11")
+      const destino = within(form).getByRole("combobox", { name: "Mes de destino" })
+      expect(within(destino).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["", "2026-12"])
+      await user.selectOptions(destino, "2026-12")
+      await user.type(within(form).getByLabelText("Valor a mover"), "2.000.000")
+      await user.click(within(form).getByRole("button", { name: "Mover valor" }))
+
+      await waitFor(() => expect(moves()).toHaveLength(1))
+      expect(moves()[0]![0]).toBe("/api/v1/projects/p1/programming/move")
+      expect(JSON.parse(String((moves()[0]![1] as RequestInit).body))).toEqual({
+        linea_id: "lt",
+        origen: "2026-11",
+        destino: "2026-12",
+        valor: "2000000.00",
+      })
+    })
+
+    it("shows the API refusal inline and keeps what was chosen", async () => {
+      const user = userEvent.setup()
+      enEjecucion({
+        move: () =>
+          jsonResponse(
+            { error: "El mes 2026-11 solo tiene $ 5.000.000 programados en esta línea: no se pueden mover $ 6.000.000.", code: "VALIDATION_ERROR" },
+            400,
+          ),
+      })
+      const form = await screen.findByTestId("programacion-mover")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Línea" }), "lt")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de origen" }), "2026-11")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de destino" }), "2026-12")
+      await user.type(within(form).getByLabelText("Valor a mover"), "6000000")
+      await user.click(within(form).getByRole("button", { name: "Mover valor" }))
+
+      expect(await within(form).findByRole("alert")).toHaveTextContent(
+        "El mes 2026-11 solo tiene $ 5.000.000 programados en esta línea: no se pueden mover $ 6.000.000.",
+      )
+      expect(within(form).getByRole("combobox", { name: "Línea" })).toHaveValue("lt")
+    })
+
+    it("cannot move without a line, both months and a value above zero", async () => {
+      const user = userEvent.setup()
+      enEjecucion()
+      const form = await screen.findByTestId("programacion-mover")
+      const mover = within(form).getByRole("button", { name: "Mover valor" })
+      expect(mover).toBeDisabled()
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Línea" }), "lt")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de origen" }), "2026-11")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de destino" }), "2026-12")
+      await user.type(within(form).getByLabelText("Valor a mover"), "0")
+      expect(mover).toBeDisabled()
+      await user.clear(within(form).getByLabelText("Valor a mover"))
+      await user.type(within(form).getByLabelText("Valor a mover"), "1000")
+      expect(mover).toBeEnabled()
+      expect(moves()).toHaveLength(0)
+    })
+
+    it("is not offered to someone who cannot edit the project, nor in BORRADOR (the full grid stays)", async () => {
+      enEjecucion({ usuario: { id: "u9", rol: "COLABORADOR", nombre: "Ajeno", email: "a@muttu.co" } })
+      await screen.findByTestId("programacion-grid")
+      await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/auth/me"))).toBe(true))
+      expect(screen.queryByTestId("programacion-mover")).not.toBeInTheDocument()
+
+      cleanup()
+      setup({ data: COMPLETA })
+      await screen.findByTestId("programacion-grid")
+      expect(screen.queryByTestId("programacion-mover")).not.toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Guardar programación" })).toBeInTheDocument()
+    })
   })
 
   it("shows formatted amounts read-only when the user cannot edit", async () => {

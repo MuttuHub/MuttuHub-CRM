@@ -1602,6 +1602,19 @@ export function useConfirmProgramming(projectId: string): UseMutationResult<Proj
   });
 }
 
+/** T13 (S4): mover un valor entre meses de UNA línea, en ejecución y sin aprobación. `valor` en texto decimal. */
+export type ProjectProgrammingMoveInput = { linea_id: string; origen: string; destino: string; valor: string };
+
+export function useMoveProgramming(
+  projectId: string,
+): UseMutationResult<ProjectProgramming, Error, ProjectProgrammingMoveInput> {
+  const refresh = useRefreshPresupuesto(projectId);
+  return useMutation({
+    mutationFn: (input) => apiPost<ProjectProgramming>(`/api/v1/projects/${projectId}/programming/move`, input),
+    onSuccess: refresh,
+  });
+}
+
 /** Fila (por rubro o total) de `GET /api/v1/projects/:id/financial-sheet`. */
 export type ProjectFinancialRow = {
   /** Nulo en la fila de total. */

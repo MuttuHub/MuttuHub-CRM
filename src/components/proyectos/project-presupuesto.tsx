@@ -52,7 +52,8 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
 
       {puedeGestionar && proyecto.estado !== "BORRADOR" && (
         <p className="mt-1.5 text-[12.5px] text-ink-500">
-          El presupuesto y la programación solo se editan mientras el proyecto está en borrador.
+          El presupuesto se edita solo en borrador. Con la línea base aprobada, la programación de una línea se puede
+          mover entre meses abiertos sin cambiar su total; otros cambios van por solicitud de modificación.
         </p>
       )}
 
