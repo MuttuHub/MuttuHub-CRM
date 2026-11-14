@@ -1029,7 +1029,7 @@ describe("ProjectFicha (page)", () => {
       }
       if (String(input).endsWith("/programming")) {
         return Promise.resolve(
-          jsonResponse({ estado: "EN_EJECUCION", periodos: [], filas: [], control_por_rubro: [], programacion_pendiente: true }),
+          jsonResponse({ estado: "EN_EJECUCION", periodos: [], filas: [], control_por_linea: [], control_por_rubro: [], programacion_pendiente: true }),
         )
       }
       // Modificaciones y versiones (S8 U6): vacías; su comportamiento vive en project-modificaciones/versiones.test.tsx.

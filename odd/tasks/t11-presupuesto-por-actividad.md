@@ -45,7 +45,7 @@ src/components/proyectos/project-presupuesto`, `npx tsc --noEmit` (after `npx pr
 | ID | Specs | What | Route | Status | Commit |
 |---|---|---|---|---|---|
 | T11.1 | S1 S2 S5 S6 A1 A3 A4 | Budget API by line: GET exposes `lineas[]` (activity, rubro, value) next to `rubros[]`; PUT writes lines; valor_total = Σ lines | inline | done | `b74835e` |
-| T11.2 | S8 | Programming API by `linea_id`: write and read cells per line, not per rubro | inline | pending | |
+| T11.2 | S8 | Programming API by `linea_id`: write and read cells per line, not per rubro | inline | done | `16d0415` |
 | T11.3 | S3 S4 S5 S7 A2 | Template: Presupuesto sheet (Código de actividad, Rubro, Valor), drop sheet 8, V-11 by combination, activity exists; import writes lines with activity | inline | pending | |
 | T11.4 | S1 S6 S8 | Budget screen by activity, and programming screen by line | inline | pending | |
 | T11.6 | S2 | `valor_total` = Σ lines everywhere: drop it from creation, opportunity conversion and PATCH (contract change, risk 3) | inline | pending | |
@@ -70,3 +70,11 @@ Forecast: ~900–1200 authored lines → above 400; chain strategy asked before 
 - **L6** T11.1 committed `b74835e` (735+/252−). Checks: tsc, knip, eslint clean; vitest budget, presupuesto, presupuesto-po,
   components/proyectos, openapi green (the PO import route needed `compareActividad` to tolerate a missing activity).
   Running count ~990 authored lines > 400 → chain strategy asked before the next commit.
+- **L7** (2026-11-13, user): chain strategy «Encadenados a main (Recomendado)» → `stacked-to-main`: one PR per unit,
+  each targeting main. Slice 1 = `b74835e` + `77694fd` (T11.1).
+- **L8** T11.2 committed `16d0415` (280+/140−) on `feat/t11-2-programacion-por-linea` (slice 2, stacked on slice 1).
+  PUT `filas[].linea_id` replaces `rubro_id` (contract change, risk 3: only the programming grid calls it); GET adds
+  `linea_id` per cell and `control_por_linea`; `control_por_rubro` now sums a rubro's lines. The programming grid moved to
+  per-line rows (part of T11.4). Still keyed by rubro, T14 territory: `modificacion-form.tsx:108` and
+  `traslado-form.tsx:52` read cells by rubro; the baseline message `ficha-financiera.ts:168` names only the rubro.
+  Checks: tsc, knip, eslint clean; vitest programming, budget, presupuesto, components/proyectos (1061), openapi green.

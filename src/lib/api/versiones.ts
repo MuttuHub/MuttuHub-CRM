@@ -93,13 +93,17 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     objetivos: objetivos.map((o) => ({ codigo: o.codigo })),
     actividades: actividades.map((a) => ({ codigo: a.codigo, objetivoCodigo: codigoObjetivo.get(a.objetivo_id) ?? "" })),
     entregables: entregables.map((e) => ({ codigo: e.codigo, actividadCodigo: codigoActividad.get(e.actividad_id) ?? "" })),
+    // T11: the programming control is per line (a rubro can have one line per activity).
     lineas: lineas.map((l) => ({
+      lineaId: l.id,
+      actividadCodigo: l.actividad?.codigo ?? null,
       rubroId: l.rubro_id,
       nombre: l.rubro.nombre,
       asignado: toCents(l.monto_proyectado_cop),
       activo: l.rubro.activo,
     })),
     programacion: celdasVivas.map((c) => ({
+      lineaId: c.linea_id,
       rubroId: rubroDeLinea.get(c.linea_id)!,
       periodo: c.periodo,
       valor: toCents(c.valor),

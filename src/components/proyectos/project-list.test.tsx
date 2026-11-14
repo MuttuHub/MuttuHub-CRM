@@ -182,7 +182,7 @@ vi.mock("@/hooks/projects", () => ({
     error: null,
   }),
   useProjectProgramming: () => ({
-    data: { estado: "EN_EJECUCION", periodos: [], filas: [], control_por_rubro: [], programacion_pendiente: true },
+    data: { estado: "EN_EJECUCION", periodos: [], filas: [], control_por_linea: [], control_por_rubro: [], programacion_pendiente: true },
     isLoading: false,
     isError: false,
     error: null,

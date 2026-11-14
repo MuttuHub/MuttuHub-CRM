@@ -295,24 +295,29 @@ export async function loadBudgetView(
 // Programming view
 // ---------------------------------------------------------------------------
 
+type ControlFila = {
+  rubro_id: string;
+  codigo: string | null;
+  nombre: string;
+  asignado: string;
+  programado: string;
+  /** Σ cells − A; informational in BORRADOR. */
+  control: string;
+};
+
 export type ProgrammingView = {
   estado: string;
   periodos: string[];
-  filas: { rubro_id: string; periodo: string; valor: string }[];
-  control_por_rubro: {
-    rubro_id: string;
-    codigo: string | null;
-    nombre: string;
-    asignado: string;
-    programado: string;
-    /** Σ cells − A; informational in BORRADOR. */
-    control: string;
-  }[];
+  filas: { linea_id: string; rubro_id: string; periodo: string; valor: string }[];
+  /** S8: one row per budget line (activity + rubro), the unit that is programmed. */
+  control_por_linea: (ControlFila & { linea_id: string; actividad: LineaRow["actividad"] })[];
+  /** The lines of each rubro summed. */
+  control_por_rubro: ControlFila[];
   /** Derived (ADR-06): no cell above $0. The stored column is never written. */
   programacion_pendiente: boolean;
 };
 
-type ProgramacionLinea = Omit<LineaRow, "actividad"> & {
+type ProgramacionLinea = LineaRow & {
   rubro: { codigo: string | null; nombre: string; orden: number; activo: boolean };
 };
 type CeldaRow = { id: string; linea_id: string; periodo: string; valor: { toString(): string } };
@@ -323,40 +328,43 @@ function buildProgrammingView(input: {
   lineas: readonly ProgramacionLinea[];
   celdas: readonly CeldaRow[];
 }): ProgrammingView {
-  const lineas = [...input.lineas].sort((a, b) =>
-    compareRubros(
-      { id: a.rubro_id, ...a.rubro },
-      { id: b.rubro_id, ...b.rubro },
-    ),
-  );
-  const rubroDeLinea = new Map(lineas.map((l) => [l.id, l.rubro_id]));
+  const porRubro = (a: ProgramacionLinea, b: ProgramacionLinea) =>
+    compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro });
+  const lineas = [...input.lineas].sort((a, b) => compareActividad(a.actividad, b.actividad) || porRubro(a, b));
+  const ids = new Set(lineas.map((l) => l.id));
   const celdas = input.celdas
-    .filter((c) => rubroDeLinea.has(c.linea_id))
+    .filter((c) => ids.has(c.linea_id))
     .sort((a, b) => a.periodo.localeCompare(b.periodo));
 
   const zero = toCents("0");
   const filas = lineas.flatMap((l) =>
     celdas
       .filter((c) => c.linea_id === l.id)
-      .map((c) => ({ rubro_id: l.rubro_id, periodo: c.periodo, valor: fromCents(toCents(c.valor)) })),
+      .map((c) => ({ linea_id: l.id, rubro_id: l.rubro_id, periodo: c.periodo, valor: fromCents(toCents(c.valor)) })),
   );
-  const control_por_rubro = lineas.map((l) => {
-    const asignado = toCents(l.monto_proyectado_cop);
-    const programado = sumCents(celdas.filter((c) => c.linea_id === l.id).map((c) => toCents(c.valor)));
+  const control = (rubro: ProgramacionLinea, grupo: readonly ProgramacionLinea[]): ControlFila => {
+    const asignado = sumCents(grupo.map((l) => toCents(l.monto_proyectado_cop)));
+    const programado = sumCents(
+      celdas.filter((c) => grupo.some((l) => l.id === c.linea_id)).map((c) => toCents(c.valor)),
+    );
     return {
-      rubro_id: l.rubro_id,
-      codigo: l.rubro.codigo,
-      nombre: l.rubro.nombre,
+      rubro_id: rubro.rubro_id,
+      codigo: rubro.rubro.codigo,
+      nombre: rubro.rubro.nombre,
       asignado: fromCents(asignado),
       programado: fromCents(programado),
       control: fromCents(programado - asignado),
     };
-  });
+  };
+  const control_por_linea = lineas.map((l) => ({ linea_id: l.id, actividad: l.actividad ?? null, ...control(l, [l]) }));
+  const primeras = [...lineas].sort(porRubro).filter((l, i, arr) => arr.findIndex((o) => o.rubro_id === l.rubro_id) === i);
+  const control_por_rubro = primeras.map((l) => control(l, lineas.filter((o) => o.rubro_id === l.rubro_id)));
 
   return {
     estado: input.estado,
     periodos: input.periodos,
     filas,
+    control_por_linea,
     control_por_rubro,
     programacion_pendiente: !celdas.some((c) => toCents(c.valor) > zero),
   };
@@ -377,6 +385,7 @@ export async function loadProgrammingView(
         id: true,
         rubro_id: true,
         monto_proyectado_cop: true,
+        actividad: { select: { id: true, codigo: true, nombre: true } },
         rubro: { select: { codigo: true, nombre: true, orden: true, activo: true } },
       },
     }),
