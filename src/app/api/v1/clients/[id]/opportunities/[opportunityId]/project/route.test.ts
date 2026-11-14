@@ -4,8 +4,9 @@
 // rows (CONVERTIR + CREAR) happen in one transaction, so a failed audit insert
 // rolls the conversion back with the creation.
 //
-// `cliente_id` is derived from the URL, never from the body; `nombre` and
-// `valor_total` prefill from the opportunity when the client omits them.
+// `cliente_id` is derived from the URL, never from the body; `nombre` prefills
+// from the opportunity when the client omits it. `valor_total` is never typed
+// (T11 S2): the project starts at 0, the sum of its still empty budget.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
@@ -115,7 +116,7 @@ const proyectoRow = {
   municipios: [{ municipio: { id: "mun-1", nombre: "Medellín", departamento: "Antioquia" } }],
 };
 
-/** Body without `nombre`/`valor_total` so the prefill path is exercised. */
+/** Body without `nombre` so the prefill path is exercised. */
 const prefillBody = {
   responsable_id: "user-2",
   lineas: [{ id: "linea-1", principal: true }],
@@ -228,7 +229,7 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
       lineas: { create: [{ linea_id: "linea-1", principal: true }] },
       municipios: { create: [{ municipio_id: "mun-1" }] },
     });
-    expect(String(createArgs.data.valor_total)).toBe("245450000");
+    expect(String(createArgs.data.valor_total)).toBe("0");
   });
 
   it("stores the optional description on conversion", async () => {
@@ -329,38 +330,49 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     });
   });
 
-  it("stores diferencia_valor_oportunidad = valor_total - valor_estimado_cop", async () => {
-    const res = await POST(postRequest({ ...prefillBody, valor_total: 245500000 }), routeContext);
+  // S2: the project starts at Σ lines = 0, so the difference is 0 − valor_estimado_cop, the
+  // same recompute the budget PUT runs once lines exist.
+  it("stores diferencia_valor_oportunidad = 0 - valor_estimado_cop", async () => {
+    const res = await POST(postRequest(prefillBody), routeContext);
 
     expect(res.status).toBe(201);
     const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
       { data: Record<string, unknown> },
     ];
-    expect(createArgs.data.diferencia_valor_oportunidad).toBe("50000.00");
+    expect(createArgs.data.diferencia_valor_oportunidad).toBe("-245450000.00");
   });
 
-  it("stores a zero difference when the prefilled value is kept", async () => {
-    await POST(postRequest(prefillBody), routeContext);
+  it.each([
+    ["has no value", null, null],
+    ["is zero", new Prisma.Decimal("0"), "0.00"],
+  ])("converts an opportunity whose value %s (the project value is no longer required)", async (_label, valor, diferencia) => {
+    mocks.oportunidadFindFirst.mockResolvedValue({ ...oportunidad, valor_estimado_cop: valor });
 
+    const res = await POST(postRequest(prefillBody), routeContext);
+
+    expect(res.status).toBe(201);
     const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
       { data: Record<string, unknown> },
     ];
-    expect(createArgs.data.diferencia_valor_oportunidad).toBe("0.00");
+    expect(String(createArgs.data.valor_total)).toBe("0");
+    expect(createArgs.data.diferencia_valor_oportunidad).toBe(diferencia);
+    expect(mocks.txOportunidadUpdate).toHaveBeenCalled();
   });
 
   it("returns alerta DIFERENCIA_VALOR without blocking the save", async () => {
     mocks.txProyectoCreate.mockResolvedValue({
       ...proyectoRow,
-      valor_total: new Prisma.Decimal("245500000.00"),
-      diferencia_valor_oportunidad: new Prisma.Decimal("50000.00"),
+      valor_total: new Prisma.Decimal("0.00"),
+      diferencia_valor_oportunidad: new Prisma.Decimal("-245450000.00"),
     });
 
-    const res = await POST(postRequest({ ...prefillBody, valor_total: 245500000 }), routeContext);
+    const res = await POST(postRequest(prefillBody), routeContext);
     const json = await res.json();
 
     expect(res.status).toBe(201);
+    expect(json.proyecto.valor_total).toBe("0");
     expect(json.proyecto.alertas).toEqual([
-      expect.objectContaining({ codigo: "DIFERENCIA_VALOR", diferencia: "50000.00" }),
+      expect.objectContaining({ codigo: "DIFERENCIA_VALOR", diferencia: "-245450000.00" }),
     ]);
   });
 
@@ -375,34 +387,23 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     expect((await res.json()).proyecto.alertas).toEqual([]);
   });
 
-  it("lets the client override the prefilled nombre and valor_total", async () => {
-    const res = await POST(
-      postRequest({ ...prefillBody, nombre: "Otro nombre", valor_total: 100000000 }),
-      routeContext,
-    );
+  it("lets the client override the prefilled nombre", async () => {
+    const res = await POST(postRequest({ ...prefillBody, nombre: "Otro nombre" }), routeContext);
 
     expect(res.status).toBe(201);
     const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
       { data: Record<string, unknown> },
     ];
     expect(createArgs.data.nombre).toBe("Otro nombre");
-    expect(String(createArgs.data.valor_total)).toBe("100000000");
   });
 
-  it.each([
-    ["the opportunity has no value to prefill", { ...oportunidad, valor_estimado_cop: null }, {}],
-    ["the opportunity value to prefill is zero", { ...oportunidad, valor_estimado_cop: new Prisma.Decimal("0") }, {}],
-    ["the body value is zero", oportunidad, { valor_total: 0 }],
-    ["the body value is null", oportunidad, { valor_total: null }],
-  ])("rejects with 400 when %s (PO-5)", async (_label, opp, extra) => {
-    mocks.oportunidadFindFirst.mockResolvedValue(opp);
-
-    const res = await POST(postRequest({ ...prefillBody, ...extra }), routeContext);
+  it.each([245500000, 0, null])("rejects a typed valor_total (%s) with 400 and converts nothing (S2)", async (valor) => {
+    const res = await POST(postRequest({ ...prefillBody, valor_total: valor }), routeContext);
     const json = await res.json();
 
     expect(res.status).toBe(400);
     expect(json.code).toBe("VALIDATION_ERROR");
-    expect(json.error).toBe("El valor total debe ser mayor que cero.");
+    expect(json.error).toBe("El campo 'valor_total' no se puede establecer en este endpoint.");
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
     expect(mocks.txOportunidadUpdate).not.toHaveBeenCalled();
   });

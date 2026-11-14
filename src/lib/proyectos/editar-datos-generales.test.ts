@@ -12,7 +12,6 @@ const BASE: DatosGenerales = {
   nombre: "Fortalecimiento",
   descripcion: "Alcance",
   responsableId: "u1",
-  valorTotal: "180000000",
   fechaInicio: "2026-01-05",
   fechaFin: "2026-03-30",
   beneficiarios: "120",
@@ -24,6 +23,10 @@ const BASE: DatosGenerales = {
 }
 
 describe("validarDatosGenerales", () => {
+  it("does not validate a project value: it is derived from the budget (S2)", () => {
+    expect(validarDatosGenerales(BASE, "BORRADOR")).toBeNull()
+  })
+
   it("accepts valid data in both modes", () => {
     expect(validarDatosGenerales(BASE, "BORRADOR")).toBeNull()
     expect(validarDatosGenerales(BASE, "EN_EJECUCION")).toBeNull()
@@ -34,8 +37,6 @@ describe("validarDatosGenerales", () => {
     ["descripcion", { descripcion: "x".repeat(DESCRIPCION_MAX + 1) }, "La descripción no puede superar 2000 caracteres."],
     ["fechaInicio", { fechaInicio: "" }, "Completa las fechas de inicio y fin."],
     ["fechaFin", { fechaInicio: "2026-03-30" }, MENSAJE_RANGO_FECHAS],
-    ["valorTotal", { valorTotal: "0" }, "El valor total debe ser mayor que cero."],
-    ["valorTotal", { valorTotal: "" }, "El valor total debe ser mayor que cero."],
     ["beneficiarios", { beneficiarios: "0" }, "El número de beneficiarios debe ser mayor que cero."],
     ["beneficiarios", { beneficiarios: "1.5" }, "El número de beneficiarios debe ser mayor que cero."],
     ["lineas", { lineas: [] }, "Selecciona al menos una línea estratégica."],
@@ -54,7 +55,7 @@ describe("validarDatosGenerales", () => {
   })
 
   it("ignores the fields that are read-only during execution", () => {
-    const roto = { ...BASE, nombre: "", valorTotal: "0", lineas: [], municipioIds: [] }
+    const roto = { ...BASE, nombre: "", lineas: [], municipioIds: [] }
     expect(validarDatosGenerales(roto, "EN_EJECUCION")).toBeNull()
   })
 })
@@ -65,12 +66,18 @@ describe("cuerpoDeCambios", () => {
   })
 
   it("sends only the changed fields in BORRADOR", () => {
-    const actual = { ...BASE, nombre: " Nuevo ", valorTotal: "200000000", municipioIds: ["m2"] }
+    const actual = { ...BASE, nombre: " Nuevo ", municipioIds: ["m2"] }
     expect(cuerpoDeCambios(BASE, actual, "BORRADOR")).toEqual({
       nombre: "Nuevo",
-      valor_total: 200000000,
       municipio_ids: ["m2"],
     })
+  })
+
+  // S2 (T11): the project value is the sum of the budget lines; the form never sends it.
+  it("never sends valor_total, even if a stale caller still carries a value", () => {
+    const inicial = { ...BASE, valorTotal: "180000000" }
+    const actual = { ...BASE, nombre: "Otro", valorTotal: "200000000" }
+    expect(cuerpoDeCambios(inicial, actual, "BORRADOR")).toEqual({ nombre: "Otro" })
   })
 
   it("treats a reordered selection as unchanged and a principal flip as a change", () => {
@@ -90,7 +97,7 @@ describe("cuerpoDeCambios", () => {
   })
 
   it("sends ONLY descripcion and beneficiarios_meta in EN_EJECUCION", () => {
-    const actual = { ...BASE, nombre: "Otro", valorTotal: "1", fechaFin: "2027-01-01", descripcion: "Nueva", beneficiarios: "150" }
+    const actual = { ...BASE, nombre: "Otro", fechaFin: "2027-01-01", descripcion: "Nueva", beneficiarios: "150" }
     expect(cuerpoDeCambios(BASE, actual, "EN_EJECUCION")).toEqual({ descripcion: "Nueva", beneficiarios_meta: 150 })
   })
 })

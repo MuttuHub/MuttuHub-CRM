@@ -6,10 +6,11 @@
 //
 // The body that is sent NEVER includes `codigo`, `estado`, `oportunidad_id`, `cliente_id` (on the
 // opportunity path), `deleted_at`, `umbrales_override`, `programacion_pendiente`,
-// `diferencia_valor_oportunidad` or `alertas`: the server answers 400 if they arrive and several of
-// those columns are derived or belong to another unit. It does not include `miembro_ids` either: the
-// initial team is composed after creation (team tab). The value difference against the opportunity
-// (S2.4) is shown as a notice that never blocks the submit; the server computes and stores it.
+// `diferencia_valor_oportunidad`, `valor_total` or `alertas`: the server answers 400 if they arrive and
+// several of those columns are derived or belong to another unit. It does not include `miembro_ids`
+// either: the initial team is composed after creation (team tab). The project value is never typed
+// (T11 S2): it is the sum of the budget lines, so a new project starts at $ 0 and the form only shows
+// the opportunity's estimate as the reference.
 //
 // The form owns its state, validation and submit. What happens after a successful creation is the
 // caller's decision (`onCreated`): the dialog shows its confirmation, the page moves to step 2.
@@ -46,9 +47,8 @@ import {
   type EligibleOpportunity,
   type ProjectLineaInput,
 } from "@/hooks/projects";
-import { MONTO_INVALIDO, formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
-import { formatCOP, fromCents, toCents } from "@/lib/proyectos/money";
-import { alternarLinea, alternarPrincipal, diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
+import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { alternarLinea, alternarPrincipal, validarLineas } from "@/lib/proyectos/proyecto-general";
 /** Filtro estable del picker de clientes: el mismo objeto en cada render. */
 const CLIENT_PICKER_FILTERS = { limit: 200 } as const;
 /** Valor interno de la opción «sin oportunidad» del selector (un Select no admite `null`). */
@@ -66,7 +66,6 @@ type CuerpoCreacion = {
   municipio_ids: string[];
   fecha_inicio: string;
   fecha_fin: string;
-  valor_total?: number;
   beneficiarios_meta?: number;
 };
 
@@ -86,34 +85,6 @@ function fechaMasMeses(fecha: string, meses: number): string {
   const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCMonth(date.getUTCMonth() + meses);
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
-}
-
-/**
- * Un `Decimal` serializado ("180000000.00") pasa a un campo numérico editable
- * sin arrastrar el float: se conserva en centavos y solo se quitan los ceros
- * decimales cuando el monto es entero.
- */
-export function valorDesdeDecimal(value: string | null): string {
-  if (value === null) return "";
-  const texto = fromCents(toCents(value));
-  return texto.endsWith(".00") ? texto.slice(0, -3) : texto;
-}
-
-/** `valor_total - valor_estimado_cop` mientras ambos existan y no coincidan. */
-function diferenciaCreacion(
-  origen: OrigenForm,
-  oportunidad: EligibleOpportunity | null,
-  valorTotal: string,
-): string | null {
-  if (origen !== "OPORTUNIDAD" || !oportunidad || valorTotal.trim() === "") return null;
-  try {
-    const normalizado = parseMontoInput(valorTotal);
-    if (normalizado === null) return null;
-    const diferencia = diferenciaValor(normalizado, oportunidad.valor_estimado_cop);
-    return diferencia === null || toCents(diferencia) === BigInt(0) ? null : diferencia;
-  } catch {
-    return null;
-  }
 }
 
 export type CreatedProject = { id: string; codigo: string | null; nombre: string | null };
@@ -176,8 +147,6 @@ export function ProjectCreateForm({
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [clienteId, setClienteId] = useState(initialClienteId ?? "");
-  const [valorTotal, setValorTotal] = useState("");
-  const [valorEnfocado, setValorEnfocado] = useState(false);
   const [beneficiariosMeta, setBeneficiariosMeta] = useState("");
   const [responsableId, setResponsableId] = useState("");
   const [fechaInicio, setFechaInicio] = useState(() => fechaDeHoy());
@@ -217,8 +186,6 @@ export function ProjectCreateForm({
   const lineasPorDefecto = lineas.length > 0 ? [lineas[0].id] : [];
   const lineaIds = lineaIdsEstado ?? lineasPorDefecto;
   const principalIds = principalIdsEstado ?? lineasPorDefecto;
-  // S2.4: aviso informativo, solo en el camino de oportunidad y con valor válido.
-  const diferencia = diferenciaCreacion(origen, oportunidad, valorTotal);
   const pendiente =
     origen === "OPORTUNIDAD" ? createFromOpportunity.isPending : createProject.isPending;
 
@@ -229,7 +196,6 @@ export function ProjectCreateForm({
     if (oportunidad) {
       setOportunidad(null);
       setNombre("");
-      setValorTotal("");
     }
     setError(null);
   }
@@ -239,7 +205,6 @@ export function ProjectCreateForm({
     if (op) {
       setClienteId(op.cliente_id);
       setNombre(op.nombre);
-      setValorTotal(montoToInput(valorDesdeDecimal(op.valor_estimado_cop)));
     }
     setError(null);
   }
@@ -283,8 +248,6 @@ export function ProjectCreateForm({
     };
     const descripcionLimpia = descripcion.trim();
     if (descripcionLimpia !== "") cuerpo.descripcion = descripcionLimpia;
-    const valor = parseMontoInput(valorTotal);
-    if (valor !== null && valorTotal.trim() !== "") cuerpo.valor_total = Number(valor);
     const beneficiarios = beneficiariosMeta.trim();
     if (beneficiarios !== "") cuerpo.beneficiarios_meta = Number(beneficiarios);
     return cuerpo;
@@ -301,9 +264,6 @@ export function ProjectCreateForm({
     if (responsableEfectivo === "") return "Selecciona el responsable.";
     if (fechaInicio === "" || fechaFin === "") return "Completa las fechas de inicio y fin.";
     if (!rangoFechasValido(fechaInicio, fechaFin)) return MENSAJE_RANGO_FECHAS;
-    const valorNormal = parseMontoInput(valorTotal);
-    if (valorNormal === null) return MONTO_INVALIDO;
-    if (toCents(valorNormal) <= BigInt(0)) return "El valor total debe ser mayor que cero.";
     if (origen === "INDEPENDIENTE" && nombre.trim() === "") return "El nombre del proyecto es obligatorio.";
     return null;
   }
@@ -392,7 +352,7 @@ export function ProjectCreateForm({
           ayuda={{
             label: "Oportunidad",
             texto:
-              "Opcional. Si eliges una, el proyecto toma su nombre y su valor y queda vinculado a ella. Sin oportunidad, el proyecto es independiente.",
+              "Opcional. Si eliges una, el proyecto toma su nombre y queda vinculado a ella. Sin oportunidad, el proyecto es independiente.",
           }}
         >
           Oportunidad
@@ -487,35 +447,21 @@ export function ProjectCreateForm({
           </Select>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Etiqueta
-            htmlFor="proyecto-valor"
-            ayuda={{
-              label: "Valor total",
-              texto: "Valor total del contrato o convenio; debe ser mayor que cero.",
-            }}
-          >
-            Valor total
-          </Etiqueta>
-          <Input
-            id="proyecto-valor"
-            inputMode="decimal"
-            value={valorEnfocado ? valorTotal : formatMontoInput(valorTotal)}
-            onFocus={() => setValorEnfocado(true)}
-            onBlur={() => setValorEnfocado(false)}
-            onChange={(event) => setValorTotal(event.target.value)}
-            placeholder="Obligatorio, mayor que cero"
-            className="px-3"
-          />
-          {diferencia !== null && (
-            <p
-              role="status"
-              className="rounded-12 border border-ink-200 bg-ink-050 px-3 py-2 text-[12px] text-ink-700"
-            >
-              Diferencia con la oportunidad: {formatCOP(toCents(diferencia))}. Se guarda en el
-              proyecto y no impide crearlo.
-            </p>
-          )}
+        <div className="flex flex-col gap-2" data-testid="proyecto-valor-total">
+          <div className="flex items-center gap-1">
+            <span className="text-sm leading-none font-medium">Valor total</span>
+            <HelpHint label="Valor total">
+              Es la suma de las líneas del presupuesto; no se digita. El proyecto arranca en $ 0 y su valor
+              se completa en el paso Presupuesto.
+            </HelpHint>
+          </div>
+          <span className="font-mono text-[13px] text-ink-900 tabular-nums">{formatCOP(toCents(0))}</span>
+          <span className="text-[12px] text-ink-500">Se calcula sumando las líneas del presupuesto.</span>
+          {oportunidad?.valor_estimado_cop ? (
+            <span className="text-[12px] text-ink-600">
+              Valor estimado de la oportunidad: {formatCOP(toCents(oportunidad.valor_estimado_cop))}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-2">

@@ -729,8 +729,9 @@ registry.registerPath({
   description:
     `${SCOPE_NOTE} Requiere ` + "`canCreateProject` (cualquier rol) y que el cliente exista; el acceso comercial de escritura ya no es requisito. " +
     "En una sola transacción convierte la oportunidad (`fase = EJECUCION`, fijando `fecha_adjudicacion` solo si " +
-    "todavía es null) y crea el proyecto con `cliente_id`, `nombre` y `valor_total` precargados desde la " +
-    "oportunidad; un valor explícito en el body los reemplaza. `miembro_ids` (S2.6) se acepta: cada id debe ser " +
+    "todavía es null) y crea el proyecto con `cliente_id` y `nombre` precargados desde la oportunidad; un " +
+    "`nombre` explícito en el body lo reemplaza. `valor_total` no se envía (400 si llega): es la suma de las " +
+    "líneas del presupuesto (T11 S2) y el proyecto nace en 0. `miembro_ids` (S2.6) se acepta: cada id debe ser " +
     "un COORDINADOR activo (400 si no existe, está inactivo o no es COORDINADOR) y el responsable siempre entra " +
     "como integrante, de modo que una entrada que lo nombre se colapsa en su única membresía; el equipo inicial " +
     "se audita como `CREAR proyecto_miembro` en su propio lote, aparte del lote `CONVERTIR` + `CREAR` de la " +
@@ -738,8 +739,10 @@ registry.registerPath({
     "lógico también bloquea). 404 si el cliente o la oportunidad no existen o no pertenecen al cliente. Las " +
     "líneas estratégicas y los municipios deben existir y estar activos (V-04); uno suspendido responde 400. " +
     "`cliente_id`, `codigo`, `estado`, `oportunidad_id` y los demás campos derivados se rechazan con 400. " +
-    "S2.4: guarda `diferencia_valor_oportunidad = valor_total − valor_estimado_cop` y responde 201 con " +
-    "`alertas: [{ codigo: \"DIFERENCIA_VALOR\" }]` cuando no es cero; la alerta nunca bloquea la creación.",
+    "S2.4: guarda `diferencia_valor_oportunidad = valor_total − valor_estimado_cop` (al crear, 0 − el valor de la " +
+    "oportunidad; null si la oportunidad no tiene valor) y responde 201 con " +
+    "`alertas: [{ codigo: \"DIFERENCIA_VALOR\" }]` cuando no es cero; la alerta nunca bloquea la creación. " +
+    "`PUT /projects/{id}/budget` la recalcula con la suma de las líneas.",
   security: [{ sessionCookie: [] }],
   request: {
     // Opaque Postgres `text` ids: a malformed value is a 404, not a 400, so the

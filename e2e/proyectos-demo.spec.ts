@@ -24,7 +24,6 @@ const GERENCIA_PASSWORD = "MuttuDemo2026!";
 // stay eligible so the invalidation assertion has something to compare against.
 const OPP_NOMBRE = "Renovación convenio de investigación aplicada";
 const OPP_CLIENTE = "Universidad Central del Valle";
-const OPP_VALOR = "180000000";
 const OPP_RESTANTE = "Informe de impacto — cooperación 2027";
 
 // The dialog prefills the signed-in user; the operator hands the project over.
@@ -114,12 +113,12 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
   await test.step("5. Choose the opportunity and assert the real prefills", async () => {
     await oppButton.click();
     await expect(oppButton).toHaveAttribute("aria-pressed", "true");
-    // Nombre and Valor total are prefilled from the opportunity row, Cliente is
+    // Nombre is prefilled from the opportunity row (the value is the sum of the budget lines, T11), Cliente is
     // shown as resolved text (the E-05 path takes the client from the URL).
     await expect(page.getByLabel("Nombre", { exact: true })).toHaveValue(
       OPP_NOMBRE,
     );
-    await expect(page.getByLabel("Valor total")).toHaveValue(OPP_VALOR);
+    await expect(page.getByLabel("Valor total")).toHaveCount(0);
     await expect(page.getByText(OPP_CLIENTE, { exact: true }).first()).toBeVisible();
     await beat(page, 2000); // let the prefills register on camera
   });

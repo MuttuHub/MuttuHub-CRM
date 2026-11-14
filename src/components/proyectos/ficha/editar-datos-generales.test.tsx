@@ -112,7 +112,12 @@ describe("EditarDatosGenerales", () => {
       const dialog = await screen.findByRole("dialog", { name: "Editar datos generales" })
       expect(within(dialog).getByLabelText("Nombre")).toHaveValue("Fortalecimiento")
       expect(within(dialog).getByLabelText(/Descripción/)).toHaveValue("Alcance inicial")
-      expect(within(dialog).getByLabelText("Valor total")).toHaveValue(180000000)
+      // S2 (T11): the value is the sum of the budget lines; it is shown, never typed.
+      expect(within(dialog).queryByLabelText("Valor total")).not.toBeInTheDocument()
+      const valor = within(dialog).getByTestId("editar-valor-total")
+      expect(valor).toHaveTextContent("Valor total")
+      expect(valor).toHaveTextContent("$ 180.000.000")
+      expect(valor).toHaveTextContent("Se calcula sumando las líneas del presupuesto")
       expect(within(dialog).getByLabelText("Fecha de inicio")).toHaveValue("2026-01-05")
       expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-03-30")
       expect(within(dialog).getByLabelText(/^Beneficiarios/)).toHaveValue(120)
@@ -178,19 +183,24 @@ describe("EditarDatosGenerales", () => {
       expect(patches()).toHaveLength(0)
     })
 
-    it("blocks a value of zero (F5) and a description over 2000 characters is capped by the field", async () => {
-      const user = userEvent.setup()
+    it("caps a description over 2000 characters at the field", async () => {
       renderDialog()
       const dialog = await screen.findByRole("dialog")
 
-      const valor = within(dialog).getByLabelText("Valor total")
-      await user.clear(valor)
-      await user.type(valor, "0")
+      expect(within(dialog).getByLabelText(/Descripción/)).toHaveAttribute("maxlength", "2000")
+    })
+
+    it("saves a project with no budget yet (valor_total 0): the value is not validated here", async () => {
+      const user = userEvent.setup()
+      renderDialog({ ...PROYECTO, valor_total: "0.00" })
+      const dialog = await screen.findByRole("dialog")
+
+      expect(within(dialog).getByTestId("editar-valor-total")).toHaveTextContent("$ 0")
+      await user.type(within(dialog).getByLabelText("Nombre"), " bis")
       await user.click(within(dialog).getByRole("button", { name: "Guardar cambios" }))
 
-      expect(await within(dialog).findByRole("alert")).toHaveTextContent("El valor total debe ser mayor que cero.")
-      expect(within(dialog).getByLabelText(/Descripción/)).toHaveAttribute("maxlength", "2000")
-      expect(patches()).toHaveLength(0)
+      await waitFor(() => expect(patches()).toHaveLength(1))
+      expect(JSON.parse((patches()[0]![1] as RequestInit).body as string)).toEqual({ nombre: "Fortalecimiento bis" })
     })
 
     it("requires exactly one principal line and at least one municipio", async () => {
@@ -237,7 +247,8 @@ describe("EditarDatosGenerales", () => {
       expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument()
       const lectura = within(dialog).getByTestId("editar-solo-lectura")
       expect(lectura).toHaveTextContent("Cambian la línea base: solicítalo como modificación.")
-      expect(lectura).toHaveTextContent("$")
+      expect(lectura).toHaveTextContent("$ 180.000.000")
+      expect(lectura).toHaveTextContent("Se calcula sumando las líneas del presupuesto")
       expect(within(dialog).getByText("La versión aprobada conserva el número original.")).toBeInTheDocument()
     })
 
