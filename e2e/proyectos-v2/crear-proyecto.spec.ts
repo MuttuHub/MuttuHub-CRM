@@ -73,7 +73,8 @@ test("validations: date range; the value is derived; then create lands on the ne
   await expect(page.getByRole("heading", { name: nombre })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Borrador").first()).toBeVisible();
   await expect(page.getByText("Próximos pasos").first()).toBeVisible();
-  await expect(page.getByText("$ 250.000").first()).toBeVisible();
+  // T11 S2: no budget lines yet, so the derived value is $ 0 (the stepper no longer types one).
+  await expect(page.getByText("$ 0", { exact: true }).first()).toBeVisible();
 });
 
 test("coordinador reaches the creation stepper (S1: any role creates)", async ({ page }) => {
