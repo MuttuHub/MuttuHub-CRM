@@ -23,6 +23,22 @@ Query y Vitest con Testing Library. Implementas `T14`: el gasto se registra cont
   relación en `Usuario`): **no toques los modelos `Proyecto` ni `Usuario`**, y nombra tu migración con fecha
   `20261115…` o posterior, para que quede después de la suya.
 
+## Paso 0: ¿ya entró el PR #188 de Claude?
+
+El PR #188 (`T13.1`–`T13.3`: migración `20261114180000_t13_programacion_confirmada`, programación propuesta y
+confirmación) es la última pieza antes de que arranques. Compruébalo:
+
+```bash
+cd /home/adrian/MuttuHub-CRM-deepseek
+git fetch origin
+git log origin/main --oneline -15 | grep -c "T13.1"   # 1 = ya está en main
+```
+
+- **Si da 1:** sigue con la Preparación. Tu base trae todo.
+- **Si da 0:** arranca igual desde `origin/main` (no esperes). Cuando el humano te avise que entró #188, haz
+  `git fetch origin && git merge origin/main` antes de crear tu migración, para que la tuya quede después de la de
+  Claude.
+
 ## Preparación (una sola vez)
 
 ```bash
