@@ -50,7 +50,7 @@ describe("fixture F-X1 (CedeTextil)", () => {
     expect(estructura.entregables).toHaveLength(7)
     expect(estructura.indicadores).toHaveLength(2)
     // AJ-02: the template input carries no weight; it is the duration in weeks.
-    expect(estructura.actividades[3]).toEqual({ codigo: "1.4", objetivoCodigo: "OE1", nombre: expect.any(String), semanaInicio: 3, semanaFin: 6, responsable: expect.any(String) })
+    expect(estructura.actividades[3]).toEqual({ codigo: "1.4", objetivoCodigo: "OE1", nombre: expect.any(String), semanaInicio: 3, semanaFin: 6, responsable: expect.any(String), tipo: "NORMAL" })
     expect(F_X1_META_BENEFICIARIOS).toBe(500)
   })
 
