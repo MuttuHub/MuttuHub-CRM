@@ -13,16 +13,15 @@ Query y Vitest con Testing Library. Implementas `T14`: el gasto se registra cont
 
 ## Contexto que tienes que saber
 
-- `T11` (presupuesto por actividad) y `T12` (actividad Transversal) están terminados, pero **todavía no están en
-  main**. Los están revisando en paralelo. Partes de una base que los une a los dos.
+- `T11` (presupuesto por actividad) y `T12` (actividad Transversal) **ya están en main** (PRs #182–#187). Partes de
+  `origin/main`.
 - Desde `T11`, un rubro puede tener **varias líneas** (una por actividad). Los gastos todavía eligen por rubro, y eso ya
   está roto para el usuario. Eso es lo primero que arreglas.
 - Claude trabaja al mismo tiempo en el carril A (`T13`, programación y modificaciones). **No abras sus archivos**
-  (lista abajo). En `prisma/schema.prisma` tú eres dueño de `Gasto` y de la tabla nueva de reparto. Claude agregó una migración
-  propia (`20261114180000_t13_programacion_confirmada`, dos columnas en `Proyecto` y su relación en `Usuario`): **no
-  toques los modelos `Proyecto` ni `Usuario`**; el rebase final las junta sin conflicto.
-- Si ya creaste tu rama antes de las 10:00 del 2026-11-14, tu base no trae el último arreglo de la línea base de
-  `T11` (`e99b563`). No te afecta: no toques esa parte, y el rebase final lo trae.
+  (lista abajo). En `prisma/schema.prisma` tú eres dueño de `Gasto` y de la tabla nueva de reparto. Claude tiene una
+  migración propia en camino a main (`20261114180000_t13_programacion_confirmada`, dos columnas en `Proyecto` y su
+  relación en `Usuario`): **no toques los modelos `Proyecto` ni `Usuario`**, y nombra tu migración con fecha
+  `20261115…` o posterior, para que quede después de la suya.
 
 ## Preparación (una sola vez)
 
@@ -30,9 +29,7 @@ Query y Vitest con Testing Library. Implementas `T14`: el gasto se registra cont
 cd /home/adrian/MuttuHub-CRM-deepseek
 git status                                    # debe estar limpio
 git fetch origin
-git switch -c feat/t14-gasto-por-actividad feat/t11-5-retirar-import-po
-git merge --no-ff feat/t12-actividad-transversal -m "chore(t14): base T11 + T12 for lane B"
-git rev-parse HEAD                            # anota este hash: es tu BASE
+git switch -c feat/t14-gasto-por-actividad origin/main
 npm ci
 npx prisma generate
 npx tsc --noEmit                              # línea base: sin errores
@@ -41,8 +38,9 @@ npx tsc --noEmit                              # línea base: sin errores
 Lee `AGENTS.md` y `CLAUDE.md`. Esta versión de Next.js tiene cambios importantes: antes de usar APIs de Next, consulta
 `node_modules/next/dist/docs/`.
 
-**No esperes el merge de `T11`/`T12`: trabajas sobre tu BASE desde ya.** Cuando entren a main, el humano te va a pedir que pases tu rama a main con
-`git rebase --onto main <BASE>`. No lo hagas antes.
+Cuando el humano te avise que algo nuevo entró a main (por ejemplo `T13`), incorpóralo con
+`git fetch origin && git merge origin/main` (no rebase: tu rama ya puede estar subida). Si hay conflictos en archivos
+que no son tuyos, quédate con la versión de main y avisa.
 
 ## Especificación
 
@@ -95,7 +93,7 @@ Lee completas, en este orden:
     -e POSTGRES_PASSWORD=t14local -e POSTGRES_DB=muttu public.ecr.aws/supabase/postgres:17.6.1.143
   export DATABASE_URL='postgresql://supabase_admin:t14local@localhost:55433/muttu?schema=public'
   export DIRECT_URL="$DATABASE_URL"
-  npx prisma migrate deploy                   # primero en BASE, carga datos de prueba, luego tu migración
+  npx prisma migrate deploy                   # primero sin tu migración, carga datos de prueba, luego con ella
   npx vitest run prisma --no-file-parallelism
   ```
   Si el usuario `supabase_admin` no acepta la contraseña, usa `postgres` y dilo en tu reporte.
