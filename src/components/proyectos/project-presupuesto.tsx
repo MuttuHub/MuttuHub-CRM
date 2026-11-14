@@ -104,7 +104,7 @@ function compararLineas(a: LineaEditable, b: LineaEditable): number {
 }
 
 const SELECT =
-  "h-8 rounded-[8px] border border-border bg-white px-2 text-[12.5px] text-ink-800 focus:outline-none focus:ring-2 focus:ring-primary/30";
+  "h-8 rounded-[8px] border border-border bg-input-bg px-2 text-[12.5px] text-ink-800 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 function PresupuestoEditor({
   proyectoId,
