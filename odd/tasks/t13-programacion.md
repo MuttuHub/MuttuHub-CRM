@@ -130,3 +130,8 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   replaces only the first «|» of a clave (cosmetic, pre-existing); a rubro with a legacy line plus an activity line
   resolves an old key to the legacy line; the seed chain needs Supabase Auth, so bare-Postgres probes build fixtures
   with Prisma. Disposable DB `verif_t13_325` (port 55432) left in place.
+- **L15** Seam check on the branch tip: knip clean; unit suite in groups — src/lib 1162/1162, src/app/api 1796/1796,
+  src/components/proyectos 1077/1078 (control-guards: the T13.4 group button overrode the 36 px height), others
+  600/600. Fixed with the verifier's cosmetic advisory (full «|» separator in the modification history) in `0895e46`;
+  the affected component suites 58/58. All T13 tasks done; pending: the PO answer on moving into the current month,
+  the PR of `feat/t13-4-pantalla-programacion`, and the follow-ups in L13.
