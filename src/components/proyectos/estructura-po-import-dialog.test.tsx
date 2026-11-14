@@ -116,7 +116,7 @@ describe("EstructuraPOImportDialog", () => {
       ["E2.1.1", "Modelos", "2 modelos"],
     ])
     expect(within(dialogo).getByTestId("estructura-po-reemplaza")).toHaveTextContent(
-      "Reemplaza la estructura actual (1 objetivo, 4 actividades, 7 entregables y 2 indicadores). El presupuesto no cambia.",
+      "Reemplaza la estructura actual (1 objetivo, 4 actividades, 7 entregables y 2 indicadores). El presupuesto se conserva, salvo el de las actividades que ya no estén en el archivo: ese se borra y hay que volver a cargarlo.",
     )
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
