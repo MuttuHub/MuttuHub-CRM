@@ -128,6 +128,18 @@ describe("ProjectModificaciones", () => {
     expect(tarjetas[2]).toHaveTextContent("Versión 1")
   })
 
+  it("T13: separates every part of a line key, not only the first one", async () => {
+    setup({
+      solicitudes: [
+        solicitud({
+          detalle: [{ elemento: "programacion", clave: "1.1|R12|2026-11", campo: "valor", antes: "100", despues: "50" }],
+        }),
+      ],
+    })
+    const [tarjeta] = await screen.findAllByTestId("solicitud")
+    expect(tarjeta).toHaveTextContent("1.1 · R12 · 2026-11")
+  })
+
   it("shows the empty state with its title, what appears here and the request button inside it", async () => {
     setup({ solicitudes: [] })
     const titulo = await screen.findByText("Aún no hay solicitudes de modificación")
