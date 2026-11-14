@@ -182,7 +182,7 @@ vi.mock("@/hooks/projects", () => ({
     error: null,
   }),
   useProjectProgramming: () => ({
-    data: { estado: "EN_EJECUCION", periodos: [], filas: [], control_por_rubro: [], programacion_pendiente: true },
+    data: { estado: "EN_EJECUCION", periodos: [], filas: [], control_por_linea: [], control_por_rubro: [], programacion_pendiente: true },
     isLoading: false,
     isError: false,
     error: null,
@@ -207,7 +207,7 @@ vi.mock("@/hooks/projects", () => ({
     error: null,
   }),
   ...Object.fromEntries(
-    ["useUpdateBudget", "useUpdateProgramming", "useSetValorTotal"].map((name) => [
+    ["useUpdateBudget", "useUpdateProgramming"].map((name) => [
       name,
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
     ]),

@@ -53,6 +53,7 @@ function presupuesto(partial: Partial<ProjectBudget> = {}): { data: ProjectBudge
   return {
     data: {
       estado: "BORRADOR",
+      lineas: [],
       rubros: [
         { rubro_id: "r1", codigo: "R1", nombre: "Personal", activo: true, linea_id: "l1", asignado: "100000000.00", heredado_pendiente: false },
         { rubro_id: "r2", codigo: "R2", nombre: "Formación", activo: true, linea_id: "l2", asignado: "80000000.00", heredado_pendiente: false },
@@ -92,12 +93,14 @@ describe("PasoRevision", () => {
     expect(within(fila("Indicadores")).getByText("2")).toBeInTheDocument()
   })
 
-  it("shows Σ presupuesto against the valor total and counts only the rubros with an amount", () => {
+  // S2 (T11): the project value IS Σ lines, so the summary shows the sum once and says it is derived.
+  it("shows Σ presupuesto as the derived valor total and counts only the rubros with an amount", () => {
     render(<PasoRevision proyecto={PROYECTO} />)
 
     const presup = fila("Presupuesto")
-    expect(within(presup).getByText(/180\.000\.000/)).toBeInTheDocument()
-    expect(within(presup).getByText(/2 rubros/)).toBeInTheDocument()
+    expect(presup).toHaveTextContent("$ 180.000.000 · 2 rubros")
+    expect(presup).not.toHaveTextContent(/ de \$/)
+    expect(within(presup).getByText("Se calcula sumando las líneas del presupuesto.")).toBeInTheDocument()
     expect(screen.queryByText(/difiere del valor total/i)).not.toBeInTheDocument()
   })
 
@@ -109,10 +112,11 @@ describe("PasoRevision", () => {
     expect(screen.getByRole("button", { name: "Aprobar línea base" })).toBeEnabled()
   })
 
-  it("handles a project without valor total", () => {
+  it("handles a project without a stored valor total: it still shows the sum, never «sin valor total»", () => {
     budgetMock.mockReturnValue(presupuesto({ valor_total: null, diferencia: null }))
     render(<PasoRevision proyecto={{ ...PROYECTO, valor_total: null }} />)
-    expect(screen.getByText(/sin valor total/i)).toBeInTheDocument()
+    expect(fila("Presupuesto")).toHaveTextContent("$ 180.000.000 · 2 rubros")
+    expect(screen.queryByText(/sin valor total/i)).not.toBeInTheDocument()
   })
 
   it("shows empty counts as zero", () => {

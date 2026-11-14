@@ -4,10 +4,12 @@
 // The opportunity must belong to the URL client, be `GANADA` and have no
 // project. In ONE transaction: `fase = EJECUCION` (setting `fecha_adjudicacion`
 // only while it is still null, so an already-converted opportunity keeps its
-// date), the project creation with `cliente_id`/`nombre`/`valor_total`
-// prefilled from the opportunity (an explicit body value overrides the
-// prefill) and BOTH audit rows (`CONVERTIR` oportunidad + `CREAR` proyecto) via
-// one `logChanges` call, so every row shares one `lote_id`.
+// date), the project creation with `cliente_id`/`nombre` prefilled from the
+// opportunity (an explicit body `nombre` overrides the prefill) and BOTH audit rows (`CONVERTIR` oportunidad + `CREAR` proyecto) via
+// one `logChanges` call, so every row shares one `lote_id`. `valor_total` is
+// never typed (T11 S2): the project starts at 0, the sum of its empty budget,
+// and `diferencia_valor_oportunidad` is computed from it like the budget PUT
+// does once lines exist.
 //
 // The pre-check "already has a project" is not atomic; the unique index on
 // `oportunidad_id` is the safety net and answers the same 409 (a soft-deleted
@@ -157,14 +159,8 @@ export const POST = withApiErrorHandling(
     // REQ-ORG-05: the code year is the creation instant in UTC.
     const year = new Date().getUTCFullYear();
     const nombre = parsed.data.nombre ?? oportunidad.nombre;
-    const valorTotal =
-      parsed.data.valor_total === undefined
-        ? oportunidad.valor_estimado_cop
-        : toProjectDecimal(parsed.data.valor_total);
-    // PO-5 / REQ-ORG-04: the final value (body or prefilled) must be positive.
-    if (valorTotal === null || valorTotal.lte(0)) {
-      return apiError("El valor total debe ser mayor que cero.", 400, "VALIDATION_ERROR");
-    }
+    // S2: Σ of the budget lines, and a new project has none yet.
+    const valorTotal = toProjectDecimal(0);
 
     try {
       const row = await db.$transaction(async (tx) => {

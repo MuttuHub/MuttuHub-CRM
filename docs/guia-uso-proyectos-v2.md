@@ -156,24 +156,25 @@ Dos formas de cargarla:
 
 ### La plantilla de Excel, hoja por hoja
 
-La plantilla oficial tiene **nueve hojas** y versión **2026.1**. No cambies los nombres de las hojas ni los
+La plantilla oficial tiene **ocho hojas** y versión **2026.2**. No cambies los nombres de las hojas ni los
 encabezados de la fila 1. El archivo debe ser `.xlsx` de hasta **4 MB** y admite hasta **1000 filas** por hoja.
 Los códigos son únicos dentro de cada hoja; varias líneas o municipios se separan con **punto y coma (`;`)**.
 
 | Hoja | Campos | Reglas |
 |---|---|---|
-| **1. Instrucciones** | título y versión (B2) | No editar; la versión debe seguir siendo **2026.1**. |
+| **1. Instrucciones** | título y versión (B2) | No editar; la versión debe seguir siendo **2026.2**. Una plantilla de la versión anterior (presupuesto por rubro u hoja de programación) se rechaza: descarga la nueva. |
 | **2. Proyecto** | Código · Cliente · Líneas estratégicas · Municipios · Fecha de inicio · Fecha de fin · Valor total · Meta de beneficiarios | **Código** debe coincidir con el del proyecto (si no, error). Líneas (`código - nombre`) y municipios (`Nombre (Departamento)`) deben existir y estar activos; al menos uno de cada uno. Las fechas son fechas reales de Excel y definen la duración en semanas. |
 | **3. Objetivos** | Código · Descripción | Código único; descripción hasta 2000 caracteres. Cada objetivo necesita al menos una actividad. |
 | **4. Actividades** | Código · Código objetivo · Nombre · Semana inicio · Semana fin · Responsable (correo) | El código de objetivo debe existir (desplegable). Semanas enteras entre 1 y la duración del proyecto, inicio ≤ fin. Si el correo del responsable no está registrado, se avisa (W-01) y la actividad queda sin responsable. **El peso ya no se llena: es la duración en semanas** (AJ-02). Cada actividad necesita al menos un entregable. |
 | **5. Entregables** | Código · Código actividad · Descripción · Cantidad · Unidad | El código de actividad debe existir. Cantidad mayor que cero. Unidad es texto libre (la lista de sugerencias solo avisa, no bloquea). |
 | **6. Indicadores** | Código · Código objetivo · Nombre · Meta · Línea base | El objetivo debe existir. Meta mayor que cero; línea base opcional. |
-| **7. Presupuesto** | Código rubro · Rubro · Valor asignado | Una fila por rubro activo (vienen los 15). Valor ≥ 0. Si la suma asignada es 0 y hay valor total, es error (V-12); si difiere del valor total, es aviso (W-02) y se importa la suma como valor total. |
-| **8. Programación** | Código rubro · Rubro · Mes 1 (AAAA-MM) … Mes N · Total · Control | Cada fila debe sumar **exactamente** su valor asignado (error V-13) y los meses deben coincidir con los periodos del proyecto (V-14). `Total` y `Control` son fórmulas: no las sobrescribas. |
-| **9. Catálogos** | Rubros · Líneas estratégicas · Municipios · Unidades | Listas de los desplegables. La hoja está protegida: no se edita. |
+| **7. Presupuesto** | Código de actividad · Rubro · Valor | Una fila por combinación de actividad y rubro: una actividad puede tener uno o varios rubros. La actividad debe existir en la hoja 4 (V-06), el rubro debe estar activo y la misma combinación no se repite (V-11, con fila y columna). Valor ≥ 0. El valor total del proyecto es la suma de las líneas. |
+| **8. Catálogos** | Rubros · Líneas estratégicas · Municipios · Unidades | Listas de los desplegables. La hoja está protegida: no se edita. |
 
-Al confirmar, la plantilla completa **reemplaza** la estructura, el presupuesto, la programación, las fechas, las
-líneas y los municipios del borrador (el cliente no cambia). Si hay errores, **no se escribe nada**: la vista previa
+Al confirmar, la plantilla completa **reemplaza** la estructura, el presupuesto, las fechas, las líneas y los
+municipios del borrador (el cliente no cambia). Una línea de presupuesto que sigue en la plantilla (misma actividad y
+rubro) conserva su programación; una que ya no viene se elimina con su programación, y si tiene gastos registrados la
+importación se rechaza. Si hay errores, **no se escribe nada**: la vista previa
 los lista por hoja, fila, columna y mensaje.
 
 ### Paso 3 — Cronograma (Ver cronograma)

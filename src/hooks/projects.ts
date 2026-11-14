@@ -443,7 +443,10 @@ export function useMunicipalities(): UseQueryResult<Municipality[]> {
 
 export type ProjectLineaInput = { id: string; principal: boolean };
 
-/** Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). */
+/**
+ * Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). Sin `valor_total`: es la
+ * suma de las líneas del presupuesto (T11 S2), el proyecto nace en 0 y el servidor responde 400 si llega.
+ */
 type ProjectCreateBaseInput = {
   /** M3: opcional, máx. 2000 caracteres. */
   descripcion?: string;
@@ -453,7 +456,6 @@ type ProjectCreateBaseInput = {
   /** Calendario `YYYY-MM-DD`, nunca instante ISO. */
   fecha_inicio: string;
   fecha_fin: string;
-  valor_total?: number;
   beneficiarios_meta?: number;
 };
 
@@ -532,14 +534,14 @@ export function useCreateProjectFromOpportunity(
 
 /**
  * UX-3: edita los datos generales (PATCH E-06). El cuerpo trae solo lo que cambió; en ejecución el servidor
- * acepta únicamente `descripcion` y `beneficiarios_meta`. Al guardar invalida todo el namespace `projects`
+ * acepta únicamente `descripcion` y `beneficiarios_meta`. Nunca lleva `valor_total` (T11 S2: lo escribe el
+ * presupuesto, el PATCH responde 400). Al guardar invalida todo el namespace `projects`
  * (ficha, encabezado, listado, auditoría). El error del servidor se re-lanza sin toast: el diálogo lo muestra en línea.
  */
 export type ProjectUpdateInput = {
   nombre?: string;
   descripcion?: string;
   responsable_id?: string;
-  valor_total?: number;
   fecha_inicio?: string;
   fecha_fin?: string;
   beneficiarios_meta?: number | null;
@@ -1484,35 +1486,58 @@ export type ProjectBudgetRubro = {
   heredado_pendiente: boolean;
 };
 
+/** S1 (T11): una línea es actividad + rubro + valor. Sin actividad = línea heredada (D9). */
+export type ProjectBudgetLinea = {
+  linea_id: string;
+  actividad_id: string | null;
+  actividad_codigo: string | null;
+  actividad_nombre: string | null;
+  rubro_id: string;
+  rubro_codigo: string | null;
+  rubro_nombre: string;
+  valor: string;
+};
+
 /** `GET/PUT /api/v1/projects/:id/budget`. */
 export type ProjectBudget = {
   estado: EstadoProyecto;
+  /** S2: cada rubro es la suma de sus líneas. */
   rubros: ProjectBudgetRubro[];
+  lineas: ProjectBudgetLinea[];
   suma: string;
   valor_total: string | null;
   /** Σ A − valor_total; nulo sin valor total. */
   diferencia: string | null;
 };
 
-export type ProjectBudgetInput = { rubros: { rubro_id: string; asignado: string }[] };
+/** El presupuesto COMPLETO: una línea que no viaja se elimina (si no tiene gastos). */
+export type ProjectBudgetInput = { lineas: { actividad_id: string | null; rubro_id: string; valor: string }[] };
 
 export type ProjectProgramming = {
   estado: EstadoProyecto;
   periodos: string[];
-  filas: { rubro_id: string; periodo: string; valor: string }[];
-  control_por_rubro: {
-    rubro_id: string;
-    codigo: string | null;
-    nombre: string;
-    asignado: string;
-    programado: string;
-    /** Σ celdas − A; informativo en Borrador. */
-    control: string;
-  }[];
+  filas: { linea_id: string; rubro_id: string; periodo: string; valor: string }[];
+  /** T11 S8: una fila por línea del presupuesto (actividad + rubro), que es lo que se programa. */
+  control_por_linea: (ProjectProgrammingControl & {
+    linea_id: string;
+    actividad: { id: string; codigo: string; nombre: string } | null;
+  })[];
+  /** Las líneas de cada rubro sumadas. */
+  control_por_rubro: ProjectProgrammingControl[];
   programacion_pendiente: boolean;
 };
 
-export type ProjectProgrammingInput = { filas: { rubro_id: string; periodo: string; valor: string }[] };
+type ProjectProgrammingControl = {
+  rubro_id: string;
+  codigo: string | null;
+  nombre: string;
+  asignado: string;
+  programado: string;
+  /** Σ celdas − A; informativo en Borrador. */
+  control: string;
+};
+
+export type ProjectProgrammingInput = { filas: { linea_id: string; periodo: string; valor: string }[] };
 
 export function useProjectBudget(id: string): UseQueryResult<ProjectBudget> {
   return useQuery({
@@ -1563,24 +1588,6 @@ export function useUpdateProgramming(
   return useMutation({
     mutationFn: (input) => apiPut<ProjectProgramming>(`/api/v1/projects/${projectId}/programming`, input),
     onSuccess: refresh,
-  });
-}
-
-/**
- * "Igualar valor total a Σ A": reutiliza el PATCH existente del proyecto (que
- * ya recalcula la diferencia con la oportunidad y audita). El PATCH recibe el
- * valor como número JSON; la cadena de la suma ya es exacta a dos decimales.
- */
-export function useSetValorTotal(projectId: string): UseMutationResult<unknown, Error, string> {
-  const refresh = useRefreshPresupuesto(projectId);
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (valorTotal) =>
-      apiPatch<unknown>(`/api/v1/projects/${projectId}`, { valor_total: Number(valorTotal) }),
-    onSuccess: () => {
-      refresh();
-      void qc.invalidateQueries({ queryKey: ["projects", "list"] });
-    },
   });
 }
 
@@ -2233,98 +2240,6 @@ export function useImportStructurePO(
       if (!data.importado) return;
       refresh();
       toast.success("Estructura importada.");
-    },
-  });
-}
-
-/* ── Presupuesto desde el Excel simple de la PO (importar-presupuesto-po) ── */
-
-/** Error por fila (`fila` nula si es del archivo) del 400 de `POST /budget/import`. */
-export type BudgetImportError = { fila: number | null; rubro: string | null; mensaje: string };
-
-/** `POST /budget/import` con `modo=validar`: nada se escribió. */
-export type BudgetImportPreview = {
-  importado: false;
-  valido: true;
-  rubros: {
-    rubro_id: string;
-    codigo: string | null;
-    nombre: string;
-    actual: string;
-    nuevo: string;
-    diferencia: string;
-    en_archivo: boolean;
-  }[];
-  suma_actual: string;
-  suma_nueva: string;
-  valor_total: string | null;
-  /** Σ nuevo − valor_total; nulo sin valor total. */
-  diferencia: string | null;
-  cambios: number;
-};
-
-/** `POST /budget/import` aplicado. */
-export type BudgetImportApplied = { importado: true; cambios: number; presupuesto: ProjectBudget };
-
-export type BudgetImportInput = { archivo: File; validar: boolean };
-
-/** El 400 con los errores por fila del archivo. */
-export class BudgetImportReportError extends ApiError {
-  readonly errores: BudgetImportError[];
-
-  constructor(message: string, errores: BudgetImportError[]) {
-    super(message, 400, "VALIDATION_ERROR");
-    this.name = "BudgetImportReportError";
-    this.errores = errores;
-  }
-}
-
-function budgetImportFailure(res: Response, body: Record<string, unknown>, fallback: string): ApiError {
-  const errores = (body.reporte as { errores?: unknown } | undefined)?.errores;
-  if (Array.isArray(errores)) {
-    return new BudgetImportReportError(typeof body.error === "string" ? body.error : fallback, errores as BudgetImportError[]);
-  }
-  return new ApiError(typeof body.error === "string" ? body.error : fallback, res.status, typeof body.code === "string" ? body.code : undefined);
-}
-
-/** Baja la plantilla vacía del presupuesto en el formato de la PO. */
-export async function downloadBudgetTemplate(projectId: string): Promise<void> {
-  const res = await fetch(`/api/v1/projects/${projectId}/budget/template`, { method: "GET" });
-  if (!res.ok) {
-    throw budgetImportFailure(res, await readJsonBody(res), "No pudimos descargar la plantilla. Inténtalo de nuevo.");
-  }
-  const disposition = res.headers.get("Content-Disposition") ?? "";
-  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "plantilla-presupuesto.xlsx";
-  saveBlobAs(await res.blob(), filename);
-}
-
-/**
- * Valida (`validar: true`, no escribe) o aplica el presupuesto del Excel de la PO.
- * El 400 con errores por fila llega como `BudgetImportReportError`.
- */
-export function useImportBudget(
-  projectId: string,
-): UseMutationResult<BudgetImportPreview | BudgetImportApplied, Error, BudgetImportInput> {
-  const refresh = useRefreshPresupuesto(projectId);
-  return useMutation({
-    mutationFn: async ({ archivo, validar }) => {
-      const form = new FormData();
-      form.set("archivo", archivo);
-      if (validar) form.set("modo", "validar");
-      // Sin Content-Type: el navegador pone el boundary del multipart.
-      const res = await fetch(`/api/v1/projects/${projectId}/budget/import`, {
-        method: "POST",
-        headers: { Accept: "application/json" },
-        body: form,
-      });
-      const body = await readJsonBody(res);
-      if (!res.ok) throw budgetImportFailure(res, body, "No pudimos importar el presupuesto. Inténtalo de nuevo.");
-      return body as BudgetImportPreview | BudgetImportApplied;
-    },
-    onSuccess: (data) => {
-      if (!data.importado) return;
-      refresh();
-      toast.success("Presupuesto importado.");
     },
   });
 }

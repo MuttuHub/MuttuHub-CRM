@@ -11,11 +11,11 @@ import {
 } from "./columns"
 
 describe("plantilla columns", () => {
-  it("declares the template version 2026.1", () => {
-    expect(PLANTILLA_VERSION).toBe("2026.1")
+  it("declares the template version 2026.2 (A2: budget by activity line)", () => {
+    expect(PLANTILLA_VERSION).toBe("2026.2")
   })
 
-  it("names the nine sheets in the canonical order", () => {
+  it("names the eight sheets in the canonical order, without the programming sheet (S4)", () => {
     expect(Object.values(HOJAS)).toEqual([
       "1. Instrucciones",
       "2. Proyecto",
@@ -24,10 +24,9 @@ describe("plantilla columns", () => {
       "5. Entregables",
       "6. Indicadores",
       "7. Presupuesto",
-      "8. Programación",
-      "9. Catálogos",
+      "8. Catálogos",
     ])
-    expect(Object.keys(HOJAS)).toHaveLength(9)
+    expect(Object.keys(HOJAS)).toHaveLength(8)
   })
 
   it("fixes the data-sheet headers", () => {
@@ -44,7 +43,8 @@ describe("plantilla columns", () => {
       // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" nor the indicator "Unidad".
       entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad"],
       indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Línea base"],
-      presupuesto: ["Código rubro", "Rubro", "Valor asignado"],
+      // S3: «columnas Código de actividad, Rubro y Valor».
+      presupuesto: ["Código de actividad", "Rubro", "Valor"],
     })
   })
 

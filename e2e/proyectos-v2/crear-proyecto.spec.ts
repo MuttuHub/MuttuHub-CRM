@@ -32,7 +32,7 @@ test("stepper starts with the client; client card; opportunity gated by client",
   await page.keyboard.press("Escape");
 });
 
-test("validations: valor total, date range; then create lands on the new draft", async ({ page }) => {
+test("validations: date range; the value is derived; then create lands on the new draft", async ({ page }) => {
   await login(page, "gerencia", "/proyectos/nuevo");
   await pickOption(page, "Cliente", "Universidad Central del Valle");
   const nombre = `E2E borrador ${Date.now()}`;
@@ -41,24 +41,18 @@ test("validations: valor total, date range; then create lands on the new draft",
   await pickOption(page, "Departamento", "Antioquia");
   await pickOption(page, "Municipio", "Medellín");
   const submit = page.getByRole("button", { name: "Crear proyecto y continuar" });
-  const valor = page.getByRole("textbox", { name: "Valor total" });
   const inicio = page.getByRole("textbox", { name: "Fecha de inicio" });
   const fin = page.getByRole("textbox", { name: "Fecha de fin" });
 
-  // valor total empty / 0
-  await submit.click();
-  await expect(page.getByText("El valor total debe ser mayor que cero.")).toBeVisible();
-  await valor.fill("0");
-  await submit.click();
-  await expect(page.getByText("El valor total debe ser mayor que cero.")).toBeVisible();
+  // T11 S2: the value is not typed; it is the sum of the budget lines.
+  await expect(page.getByRole("textbox", { name: "Valor total" })).toHaveCount(0);
+  await expect(page.getByText(/Se calcula sumando las líneas del presupuesto/)).toBeVisible();
 
-  // valid es-CO value is accepted (the error disappears); then date range checks
-  await valor.fill("250.000");
+  // date range checks
   await fin.fill("2026-10-17");
   await inicio.fill("2026-10-17");
   await submit.click();
   await expect(page.getByText("La fecha de fin debe ser posterior a la fecha de inicio.")).toBeVisible();
-  await expect(page.getByText("El valor total debe ser mayor que cero.")).toHaveCount(0);
   await inicio.fill("2026-11-01");
   await fin.fill("2026-10-17");
   await submit.click();
@@ -79,7 +73,8 @@ test("validations: valor total, date range; then create lands on the new draft",
   await expect(page.getByRole("heading", { name: nombre })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Borrador").first()).toBeVisible();
   await expect(page.getByText("Próximos pasos").first()).toBeVisible();
-  await expect(page.getByText("$ 250.000").first()).toBeVisible();
+  // T11 S2: no budget lines yet, so the derived value is $ 0 (the stepper no longer types one).
+  await expect(page.getByText("$ 0", { exact: true }).first()).toBeVisible();
 });
 
 test("coordinador reaches the creation stepper (S1: any role creates)", async ({ page }) => {

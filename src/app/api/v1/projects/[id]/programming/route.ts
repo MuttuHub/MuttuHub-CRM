@@ -1,11 +1,12 @@
-// GET /api/v1/projects/:id/programming — monthly programming (P) per rubro (S5 U3, E-17).
+// GET /api/v1/projects/:id/programming — monthly programming (P) per budget line (S5 U3, E-17;
+// T11 S8: a line is activity + rubro, so one rubro can be programmed apart on each activity).
 // PUT — replace the programming of a BORRADOR project.
 //
 // Needs the project dates (the periods are every month from start to end, 409
 // INVALID_STATE otherwise). PUT is a full replacement written by diff: cells with
 // a value above $0 are created or updated, every other existing cell is deleted
-// (a cell at $0 is "no programming"). A rubro needs a budget line first. The
-// control per rubro (Σ cells − A) is informational in Borrador; the baseline
+// (a cell at $0 is "no programming"). Each row names its budget line. The
+// control per line (Σ cells − A) is informational in Borrador; the baseline
 // (S8.2) turns a non-zero control into a precondition.
 
 import { NextResponse } from "next/server";
@@ -40,7 +41,7 @@ export const PROGRAMMING_PUT_SCHEMA = z
     filas: z.array(
       z
         .object({
-          rubro_id: z.string({ error: "El rubro es obligatorio." }).min(1, "El rubro es obligatorio."),
+          linea_id: z.string({ error: "La línea es obligatoria." }).min(1, "La línea es obligatoria."),
           periodo: z.string({ error: "El periodo es obligatorio." }),
           valor: z.union([z.string(), z.number()], { error: "Ingresa un monto válido." }),
         })
@@ -99,7 +100,7 @@ export const PUT = withApiErrorHandling(
     const body = await parseEstructuraBody(request, PROGRAMMING_PUT_SCHEMA);
     if (!body.ok) return body.response;
 
-    // rubro_id -> periodo -> cents, validated before touching the database.
+    // linea_id -> periodo -> cents, validated before touching the database.
     const deseado = new Map<string, Map<string, bigint>>();
     for (const fila of body.value.filas) {
       if (!periodos.includes(fila.periodo)) {
@@ -107,12 +108,12 @@ export const PUT = withApiErrorHandling(
       }
       const monto = parseMonto(fila.valor);
       if (!monto.ok) return apiError(monto.message, 400, "VALIDATION_ERROR");
-      const porPeriodo = deseado.get(fila.rubro_id) ?? new Map<string, bigint>();
+      const porPeriodo = deseado.get(fila.linea_id) ?? new Map<string, bigint>();
       if (porPeriodo.has(fila.periodo)) {
-        return apiError(`El periodo ${fila.periodo} se repite para un mismo rubro.`, 400, "VALIDATION_ERROR");
+        return apiError(`El periodo ${fila.periodo} se repite para una misma línea.`, 400, "VALIDATION_ERROR");
       }
       porPeriodo.set(fila.periodo, monto.cents);
-      deseado.set(fila.rubro_id, porPeriodo);
+      deseado.set(fila.linea_id, porPeriodo);
     }
 
     try {
@@ -121,11 +122,11 @@ export const PUT = withApiErrorHandling(
 
         const lineas = await tx.lineaPresupuestal.findMany({
           where: { proyecto_id: id },
-          select: { id: true, rubro_id: true },
+          select: { id: true },
         });
-        const lineaPorRubro = new Map(lineas.map((l) => [l.rubro_id, l.id]));
-        for (const rubroId of deseado.keys()) {
-          if (!lineaPorRubro.has(rubroId)) invalid("El rubro no tiene presupuesto asignado: asígnale un monto primero.");
+        const delProyecto = new Set(lineas.map((l) => l.id));
+        for (const lineaId of deseado.keys()) {
+          if (!delProyecto.has(lineaId)) invalid("La línea no está en el presupuesto del proyecto: agrégala primero.");
         }
 
         const existentes = await tx.programacionPeriodo.findMany({
@@ -138,8 +139,7 @@ export const PUT = withApiErrorHandling(
         const base = { usuario_id: auth.usuario.id, entidad: "programacion", proyecto_id: id } as const;
         const vistas = new Set<string>();
 
-        for (const [rubroId, porPeriodo] of deseado) {
-          const lineaId = lineaPorRubro.get(rubroId) as string;
+        for (const [lineaId, porPeriodo] of deseado) {
           for (const [periodo, cents] of porPeriodo) {
             if (cents === zero) continue;
             const existente = existentes.find((c) => c.linea_id === lineaId && c.periodo === periodo);

@@ -8,9 +8,9 @@
  * it never throws on the F-X1 fixtures; money stays in exact `bigint` cents.
  */
 import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
-import { resolverLineaToken, resolverMunicipioToken, type ContextoValidacion } from "./validate"
+import { codigoRubroDe, resolverLineaToken, resolverMunicipioToken, type ContextoValidacion } from "./validate"
 import { fromCents, sumCents, toCents, type Cents } from "../money"
-import { type IsoDate, type Periodo } from "../weeks"
+import { type IsoDate } from "../weeks"
 
 export type PlanImportacion = {
   proyecto: {
@@ -46,8 +46,8 @@ export type PlanImportacion = {
     unidad: string
     lineaBase: string | null
   }[]
-  presupuesto: { rubroCodigo: string; cents: Cents }[]
-  programacion: { rubroCodigo: string; periodo: Periodo; cents: Cents }[]
+  /** S3: one line per activity + rubro row of the sheet, in sheet order. */
+  presupuesto: { actividadCodigo: string; rubroCodigo: string; cents: Cents }[]
 }
 
 const ZERO = BigInt(0)
@@ -171,38 +171,23 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
     }
   })
 
-  const asignadoPorRubro = new Map<string, Cents>()
-  for (const fila of p.presupuesto) {
-    const codigo = texto(fila, "Código rubro")
-    if (codigo === "") continue
-    asignadoPorRubro.set(codigo, toCents(decimalDe(fila.celdas["Valor asignado"]?.valor) ?? "0"))
-  }
-  const presupuesto = c.rubros
-    .filter((rubro) => rubro.activo)
-    .map((rubro) => ({ rubroCodigo: rubro.codigo, cents: asignadoPorRubro.get(rubro.codigo) ?? ZERO }))
+  const presupuesto = p.presupuesto
+    .map((fila) => ({
+      actividadCodigo: texto(fila, "Código de actividad"),
+      rubroCodigo: codigoRubroDe(fila.celdas["Rubro"]?.valor),
+      cents: toCents(decimalDe(fila.celdas["Valor"]?.valor) ?? "0"),
+    }))
+    .filter((linea) => linea.rubroCodigo !== "")
 
-  const programacion: { rubroCodigo: string; periodo: Periodo; cents: Cents }[] = []
-  for (const fila of p.programacion.filas) {
-    const codigo = texto(fila, "Código rubro")
-    if (codigo === "") continue
-    for (const mes of p.programacion.meses) {
-      if (mes.periodo === null) continue
-      const dec = decimalDe(fila.celdas[mes.encabezado]?.valor)
-      if (dec === null) continue
-      const cents = toCents(dec)
-      if (cents > ZERO) programacion.push({ rubroCodigo: codigo, periodo: mes.periodo, cents })
-    }
-  }
-
-  // A funded budget is the value the project tracks (W-02, PO feedback 2026-10-23);
-  // an empty one keeps the template total.
+  // S2: the project value is the sum of its budget lines, never the typed total (W-02 warns
+  // when they differ). V-12 keeps a template whose budget sums $0 from getting here.
   const sumaPresupuesto = sumCents(presupuesto.map((linea) => linea.cents))
 
   return {
     proyecto: {
       fechaInicio,
       fechaFin,
-      valorTotalCents: sumaPresupuesto > ZERO ? sumaPresupuesto : toCents(valorTotal),
+      valorTotalCents: sumaPresupuesto,
       beneficiariosMeta,
       lineas,
       municipioIds,
@@ -212,6 +197,5 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
     entregables,
     indicadores,
     presupuesto,
-    programacion,
   }
 }

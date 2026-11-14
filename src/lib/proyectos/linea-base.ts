@@ -2,7 +2,12 @@
 // Composes the budget preconditions (S5) with the structure and header items. Pure: the
 // caller loads the rows (under the project lock) and the route answers 409 with the list.
 
-import { precondicionesPresupuesto, type PrecondicionFalla } from "./ficha-financiera"
+import {
+  precondicionesPresupuesto,
+  type CeldaControl,
+  type LineaControl,
+  type PrecondicionFalla,
+} from "./ficha-financiera"
 import type { Cents } from "./money"
 import { projectPeriods, type Periodo } from "./weeks"
 
@@ -14,8 +19,8 @@ export type EntradaLineaBase = {
   objetivos: readonly { codigo: string }[]
   actividades: readonly { codigo: string; objetivoCodigo: string }[]
   entregables: readonly { codigo: string; actividadCodigo: string }[]
-  lineas: readonly { rubroId: string; nombre: string; asignado: Cents; activo: boolean }[]
-  programacion: readonly { rubroId: string; periodo: Periodo; valor: Cents }[]
+  lineas: readonly LineaControl[]
+  programacion: readonly CeldaControl[]
 }
 
 /** The number of beneficiaries must be positive: baseline approval and the execution-time edit share this copy. */

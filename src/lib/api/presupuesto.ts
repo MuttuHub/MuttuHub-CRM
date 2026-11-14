@@ -159,9 +159,23 @@ type BudgetRubroRow = {
   heredado_pendiente: boolean;
 };
 
+/** S1: one budget line is one activity + rubro + value. A legacy line (D9) has no activity. */
+type BudgetLineaRow = {
+  linea_id: string;
+  actividad_id: string | null;
+  actividad_codigo: string | null;
+  actividad_nombre: string | null;
+  rubro_id: string;
+  rubro_codigo: string | null;
+  rubro_nombre: string;
+  valor: string;
+};
+
 export type BudgetView = {
   estado: string;
+  /** S2: each rubro row is the sum of its lines. */
   rubros: BudgetRubroRow[];
+  lineas: BudgetLineaRow[];
   suma: string;
   valor_total: string | null;
   /** Σ A − valor_total; null while the project has no valor_total. */
@@ -169,7 +183,18 @@ export type BudgetView = {
 };
 
 type RubroRow = { id: string; codigo: string | null; nombre: string; activo: boolean; orden: number };
-type LineaRow = { id: string; rubro_id: string; monto_proyectado_cop: { toString(): string } };
+type LineaRow = {
+  id: string;
+  rubro_id: string;
+  actividad: { id: string; codigo: string; nombre: string } | null;
+  monto_proyectado_cop: { toString(): string };
+};
+
+/** Activity code as numbers (1.2 before 1.10); legacy lines without an activity last. */
+function compareActividad(a: LineaRow["actividad"], b: LineaRow["actividad"]): number {
+  if (!a || !b) return a ? -1 : b ? 1 : 0;
+  return a.codigo.localeCompare(b.codigo, "es", { numeric: true });
+}
 
 /** Catalog order (`orden`), legacy rubros without a code last. */
 export function compareRubros(a: RubroRow, b: RubroRow): number {
@@ -211,11 +236,32 @@ function buildBudgetView(input: {
       };
     });
 
+  const rubroPorId = new Map(input.rubros.map((r) => [r.id, r]));
+  const lineas = [...input.lineas]
+    .sort((a, b) => {
+      const ra = rubroPorId.get(a.rubro_id);
+      const rb = rubroPorId.get(b.rubro_id);
+      return compareActividad(a.actividad, b.actividad) || (ra && rb ? compareRubros(ra, rb) : 0);
+    })
+    .map(
+      (l): BudgetLineaRow => ({
+        linea_id: l.id,
+        actividad_id: l.actividad?.id ?? null,
+        actividad_codigo: l.actividad?.codigo ?? null,
+        actividad_nombre: l.actividad?.nombre ?? null,
+        rubro_id: l.rubro_id,
+        rubro_codigo: rubroPorId.get(l.rubro_id)?.codigo ?? null,
+        rubro_nombre: rubroPorId.get(l.rubro_id)?.nombre ?? "",
+        valor: fromCents(toCents(l.monto_proyectado_cop)),
+      }),
+    );
+
   const suma = sumCents(filas.map((f) => toCents(f.asignado)));
   const total = input.valorTotal === null ? null : toCents(input.valorTotal);
   return {
     estado: input.estado,
     rubros: filas,
+    lineas,
     suma: fromCents(suma),
     valor_total: total === null ? null : fromCents(total),
     diferencia: total === null ? null : fromCents(suma - total),
@@ -238,7 +284,7 @@ export async function loadBudgetView(
     }),
     client.lineaPresupuestal.findMany({
       where: { proyecto_id: proyectoId },
-      select: { id: true, rubro_id: true, monto_proyectado_cop: true },
+      select: { id: true, rubro_id: true, monto_proyectado_cop: true, actividad: { select: { id: true, codigo: true, nombre: true } } },
     }),
   ]);
   return buildBudgetView({ estado, valorTotal, rubros, lineas });
@@ -249,19 +295,24 @@ export async function loadBudgetView(
 // Programming view
 // ---------------------------------------------------------------------------
 
+type ControlFila = {
+  rubro_id: string;
+  codigo: string | null;
+  nombre: string;
+  asignado: string;
+  programado: string;
+  /** Σ cells − A; informational in BORRADOR. */
+  control: string;
+};
+
 export type ProgrammingView = {
   estado: string;
   periodos: string[];
-  filas: { rubro_id: string; periodo: string; valor: string }[];
-  control_por_rubro: {
-    rubro_id: string;
-    codigo: string | null;
-    nombre: string;
-    asignado: string;
-    programado: string;
-    /** Σ cells − A; informational in BORRADOR. */
-    control: string;
-  }[];
+  filas: { linea_id: string; rubro_id: string; periodo: string; valor: string }[];
+  /** S8: one row per budget line (activity + rubro), the unit that is programmed. */
+  control_por_linea: (ControlFila & { linea_id: string; actividad: LineaRow["actividad"] })[];
+  /** The lines of each rubro summed. */
+  control_por_rubro: ControlFila[];
   /** Derived (ADR-06): no cell above $0. The stored column is never written. */
   programacion_pendiente: boolean;
 };
@@ -277,40 +328,43 @@ function buildProgrammingView(input: {
   lineas: readonly ProgramacionLinea[];
   celdas: readonly CeldaRow[];
 }): ProgrammingView {
-  const lineas = [...input.lineas].sort((a, b) =>
-    compareRubros(
-      { id: a.rubro_id, ...a.rubro },
-      { id: b.rubro_id, ...b.rubro },
-    ),
-  );
-  const rubroDeLinea = new Map(lineas.map((l) => [l.id, l.rubro_id]));
+  const porRubro = (a: ProgramacionLinea, b: ProgramacionLinea) =>
+    compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro });
+  const lineas = [...input.lineas].sort((a, b) => compareActividad(a.actividad, b.actividad) || porRubro(a, b));
+  const ids = new Set(lineas.map((l) => l.id));
   const celdas = input.celdas
-    .filter((c) => rubroDeLinea.has(c.linea_id))
+    .filter((c) => ids.has(c.linea_id))
     .sort((a, b) => a.periodo.localeCompare(b.periodo));
 
   const zero = toCents("0");
   const filas = lineas.flatMap((l) =>
     celdas
       .filter((c) => c.linea_id === l.id)
-      .map((c) => ({ rubro_id: l.rubro_id, periodo: c.periodo, valor: fromCents(toCents(c.valor)) })),
+      .map((c) => ({ linea_id: l.id, rubro_id: l.rubro_id, periodo: c.periodo, valor: fromCents(toCents(c.valor)) })),
   );
-  const control_por_rubro = lineas.map((l) => {
-    const asignado = toCents(l.monto_proyectado_cop);
-    const programado = sumCents(celdas.filter((c) => c.linea_id === l.id).map((c) => toCents(c.valor)));
+  const control = (rubro: ProgramacionLinea, grupo: readonly ProgramacionLinea[]): ControlFila => {
+    const asignado = sumCents(grupo.map((l) => toCents(l.monto_proyectado_cop)));
+    const programado = sumCents(
+      celdas.filter((c) => grupo.some((l) => l.id === c.linea_id)).map((c) => toCents(c.valor)),
+    );
     return {
-      rubro_id: l.rubro_id,
-      codigo: l.rubro.codigo,
-      nombre: l.rubro.nombre,
+      rubro_id: rubro.rubro_id,
+      codigo: rubro.rubro.codigo,
+      nombre: rubro.rubro.nombre,
       asignado: fromCents(asignado),
       programado: fromCents(programado),
       control: fromCents(programado - asignado),
     };
-  });
+  };
+  const control_por_linea = lineas.map((l) => ({ linea_id: l.id, actividad: l.actividad ?? null, ...control(l, [l]) }));
+  const primeras = [...lineas].sort(porRubro).filter((l, i, arr) => arr.findIndex((o) => o.rubro_id === l.rubro_id) === i);
+  const control_por_rubro = primeras.map((l) => control(l, lineas.filter((o) => o.rubro_id === l.rubro_id)));
 
   return {
     estado: input.estado,
     periodos: input.periodos,
     filas,
+    control_por_linea,
     control_por_rubro,
     programacion_pendiente: !celdas.some((c) => toCents(c.valor) > zero),
   };
@@ -331,6 +385,7 @@ export async function loadProgrammingView(
         id: true,
         rubro_id: true,
         monto_proyectado_cop: true,
+        actividad: { select: { id: true, codigo: true, nombre: true } },
         rubro: { select: { codigo: true, nombre: true, orden: true, activo: true } },
       },
     }),

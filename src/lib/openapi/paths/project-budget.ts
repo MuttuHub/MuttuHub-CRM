@@ -32,29 +32,54 @@ const BudgetViewSchema = registry.register(
         asignado: z.string().openapi({ example: "59500000.00", description: "Decimal(15,2) como string." }),
         heredado_pendiente: z.boolean().openapi({ description: "Rubro suspendido con monto pendiente de reasignación." }),
       }),
-    ),
+    ).openapi({ description: "Por rubro: el asignado es la suma de sus líneas (S2). `linea_id` es nulo con 0 o con varias líneas." }),
+    lineas: z.array(
+      z.object({
+        linea_id: z.string().uuid(),
+        actividad_id: z.string().uuid().nullable().openapi({ description: "Nulo en una línea heredada, cargada antes de la Parte 2." }),
+        actividad_codigo: z.string().nullable(),
+        actividad_nombre: z.string().nullable(),
+        rubro_id: z.string().uuid(),
+        rubro_codigo: z.string().nullable(),
+        rubro_nombre: z.string(),
+        valor: z.string().openapi({ example: "15000000.00" }),
+      }),
+    ).openapi({ description: "Una línea por actividad + rubro (S1), por código de actividad; las heredadas al final." }),
     suma: z.string().openapi({ description: "Σ A de todas las líneas." }),
-    valor_total: z.string().nullable(),
+    valor_total: z.string().nullable().openapi({ description: "Suma de las líneas (S2): no se digita." }),
     diferencia: z.string().nullable().openapi({ description: "Σ A − valor_total; nulo sin valor_total." }),
   }),
 );
+
+const ControlProgramacion = z.object({
+  rubro_id: z.string().uuid(),
+  codigo: z.string().nullable(),
+  nombre: z.string(),
+  asignado: z.string(),
+  programado: z.string(),
+  control: z.string().openapi({ description: "Σ celdas − A; informativo en Borrador." }),
+});
 
 const ProgrammingViewSchema = registry.register(
   "ProgramacionProyecto",
   z.object({
     estado: z.string(),
     periodos: z.array(z.string()).openapi({ example: ["2026-10", "2026-11"] }),
-    filas: z.array(z.object({ rubro_id: z.string().uuid(), periodo: z.string(), valor: z.string() })),
-    control_por_rubro: z.array(
-      z.object({
-        rubro_id: z.string().uuid(),
-        codigo: z.string().nullable(),
-        nombre: z.string(),
-        asignado: z.string(),
-        programado: z.string(),
-        control: z.string().openapi({ description: "Σ celdas − A; informativo en Borrador." }),
-      }),
+    filas: z.array(
+      z.object({ linea_id: z.string().uuid(), rubro_id: z.string().uuid(), periodo: z.string(), valor: z.string() }),
     ),
+    control_por_linea: z
+      .array(
+        ControlProgramacion.extend({
+          linea_id: z.string().uuid(),
+          actividad: z
+            .object({ id: z.string().uuid(), codigo: z.string(), nombre: z.string() })
+            .nullable()
+            .openapi({ description: "Nula en una línea anterior a las actividades (Sin actividad)." }),
+        }),
+      )
+      .openapi({ description: "Una fila por línea del presupuesto (actividad + rubro): lo que se programa." }),
+    control_por_rubro: z.array(ControlProgramacion).openapi({ description: "Las líneas de cada rubro sumadas." }),
     programacion_pendiente: z.boolean().openapi({ description: "Derivado: ninguna celda por encima de $0." }),
   }),
 );
@@ -63,9 +88,10 @@ registry.registerPath({
   method: "get",
   path: "/api/v1/projects/{id}/budget",
   tags: ["Projects"],
-  summary: "Presupuesto por rubro de un proyecto",
+  summary: "Presupuesto de un proyecto, por línea y por rubro",
   description:
-    `Lista todos los rubros activos (fila virtual en $0 si aún no hay línea) y los rubros suspendidos que conservan una línea. ${READ_NOTE}`,
+    "Lista cada línea (actividad + rubro + valor) y, por rubro, la suma de sus líneas: todos los rubros activos (en $0 si no " +
+    `tienen línea) y los suspendidos que conservan alguna. ${READ_NOTE}`,
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
   responses: {
@@ -80,10 +106,12 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Reemplaza el presupuesto de un proyecto en Borrador",
   description:
-    `${WRITE_NOTE} El cuerpo debe incluir todos los rubros activos exactamente una vez; los montos son string decimal o número ` +
-    "con máximo dos decimales, no negativos. No rechaza una suma distinta de `valor_total` (la línea base lo exige después) y no " +
-    "sobrescribe `valor_total`, salvo que sea nulo: entonces toma la suma. Las líneas se crean solo con montos > $0 y no se eliminan. " +
-    "Audita un registro por línea cambiada en la misma transacción.",
+    `${WRITE_NOTE} El cuerpo es el presupuesto COMPLETO, una entrada por actividad + rubro; la misma combinación no puede ` +
+    "repetirse. Una línea nueva necesita una actividad viva del proyecto y un rubro activo; una línea existente (también una " +
+    "heredada sin actividad) se puede conservar o cambiar. Una línea que no viaja se elimina con su programación, salvo que " +
+    "tenga gastos (400). Los montos son string decimal o número con máximo dos decimales, no negativos; una línea nueva en $0 " +
+    "no se crea. `valor_total` queda siempre en la suma de las líneas (S2) y la diferencia con la oportunidad se recalcula. " +
+    "Audita un registro por línea creada, cambiada o eliminada en la misma transacción.",
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams, body: { content: { "application/json": { schema: BUDGET_PUT_SCHEMA } } } },
   responses: {
@@ -98,7 +126,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Programación mensual de un proyecto",
   description:
-    `Requiere fecha de inicio y fin (409 INVALID_STATE si falta alguna). Devuelve los periodos, las celdas y el control por rubro. ${READ_NOTE}`,
+    `Requiere fecha de inicio y fin (409 INVALID_STATE si falta alguna). Devuelve los periodos, las celdas (cada una con su línea) y el control por línea y por rubro. ${READ_NOTE}`,
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
   responses: {
@@ -114,8 +142,8 @@ registry.registerPath({
   summary: "Reemplaza la programación mensual de un proyecto en Borrador",
   description:
     `${WRITE_NOTE} Reemplazo completo escrito por diferencia: las celdas > $0 se crean o actualizan; las que pasan a $0 o se omiten ` +
-    "se eliminan. Cada rubro necesita una línea de presupuesto y cada periodo debe estar dentro del rango del proyecto (400). El control " +
-    "por rubro es informativo en Borrador. Audita cada celda cambiada (`programacion`, `campo` = periodo).",
+    "se eliminan. Cada fila nombra una línea del presupuesto del proyecto (`linea_id`) y cada periodo debe estar dentro del rango " +
+    "del proyecto (400). El control por línea es informativo en Borrador. Audita cada celda cambiada (`programacion`, `campo` = periodo).",
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams, body: { content: { "application/json": { schema: PROGRAMMING_PUT_SCHEMA } } } },
   responses: {
@@ -178,122 +206,5 @@ registry.registerPath({
   responses: {
     200: { description: "Ficha financiera al corte.", content: { "application/json": { schema: FinancialSheetSchema } } },
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Budget import in the PO's simple format (feature importar-presupuesto-po)
-// ---------------------------------------------------------------------------
-
-const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-const BudgetImportErrorSchema = registry.register(
-  "ErrorImportacionPresupuesto",
-  z.object({
-    fila: z.number().int().nullable().openapi({ description: "Fila de Excel (base 1); nula si el error es del archivo." }),
-    rubro: z.string().nullable().openapi({ description: "El rubro tal como está escrito en el archivo." }),
-    mensaje: z.string(),
-  }),
-);
-
-const BudgetImportPreviewSchema = registry.register(
-  "VistaPreviaImportacionPresupuesto",
-  z.object({
-    importado: z.literal(false),
-    valido: z.literal(true),
-    rubros: z.array(
-      z.object({
-        rubro_id: z.string().uuid(),
-        codigo: z.string().nullable(),
-        nombre: z.string(),
-        actual: z.string(),
-        nuevo: z.string(),
-        diferencia: z.string().openapi({ description: "nuevo − actual." }),
-        en_archivo: z.boolean().openapi({
-          description: "Falso para un rubro activo ausente del archivo (pasa a $0) y para un rubro suspendido (no cambia).",
-        }),
-      }),
-    ),
-    suma_actual: z.string(),
-    suma_nueva: z.string(),
-    valor_total: z.string().nullable(),
-    diferencia: z.string().nullable().openapi({ description: "suma_nueva − valor_total; nulo sin valor_total." }),
-    cambios: z.number().int().openapi({ description: "Rubros cuyo monto cambia." }),
-  }),
-);
-
-const BudgetImportAppliedSchema = registry.register(
-  "ImportacionPresupuestoAplicada",
-  z.object({
-    importado: z.literal(true),
-    cambios: z.number().int().openapi({ description: "Líneas creadas o actualizadas (una auditoría por cada una)." }),
-    presupuesto: BudgetViewSchema,
-  }),
-);
-
-registry.registerPath({
-  method: "post",
-  path: "/api/v1/projects/{id}/budget/import",
-  tags: ["Projects"],
-  summary: "Importa el presupuesto desde el Excel simple de la PO (Rubro | Valor (COP))",
-  description:
-    `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB; no se almacena). Los rubros se emparejan por ` +
-    "nombre normalizado (mayúsculas, tildes y símbolos sueltos no importan) o por código, solo contra los rubros activos. Los " +
-    "montos son celdas numéricas o texto es-CO (`1.500.000,50`); vacío es $0. Con `modo=validar` solo devuelve la vista previa " +
-    "(actual y nuevo por rubro, suma contra `valor_total`) sin escribir. Aplicar escribe en una transacción lo mismo que el `PUT` " +
-    "del presupuesto: cubre todos los rubros activos (uno ausente del archivo queda en $0), una auditoría por línea cambiada y, si " +
-    "`valor_total` es nulo, toma la suma. La programación mensual no cambia. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400.",
-  security: [{ sessionCookie: [] }],
-  request: {
-    params: ProjectParams,
-    body: {
-      content: {
-        "multipart/form-data": {
-          schema: z.object({
-            archivo: z.string().openapi({ format: "binary", description: "Presupuesto .xlsx con las columnas Rubro y Valor (COP)." }),
-            modo: z.enum(["validar", "aplicar"]).optional().openapi({ description: "«validar» solo devuelve la vista previa y no escribe; «aplicar» o sin `modo` aplica. Otro valor responde 400 VALIDATION_ERROR." }),
-          }),
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      description: "Vista previa o importación aplicada.",
-      content: {
-        "application/json": { schema: z.union([BudgetImportPreviewSchema, BudgetImportAppliedSchema]) },
-      },
-    },
-    400: {
-      description: "Archivo ilegible, tipo no válido o con errores por fila (VALIDATION_ERROR, con `reporte` cuando se leyó).",
-      content: {
-        "application/json": {
-          schema: z.object({
-            error: z.string(),
-            code: z.literal("VALIDATION_ERROR"),
-            reporte: z.object({ errores: z.array(BudgetImportErrorSchema) }).optional(),
-          }),
-        },
-      },
-    },
-    ...standardErrorResponses([401, 403, 404, 409, 413, 500]),
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/v1/projects/{id}/budget/template",
-  tags: ["Projects"],
-  summary: "Descarga la plantilla vacía del presupuesto en el formato de la PO",
-  description:
-    `Una hoja con los encabezados \`Rubro | Valor (COP)\` y una fila por rubro activo, con los valores vacíos. ${READ_NOTE}`,
-  security: [{ sessionCookie: [] }],
-  request: { params: ProjectParams },
-  responses: {
-    200: {
-      description: "Libro de Excel como adjunto `plantilla-presupuesto.xlsx`.",
-      content: { [XLSX_MIME]: { schema: z.string().openapi({ format: "binary" }) } },
-    },
-    ...standardErrorResponses([401, 403, 404, 500]),
   },
 });

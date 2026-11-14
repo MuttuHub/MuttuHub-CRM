@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
 import ExcelJS from "exceljs"
-import { MAX_MESES, PlantillaIlegible, parseFechaCelda, parseNumeroColombiano, parsePlantilla } from "./parse"
+import { PlantillaIlegible, parseFechaCelda, parseNumeroColombiano, parsePlantilla } from "./parse"
 import { generarPlantilla } from "./generate"
 import { HOJAS, MAX_FILAS_HOJA, PLANTILLA_VERSION } from "./columns"
 import { toCents } from "../money"
@@ -57,10 +57,21 @@ describe("parsePlantilla of the generated F-X1", () => {
     return parsePlantilla(await generarPlantilla(fixtureF_X1()))
   }
 
-  it("reads the version and the nine sheets present", async () => {
+  it("reads the version and the eight sheets present, with no obsolete sheet", async () => {
     const parsed = await roundTrip()
     expect(parsed.version).toBe(PLANTILLA_VERSION)
     expect(parsed.hojasPresentes).toEqual(Object.values(HOJAS))
+    expect(parsed.hojasObsoletas).toEqual([])
+  })
+
+  it("notes the programming sheet of the old layout without reading it (A2)", async () => {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load((await generarPlantilla(fixtureF_X1())) as never)
+    workbook.addWorksheet("8. Programación").addRow(["Código rubro", "Rubro", "Mes 1 (2026-10)", "Total", "Control"])
+    const parsed = await parsePlantilla((await workbook.xlsx.writeBuffer()) as never)
+    expect(parsed.hojasObsoletas).toEqual(["8. Programación"])
+    expect(parsed.hojasPresentes).toEqual(Object.values(HOJAS))
+    expect(Object.keys(parsed.encabezados)).not.toContain("programacion")
   })
 
   it("locates every cell with its sheet, row and column", async () => {
@@ -73,15 +84,19 @@ describe("parsePlantilla of the generated F-X1", () => {
   it("keeps the header rows per sheet", async () => {
     const parsed = await roundTrip()
     expect(parsed.encabezados.objetivos).toEqual(["Código", "Descripción"])
-    expect(parsed.encabezados.programacion[0]).toBe("Código rubro")
-    expect(parsed.encabezados.programacion.at(-1)).toBe("Control")
+    expect(parsed.encabezados.presupuesto).toEqual(["Código de actividad", "Rubro", "Valor"])
   })
 
   it("takes formula values from the cached result", async () => {
-    const parsed = await roundTrip()
-    const r01 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R01")!
-    expect(r01.celdas["Total"].valor).toBe(59500000)
-    expect(r01.celdas["Control"].valor).toBe(0)
+    const workbook = new ExcelJS.Workbook()
+    const hoja = workbook.addWorksheet(HOJAS.presupuesto)
+    hoja.addRow(["Código de actividad", "Rubro", "Valor"])
+    hoja.addRow(["1.1", "R01", null])
+    hoja.getCell("C2").value = { formula: "1000*2", result: 2000 }
+    hoja.addRow(["1.2", "R01", null])
+    hoja.getCell("C3").value = { formula: "1-1", result: 0 }
+    const parsed = await parsePlantilla((await workbook.xlsx.writeBuffer()) as never)
+    expect(parsed.presupuesto.map((f) => f.celdas["Valor"].valor)).toEqual([2000, 0])
   })
 
   it("round-trips the project fields and the ';' list order", async () => {
@@ -172,22 +187,16 @@ describe("parsePlantilla of the generated F-X1", () => {
     expect(parsed.proyecto.metaBeneficiarios.valor).toBe(500)
   })
 
-  it("round-trips the budget and the monthly programming to the cent", async () => {
+  it("round-trips the budget lines (activity, rubro, value) to the cent", async () => {
     const input = fixtureF_X1()
     const parsed = await roundTrip()
-    for (const fila of parsed.presupuesto) {
-      const codigo = String(fila.celdas["Código rubro"].valor)
-      expect(toCents(String(fila.celdas["Valor asignado"].valor))).toBe(toCents(input.presupuesto[codigo] ?? "0"))
-    }
-    expect(parsed.programacion.meses.map((m) => m.periodo)).toEqual(["2026-10", "2026-11", "2026-12", "2027-01"])
-    for (const fila of parsed.programacion.filas) {
-      const codigo = String(fila.celdas["Código rubro"].valor)
-      for (const mes of parsed.programacion.meses) {
-        const valor = fila.celdas[mes.encabezado].valor
-        const esperado = input.programacion[codigo]?.[mes.periodo!]
-        expect(toCents(valor === null || valor === undefined ? "0" : String(valor))).toBe(toCents(esperado ?? "0"))
-      }
-    }
+    expect(
+      parsed.presupuesto.map((fila) => [
+        fila.celdas["Código de actividad"].valor,
+        String(fila.celdas["Rubro"].valor).split(" - ")[0],
+        toCents(String(fila.celdas["Valor"].valor)),
+      ]),
+    ).toEqual(input.presupuesto.map((l) => [l.actividadCodigo, l.rubroCodigo, toCents(l.valor)]))
   })
 
   it("keeps a numeric cell numeric (no Colombian parsing applied)", async () => {
@@ -222,25 +231,9 @@ describe("parsePlantilla of the generated F-X1", () => {
     expect(parsed.excesoFilas[HOJAS.objetivos]).toBe(5)
   })
 
-  it("surfaces the month columns dropped past MAX_MESES", async () => {
-    const workbook = new ExcelJS.Workbook()
-    const hoja = workbook.addWorksheet(HOJAS.programacion)
-    const meses = Array.from(
-      { length: MAX_MESES + 3 },
-      (_, i) => `Mes ${i + 1} (2026-${String((i % 12) + 1).padStart(2, "0")})`,
-    )
-    hoja.addRow(["Código rubro", "Rubro", ...meses, "Total", "Control"])
-    hoja.addRow(["R01", "Personal", ...meses.map(() => 0), 0, 0])
-    const buffer = await workbook.xlsx.writeBuffer()
-    const parsed = await parsePlantilla(buffer as never)
-    expect(parsed.programacion.meses).toHaveLength(MAX_MESES)
-    expect(parsed.excesoMeses).toBe(3)
-  })
-
   it("reports no excess for the generated F-X1", async () => {
     const parsed = await roundTrip()
     expect(parsed.excesoFilas).toEqual({})
-    expect(parsed.excesoMeses).toBe(0)
   })
 
   it("throws PlantillaIlegible for a garbage buffer", async () => {

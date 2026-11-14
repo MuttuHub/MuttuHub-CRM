@@ -69,7 +69,7 @@ import { generarPlantilla, type PlantillaInput } from "../src/lib/proyectos/plan
 import { construirPlan } from "../src/lib/proyectos/plantilla/mapear"
 import { parsePlantilla } from "../src/lib/proyectos/plantilla/parse"
 import { validarPlantilla } from "../src/lib/proyectos/plantilla/validate"
-import { periodOf, todayInBogota } from "../src/lib/proyectos/weeks"
+import { periodOf, todayInBogota, weekStart } from "../src/lib/proyectos/weeks"
 import { elegirLineas, elegirMunicipios, entradaDemo } from "./import-plantilla-demo"
 
 // ---------------------------------------------------------------------------
@@ -648,8 +648,48 @@ async function importarCedeTextil(
   const plan = construirPlan(parsed, contexto)
   const loteId = randomUUID()
   await client.$transaction((tx) => importarPlantilla(tx, { proyectoId: proyecto.id, usuarioId: actor, plan, loteId }), TX_OPTIONS)
+  const programadas = await programarLineas(client, proyecto.id)
   const r = resumenDePlan(plan)
-  return `${r.actividades} actividades, ${r.entregables} entregables, ${r.indicadores} indicadores, ${r.rubros} rubros, ${r.celdas_programacion} celdas`
+  return `${r.actividades} actividades, ${r.entregables} entregables, ${r.indicadores} indicadores, ${r.rubros} rubros, ${r.celdas_programacion} celdas, ${programadas} líneas programadas`
+}
+
+/**
+ * The 2026.2 template carries no programming (T11 S4): the Gestor programs each line on the web before the
+ * baseline. The demo does the same, so the baseline approval finds every line balanced: a line whose cells do
+ * not sum its value gets all of it in the month its activity starts. A line that already sums is left alone.
+ */
+async function programarLineas(client: SeedClient, proyectoId: string): Promise<number> {
+  return client.$transaction(async (tx) => {
+    const proyecto = await tx.proyecto.findUniqueOrThrow({ where: { id: proyectoId }, select: { fecha_inicio: true } })
+    if (!proyecto.fecha_inicio) return 0
+    const inicio = proyecto.fecha_inicio.toISOString().slice(0, 10)
+    const [lineas, celdas] = await Promise.all([
+      tx.lineaPresupuestal.findMany({
+        where: { proyecto_id: proyectoId },
+        select: { id: true, monto_proyectado_cop: true, actividad: { select: { semana_inicio: true } } },
+      }),
+      tx.programacionPeriodo.findMany({ where: { proyecto_id: proyectoId }, select: { linea_id: true, valor: true } }),
+    ])
+    let programadas = 0
+    for (const linea of lineas) {
+      const valor = toCents(linea.monto_proyectado_cop)
+      const programado = celdas
+        .filter((celda) => celda.linea_id === linea.id)
+        .reduce((total, celda) => total + toCents(celda.valor), BigInt(0))
+      if (programado === valor || !linea.actividad) continue
+      await tx.programacionPeriodo.deleteMany({ where: { proyecto_id: proyectoId, linea_id: linea.id } })
+      await tx.programacionPeriodo.create({
+        data: {
+          proyecto_id: proyectoId,
+          linea_id: linea.id,
+          periodo: periodOf(weekStart(inicio, linea.actividad.semana_inicio)),
+          valor: decimalFromCents(valor),
+        },
+      })
+      programadas += 1
+    }
+    return programadas
+  }, TX_OPTIONS)
 }
 
 /** Mirrors POST .../activities/:activityId/progress (AJ-01): one report and its CREAR audit. */

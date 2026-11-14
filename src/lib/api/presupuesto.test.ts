@@ -178,12 +178,12 @@ describe("presupuesto — el dinero por rubro (T10)", () => {
       },
     ])
     expect(view.filas).toHaveLength(8)
-    expect(view.filas[0]).toEqual({ rubro_id: "r01", periodo: "2026-10", valor: "14875000.00" })
+    expect(view.filas[0]).toEqual({ linea_id: "l01", rubro_id: "r01", periodo: "2026-10", valor: "14875000.00" })
   })
 
-  it("loadProgrammingView, con dos líneas del mismo rubro, da dos filas de control y no las colapsa", async () => {
-    // A diferencia de `loadBudgetView`, aquí la agrupación ya es por línea: el mismo rubro aparece dos
-    // veces y Σ control = Σ programado − Σ asignado. Es la forma que T10 debe conservar.
+  it("loadProgrammingView, con dos líneas del mismo rubro, da dos filas de control por línea y una por rubro", async () => {
+    // T11 S8: la programación se controla por línea (`control_por_linea`); `control_por_rubro` suma
+    // las líneas del rubro, como el asignado de `loadBudgetView`.
     const r12 = rubro("r12", "R12", "Transporte", 12)
     const view = await loadProgrammingView(
       clienteProgramacion(
@@ -194,28 +194,18 @@ describe("presupuesto — el dinero por rubro (T10)", () => {
       "BORRADOR",
       PERIODOS,
     )
-    expect(view.control_por_rubro).toEqual([
-      {
-        rubro_id: "r12",
-        codigo: "R12",
-        nombre: "Transporte",
-        asignado: "15000000.00",
-        programado: "15000000.00",
-        control: "0.00",
-      },
-      {
-        rubro_id: "r12",
-        codigo: "R12",
-        nombre: "Transporte",
-        asignado: "8000000.00",
-        programado: "8000000.00",
-        control: "0.00",
-      },
+    const transporte = { rubro_id: "r12", codigo: "R12", nombre: "Transporte" }
+    expect(view.control_por_linea).toEqual([
+      { linea_id: "l1", actividad: null, ...transporte, asignado: "15000000.00", programado: "15000000.00", control: "0.00" },
+      { linea_id: "l2", actividad: null, ...transporte, asignado: "8000000.00", programado: "8000000.00", control: "0.00" },
     ])
-    // Las celdas tampoco distinguen la línea: dos filas del mismo rubro, en meses distintos.
+    expect(view.control_por_rubro).toEqual([
+      { ...transporte, asignado: "23000000.00", programado: "23000000.00", control: "0.00" },
+    ])
+    // Cada celda nombra su línea.
     expect(view.filas).toEqual([
-      { rubro_id: "r12", periodo: "2026-10", valor: "15000000.00" },
-      { rubro_id: "r12", periodo: "2026-11", valor: "8000000.00" },
+      { linea_id: "l1", rubro_id: "r12", periodo: "2026-10", valor: "15000000.00" },
+      { linea_id: "l2", rubro_id: "r12", periodo: "2026-11", valor: "8000000.00" },
     ])
   })
 
@@ -251,7 +241,7 @@ describe("presupuesto — el dinero por rubro (T10)", () => {
       "BORRADOR",
       PERIODOS,
     )
-    expect(view.filas).toEqual([{ rubro_id: "r12", periodo: "2026-10", valor: "6000000.00" }])
+    expect(view.filas).toEqual([{ linea_id: "l12", rubro_id: "r12", periodo: "2026-10", valor: "6000000.00" }])
     expect(view.control_por_rubro[0]?.programado).toBe("6000000.00")
   })
 })

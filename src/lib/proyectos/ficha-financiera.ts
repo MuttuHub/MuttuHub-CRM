@@ -134,13 +134,28 @@ type PrecondicionCodigo =
 export type PrecondicionFalla = { codigo: PrecondicionCodigo; mensaje: string; rubroId?: string }
 
 /**
+ * A budget line for the programming control. `lineaId` keys the control per line
+ * (T11: a rubro can have one line per activity); without it the control falls back
+ * to the rubro, which is still how the post-approval modification check calls it.
+ */
+export type LineaControl = {
+  lineaId?: string
+  actividadCodigo?: string | null
+  rubroId: string
+  nombre: string
+  asignado: Cents
+  activo: boolean
+}
+export type CeldaControl = { lineaId?: string; rubroId: string; periodo: Periodo; valor: Cents }
+
+/**
  * Failures that block the baseline (S8.2). BORRADOR editing stays free-form; this
  * is the list the baseline returns as 409 `precondiciones`.
  */
 export function precondicionesPresupuesto(input: {
   valorTotal: Cents | null
-  lineas: readonly { rubroId: string; nombre: string; asignado: Cents; activo: boolean }[]
-  programacion: readonly { rubroId: string; periodo: Periodo; valor: Cents }[]
+  lineas: readonly LineaControl[]
+  programacion: readonly CeldaControl[]
   periodosProyecto: readonly Periodo[]
 }): PrecondicionFalla[] {
   const fallas: PrecondicionFalla[] = []
@@ -159,13 +174,16 @@ export function precondicionesPresupuesto(input: {
   }
 
   for (const linea of input.lineas) {
-    const celdas = input.programacion.filter((c) => c.rubroId === linea.rubroId).map((c) => c.valor)
+    const celdas = input.programacion
+      .filter((c) => (linea.lineaId !== undefined ? c.lineaId === linea.lineaId : c.rubroId === linea.rubroId))
+      .map((c) => c.valor)
     const control = controlProgramacion(linea.asignado, celdas)
     if (control !== ZERO) {
+      const donde = linea.actividadCodigo ? `${linea.nombre} en la actividad ${linea.actividadCodigo}` : linea.nombre
       fallas.push({
         codigo: "CONTROL_PROGRAMACION",
         rubroId: linea.rubroId,
-        mensaje: `La programación del rubro ${linea.nombre} no coincide con lo asignado; control ${formatCOP(control)}.`,
+        mensaje: `La programación del rubro ${donde} no coincide con lo asignado; control ${formatCOP(control)}.`,
       })
     }
     if (!linea.activo && linea.asignado > ZERO) {

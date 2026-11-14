@@ -11,7 +11,7 @@
 //   - `inspeccionarZip` — the zip-bomb guard that runs before `exceljs` sees the bytes;
 //   - `importarPlantilla` — the atomic writer. It runs inside the caller's single
 //     transaction, mirrors the inline writes of the S3/S5 routes (same lock, same
-//     soft-delete policy, same budget/programming diff) and logs ONE audit lote.
+//     soft-delete policy, same budget-line diff as the budget PUT) and logs ONE audit lote.
 //
 // The routes write inline and this module deliberately does not refactor them.
 
@@ -29,7 +29,6 @@ import {
 import { diffLineas, diffMunicipios } from "@/lib/api/projects";
 import { diferenciaValor, isoDate } from "@/lib/proyectos/proyecto-general";
 import { fromCents, toCents } from "@/lib/proyectos/money";
-import type { Periodo } from "@/lib/proyectos/weeks";
 import type { PlantillaInput } from "@/lib/proyectos/plantilla/generate";
 import type { PlanImportacion } from "@/lib/proyectos/plantilla/mapear";
 import type { ContextoValidacion } from "@/lib/proyectos/plantilla/validate";
@@ -71,11 +70,13 @@ export type ResumenImportacion = {
   actividades: number;
   entregables: number;
   indicadores: number;
+  /** Budget lines (activity + rubro) above $0. The key keeps its pre-T11 name for the client. */
   rubros: number;
+  /** Always 0 since T11 (S4): the template no longer carries programming. Kept for the client. */
   celdas_programacion: number;
 };
 
-/** What an import creates, read off the plan (`rubros` = lines above $0). */
+/** What an import creates, read off the plan. */
 export function resumenDePlan(plan: PlanImportacion): ResumenImportacion {
   const cero = BigInt(0);
   return {
@@ -84,7 +85,7 @@ export function resumenDePlan(plan: PlanImportacion): ResumenImportacion {
     entregables: plan.entregables.length,
     indicadores: plan.indicadores.length,
     rubros: plan.presupuesto.filter((linea) => linea.cents > cero).length,
-    celdas_programacion: plan.programacion.length,
+    celdas_programacion: 0,
   };
 }
 
@@ -153,7 +154,6 @@ type PlantillaReader = Pick<
   | "entregable"
   | "indicador"
   | "lineaPresupuestal"
-  | "programacionPeriodo"
   | "rubro"
   | "lineaEstrategicaCatalogo"
   | "municipio"
@@ -182,7 +182,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
   }
 
   const vivos = { proyecto_id: proyectoId, deleted_at: null };
-  const [objetivos, actividades, entregables, indicadores, lineasPres, celdas, rubros, lineas, municipios] =
+  const [objetivos, actividades, entregables, indicadores, lineasPres, rubros, lineas, municipios] =
     await Promise.all([
       client.objetivo.findMany({
         where: vivos,
@@ -225,11 +225,11 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
       }),
       client.lineaPresupuestal.findMany({
         where: { proyecto_id: proyectoId },
-        select: { monto_proyectado_cop: true, rubro: { select: { codigo: true } } },
-      }),
-      client.programacionPeriodo.findMany({
-        where: { proyecto_id: proyectoId },
-        select: { periodo: true, valor: true, linea: { select: { rubro: { select: { codigo: true } } } } },
+        select: {
+          monto_proyectado_cop: true,
+          actividad: { select: { codigo: true } },
+          rubro: { select: { codigo: true, orden: true } },
+        },
       }),
       client.rubro.findMany({
         where: { activo: true, codigo: { not: null } },
@@ -248,16 +248,24 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
       }),
     ]);
 
-  const presupuesto: Record<string, string> = {};
-  for (const linea of lineasPres) {
-    if (linea.rubro.codigo) presupuesto[linea.rubro.codigo] = linea.monto_proyectado_cop.toString();
-  }
-  const programacion: Record<string, Record<Periodo, string>> = {};
-  for (const celda of celdas) {
-    const codigo = celda.linea.rubro.codigo;
-    if (!codigo) continue;
-    (programacion[codigo] ??= {})[celda.periodo] = celda.valor.toString();
-  }
+  // S3: one row per line, by activity code as numbers (1.2 before 1.10), then catalog order;
+  // legacy lines (no activity, D9) last, with the activity cell left empty.
+  const presupuesto = lineasPres
+    .filter((linea) => linea.rubro.codigo !== null)
+    .sort((a, b) => {
+      if (!a.actividad || !b.actividad) {
+        if (a.actividad || b.actividad) return a.actividad ? -1 : 1;
+      } else {
+        const porActividad = a.actividad.codigo.localeCompare(b.actividad.codigo, "es", { numeric: true });
+        if (porActividad !== 0) return porActividad;
+      }
+      return a.rubro.orden - b.rubro.orden;
+    })
+    .map((linea) => ({
+      actividadCodigo: linea.actividad?.codigo ?? null,
+      rubroCodigo: linea.rubro.codigo as string,
+      valor: linea.monto_proyectado_cop.toString(),
+    }));
 
   return {
     proyecto: {
@@ -310,7 +318,6 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
       })),
     },
     presupuesto,
-    programacion,
   };
 }
 
@@ -369,6 +376,7 @@ export type AuditoriaImportacion = { usuario_id: string; accion: "IMPORTAR"; pro
  * Creates the plan's objetivos, actividades, entregables and indicadores (one
  * createMany per table) and appends one `IMPORTAR` audit row per created row to
  * `cambios`. Runs after `borrarEstructura`, inside the caller's transaction.
+ * Returns the new activity id per normalized code, so budget lines can point at them.
  */
 export async function crearEstructura(
   tx: Prisma.TransactionClient,
@@ -376,7 +384,7 @@ export async function crearEstructura(
   plan: EstructuraPlan,
   base: AuditoriaImportacion,
   cambios: CambioInput[],
-): Promise<void> {
+): Promise<Map<string, string>> {
   // Ids are generated here so each table is ONE createMany.
   const objetivoIds = new Map(plan.objetivos.map((o) => [clave(o.codigo), randomUUID()]));
   await tx.objetivo.createMany({
@@ -478,11 +486,17 @@ export async function crearEstructura(
       },
     });
   }
+  return actividadIds;
 }
 
+export const LINEA_CON_GASTOS_MESSAGE =
+  "No se puede quitar del presupuesto una línea que ya tiene gastos registrados.";
+
 /**
- * Replaces the project's structure, budget, programming, dates, líneas and
- * municipios with the (already validated) plan. It must run inside ONE
+ * Replaces the project's structure, budget lines, dates, líneas and municipios
+ * with the (already validated) plan. Programming is not in the template since
+ * T11 (S4): it is edited on the web per line (S8), so the cells of a line that
+ * survives the import are left as they are. It must run inside ONE
  * `$transaction` supplied by the caller: every statement below commits or rolls
  * back together, including the audit lote. Throws `RespuestaAbortada` (404/409)
  * for a project that is gone, left BORRADOR, or already carries execution history.
@@ -513,7 +527,8 @@ export async function importarPlantilla(
   // 1. Soft-delete the live structure (the partial unique indexes only cover live rows).
   const reemplazados = await borrarEstructura(tx, id);
 
-  // 2. Project fields (+ the opportunity difference, like the project PATCH).
+  // 2. Project fields (+ the opportunity difference, like the budget PUT). S2: `valor_total` is the
+  //    sum of the plan's lines, which is exactly the sum of the lines step 5 leaves.
   const valorTotal = decimalFromCents(plan.proyecto.valorTotalCents);
   const patch = {
     fecha_inicio: diaUtc(plan.proyecto.fechaInicio),
@@ -566,123 +581,101 @@ export async function importarPlantilla(
   }
 
   // 4. Structure.
-  await crearEstructura(tx, id, plan, base, cambios);
+  const actividadIds = await crearEstructura(tx, id, plan, base, cambios);
 
-  // 5. Budget: update an existing line (even to $0, never delete: `Gasto` points at
-  //    it), create a new one only above $0 — exactly like the budget PUT.
+  // 5. Budget lines, matched like the budget PUT but by activity CODE + rubro: step 1 soft-deleted
+  //    the activities the lines pointed at (soft delete, so the line -> activity FK holds) and step 4
+  //    created new ones with new ids. A matched line is kept — same id, so its programming cells and
+  //    expenses stay — and re-pointed at the new activity. A line the template leaves out (legacy
+  //    lines without activity included: a rubro-only line cannot be placed) is deleted with its
+  //    programming, cells first (ProgramacionPeriodo -> line is NoAction), unless it has expenses.
+  //    No delete action exists, so a removed line is audited down to $0 like in the budget PUT.
   const cero = BigInt(0);
   const rubros = await tx.rubro.findMany({
-    where: { codigo: { in: plan.presupuesto.map((linea) => linea.rubroCodigo) } },
+    where: { codigo: { in: [...new Set(plan.presupuesto.map((linea) => linea.rubroCodigo))] } },
     select: { id: true, codigo: true },
   });
   const rubroIds = new Map(rubros.map((rubro) => [rubro.codigo as string, rubro.id]));
   const lineasExistentes = await tx.lineaPresupuestal.findMany({
     where: { proyecto_id: id },
-    select: { id: true, rubro_id: true, monto_proyectado_cop: true },
+    select: { id: true, rubro_id: true, actividad_id: true, monto_proyectado_cop: true, actividad: { select: { codigo: true } } },
   });
-  const lineaPorRubro = new Map(lineasExistentes.map((linea) => [linea.rubro_id, linea.id]));
-  const montoPrevio = new Map(lineasExistentes.map((linea) => [linea.rubro_id, toCents(linea.monto_proyectado_cop)]));
-  const presupuestoBase = { ...base, entidad: "presupuesto", campo: "asignado" } as const;
-
-  for (const linea of plan.presupuesto) {
+  const claveLinea = (actividadCodigo: string, rubroId: string) => `${clave(actividadCodigo)}|${rubroId}`;
+  const existentes = new Map<string, (typeof lineasExistentes)[number]>();
+  for (const linea of lineasExistentes) {
+    if (!linea.actividad) continue;
+    const k = claveLinea(linea.actividad.codigo, linea.rubro_id);
+    if (!existentes.has(k)) existentes.set(k, linea);
+  }
+  const pedidas = plan.presupuesto.map((linea) => {
     const rubroId = rubroIds.get(linea.rubroCodigo);
     if (rubroId === undefined) throw new Error(`El rubro ${linea.rubroCodigo} no existe en el catálogo.`);
-    const lineaId = lineaPorRubro.get(rubroId);
-    if (lineaId !== undefined) {
-      const anterior = montoPrevio.get(rubroId) ?? cero;
-      if (anterior === linea.cents) continue;
+    return { ...linea, rubroId, actividadId: buscar(actividadIds, linea.actividadCodigo, "la actividad") };
+  });
+  const conservadas = new Set(
+    pedidas.flatMap((p) => existentes.get(claveLinea(p.actividadCodigo, p.rubroId))?.id ?? []),
+  );
+  const quitadas = lineasExistentes.filter((linea) => !conservadas.has(linea.id));
+  if (quitadas.length > 0) {
+    const conGastos = await tx.gasto.count({ where: { proyecto_id: id, linea_id: { in: quitadas.map((l) => l.id) } } });
+    if (conGastos > 0) throw new RespuestaAbortada(apiError(LINEA_CON_GASTOS_MESSAGE, 409, "CONFLICT"));
+    await tx.programacionPeriodo.deleteMany({ where: { proyecto_id: id, linea_id: { in: quitadas.map((l) => l.id) } } });
+    await tx.lineaPresupuestal.deleteMany({ where: { proyecto_id: id, id: { in: quitadas.map((l) => l.id) } } });
+  }
+
+  const presupuestoBase = { ...base, entidad: "presupuesto", campo: "asignado" } as const;
+  for (const linea of quitadas) {
+    cambios.push({
+      ...presupuestoBase,
+      entidad_id: linea.id,
+      valor_anterior: fromCents(toCents(linea.monto_proyectado_cop)),
+      valor_nuevo: fromCents(cero),
+    });
+  }
+  for (const pedida of pedidas) {
+    const existente = existentes.get(claveLinea(pedida.actividadCodigo, pedida.rubroId));
+    if (existente) {
+      const anterior = toCents(existente.monto_proyectado_cop);
       await tx.lineaPresupuestal.update({
-        where: { id: lineaId },
-        data: { monto_proyectado_cop: decimalFromCents(linea.cents) },
+        where: { id: existente.id },
+        data: { actividad_id: pedida.actividadId, monto_proyectado_cop: decimalFromCents(pedida.cents) },
       });
       cambios.push({
-        ...presupuestoBase,
-        entidad_id: lineaId,
-        valor_anterior: fromCents(anterior),
-        valor_nuevo: fromCents(linea.cents),
+        ...base,
+        entidad: "presupuesto",
+        entidad_id: existente.id,
+        campo: "actividad_id",
+        valor_anterior: existente.actividad_id,
+        valor_nuevo: pedida.actividadId,
       });
-    } else if (linea.cents > cero) {
+      if (anterior !== pedida.cents) {
+        cambios.push({
+          ...presupuestoBase,
+          entidad_id: existente.id,
+          valor_anterior: fromCents(anterior),
+          valor_nuevo: fromCents(pedida.cents),
+        });
+      }
+    } else if (pedida.cents > cero) {
       const creada = await tx.lineaPresupuestal.create({
-        data: { proyecto_id: id, rubro_id: rubroId, monto_proyectado_cop: decimalFromCents(linea.cents) },
+        data: {
+          proyecto_id: id,
+          actividad_id: pedida.actividadId,
+          rubro_id: pedida.rubroId,
+          monto_proyectado_cop: decimalFromCents(pedida.cents),
+        },
         select: { id: true },
       });
-      lineaPorRubro.set(rubroId, creada.id);
       cambios.push({
         ...presupuestoBase,
         entidad_id: creada.id,
         valor_anterior: null,
-        valor_nuevo: fromCents(linea.cents),
+        valor_nuevo: fromCents(pedida.cents),
       });
     }
   }
 
-  // 6. Programming by diff, like the programming PUT: cells above $0 are created or
-  //    updated, every other existing cell goes away.
-  const existentes = await tx.programacionPeriodo.findMany({
-    where: { proyecto_id: id },
-    select: { id: true, linea_id: true, periodo: true, valor: true },
-  });
-  const porClave = new Map(existentes.map((celda) => [`${celda.linea_id}|${celda.periodo}`, celda]));
-  const programacionBase = { ...base, entidad: "programacion" } as const;
-  const vistas = new Set<string>();
-  const nuevas: { id: string; proyecto_id: string; linea_id: string; periodo: string; valor: Prisma.Decimal }[] = [];
-
-  for (const celda of plan.programacion) {
-    const rubroId = rubroIds.get(celda.rubroCodigo);
-    const lineaId = rubroId === undefined ? undefined : lineaPorRubro.get(rubroId);
-    if (lineaId === undefined) {
-      throw new RespuestaAbortada(
-        apiError("El rubro no tiene presupuesto asignado: asígnale un monto primero.", 400, "VALIDATION_ERROR"),
-      );
-    }
-    const existente = porClave.get(`${lineaId}|${celda.periodo}`);
-    if (existente) {
-      vistas.add(existente.id);
-      const anterior = toCents(existente.valor);
-      if (anterior === celda.cents) continue;
-      await tx.programacionPeriodo.update({ where: { id: existente.id }, data: { valor: decimalFromCents(celda.cents) } });
-      cambios.push({
-        ...programacionBase,
-        entidad_id: existente.id,
-        campo: celda.periodo,
-        valor_anterior: fromCents(anterior),
-        valor_nuevo: fromCents(celda.cents),
-      });
-    } else {
-      const nueva = {
-        id: randomUUID(),
-        proyecto_id: id,
-        linea_id: lineaId,
-        periodo: celda.periodo,
-        valor: decimalFromCents(celda.cents),
-      };
-      nuevas.push(nueva);
-      cambios.push({
-        ...programacionBase,
-        entidad_id: nueva.id,
-        campo: celda.periodo,
-        valor_anterior: null,
-        valor_nuevo: fromCents(celda.cents),
-      });
-    }
-  }
-  if (nuevas.length > 0) await tx.programacionPeriodo.createMany({ data: nuevas });
-
-  const sobrantes = existentes.filter((celda) => !vistas.has(celda.id));
-  if (sobrantes.length > 0) {
-    await tx.programacionPeriodo.deleteMany({ where: { id: { in: sobrantes.map((celda) => celda.id) } } });
-    for (const celda of sobrantes) {
-      cambios.push({
-        ...programacionBase,
-        entidad_id: celda.id,
-        campo: celda.periodo,
-        valor_anterior: fromCents(toCents(celda.valor)),
-        valor_nuevo: fromCents(cero),
-      });
-    }
-  }
-
-  // 7. One summary row, then the whole lote in one insert.
+  // 6. One summary row, then the whole lote in one insert.
   const resumen = resumenDePlan(plan);
   cambios.push({
     ...auditoriaProyecto,

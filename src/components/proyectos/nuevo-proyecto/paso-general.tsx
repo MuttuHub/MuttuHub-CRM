@@ -55,7 +55,15 @@ export function PasoGeneralCreado({ proyecto }: { proyecto: ProjectListRow }) {
         <FieldValue label="Fecha de fin" value={formatFechaCalendario(proyecto.fecha_fin)} mono />
         <FieldValue
           label="Valor total"
-          value={proyecto.valor_total === null ? SIN_DATO : formatCOP(toCents(proyecto.valor_total))}
+          value={
+            <>
+              {proyecto.valor_total === null ? SIN_DATO : formatCOP(toCents(proyecto.valor_total))}
+              {/* S2 (T11): never typed, the budget step fills it. */}
+              <span className="mt-0.5 block font-sans text-[12px] text-ink-500">
+                Se calcula sumando las líneas del presupuesto.
+              </span>
+            </>
+          }
           mono
         />
         <FieldValue

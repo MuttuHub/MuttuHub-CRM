@@ -87,8 +87,11 @@ describe("GET /projects/:id/template", () => {
     );
     expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="PRY-2026-001-plantilla.xlsx"');
     const parsed = await parsePlantilla(Buffer.from(await response.arrayBuffer()));
-    expect(parsed.version).toBe("2026.1");
+    expect(parsed.version).toBe("2026.2");
     expect(parsed.objetivos).toHaveLength(1);
+    // S3/S4: the budget sheet is by activity line and there is no programming sheet.
+    expect(parsed.hojasPresentes).not.toContain("8. Programación");
+    expect(parsed.presupuesto.map((f) => [f.celdas["Código de actividad"].valor, f.celdas["Valor"].valor])[2]).toEqual(["1.2", 45000000]);
   });
 
   it("writes an EXPORTAR audit row, and a failing audit never fails the download", async () => {

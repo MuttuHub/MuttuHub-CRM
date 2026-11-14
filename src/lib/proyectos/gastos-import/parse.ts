@@ -5,7 +5,7 @@
  * agree with it), a rubro with an assigned value and `evaluarPeriodo` (a month of the project). The
  * file carries no support: those come separately (S2).
  *
- * Pure and Node-only (`exceljs`, same boundary as `../presupuesto-po/parse.ts`, whose cell and rubro
+ * Pure and Node-only (`exceljs`, same boundary as `../excel-celdas.ts`, whose cell and rubro
  * helpers it reuses). The caller passes everything the rules need (`ContextoImportGastos`), so there
  * is no database access here. Never throws on bad input: file-level problems come back in
  * `erroresArchivo` and row problems in each row's `error`.
@@ -30,7 +30,7 @@ import {
   vacio,
   type RubroCatalogo,
   type ValorCelda,
-} from "../presupuesto-po/parse"
+} from "../excel-celdas"
 
 export { ARCHIVO_ILEGIBLE }
 

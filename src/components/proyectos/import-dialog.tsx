@@ -46,11 +46,8 @@ function resumenTexto(resumen: ImportResumen): { clave: string; texto: string }[
     { clave: "actividades", texto: plural(resumen.actividades, "actividad", "actividades") },
     { clave: "entregables", texto: plural(resumen.entregables, "entregable", "entregables") },
     { clave: "indicadores", texto: plural(resumen.indicadores, "indicador", "indicadores") },
-    { clave: "rubros", texto: `${plural(resumen.rubros, "rubro", "rubros")} con presupuesto` },
-    {
-      clave: "celdas",
-      texto: `${plural(resumen.celdas_programacion, "celda", "celdas")} de programación`,
-    },
+    // T11: `rubros` counts budget lines (activity + rubro); the template carries no programming (S4).
+    { clave: "lineas", texto: `${plural(resumen.rubros, "línea", "líneas")} de presupuesto` },
   ];
 }
 
@@ -228,8 +225,8 @@ export function ImportDialog({
               Importar plantilla de proyecto
             </DialogTitle>
             <DialogDescription>
-              Reemplaza la estructura, el presupuesto, la programación, las fechas, las líneas y los municipios del
-              borrador con el contenido del Excel. Si hay errores, no se escribe nada.
+              Reemplaza la estructura, el presupuesto por actividad, las fechas, las líneas y los municipios del
+              borrador con el contenido del Excel. La programación se edita en la web. Si hay errores, no se escribe nada.
             </DialogDescription>
           </DialogHeader>
 

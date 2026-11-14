@@ -4,12 +4,13 @@
  * Pure and Node-only (same `exceljs` boundary as `generate.ts`). The parser is
  * deliberately dumb: it reads cells, keeps their sheet/row/column identity and
  * reads a formula's cached `.result` (never recomputes). All business rules
- * live in the validators (U3/U4). `parsePlantilla` accepts only the nine known
- * sheets by name and caps every sheet at `MAX_FILAS_HOJA` rows.
+ * live in the validators (U3/U4). `parsePlantilla` accepts only the eight known
+ * sheets by name and caps every sheet at `MAX_FILAS_HOJA` rows; it also notes a
+ * sheet of the old layout (`8. Programación`) so V-01 can reject it by name.
  */
 import ExcelJS from "exceljs"
-import { assertIsoDate, type IsoDate, type Periodo } from "../weeks"
-import { HOJAS, MAX_FILAS_HOJA, type HojaKey } from "./columns"
+import { assertIsoDate, type IsoDate } from "../weeks"
+import { HOJA_PROGRAMACION_ANTERIOR, HOJAS, MAX_FILAS_HOJA, type HojaKey } from "./columns"
 
 export type Celda = { hoja: string; fila: number; columna: string; valor: string | number | Date | null }
 
@@ -22,6 +23,8 @@ export type Fila = { fila: number; celdas: Record<string, Celda> }
 export type ParsedTemplate = {
   version: string | null
   hojasPresentes: string[]
+  /** Sheets of a previous layout found in the workbook (T11: `8. Programación`). Never read. */
+  hojasObsoletas: string[]
   encabezados: Record<string, string[]>
   proyecto: {
     codigo: Celda
@@ -37,18 +40,12 @@ export type ParsedTemplate = {
   entregables: Fila[]
   indicadores: Fila[]
   presupuesto: Fila[]
-  programacion: {
-    meses: { encabezado: string; columna: string; periodo: Periodo | null }[]
-    filas: Fila[]
-  }
   /**
    * Data rows dropped per sheet because they exceeded `MAX_FILAS_HOJA`, keyed by
    * the sheet name. Empty when nothing was dropped; `vH2` turns it into a finding
    * so truncation is reported instead of silent (the rows are still not loaded).
    */
   excesoFilas: Record<string, number>
-  /** Month columns dropped because they exceeded `MAX_MESES`. */
-  excesoMeses: number
 }
 
 /** Thrown when the buffer is not a readable xlsx at all (corrupt / not a zip). */
@@ -61,9 +58,6 @@ export class PlantillaIlegible extends Error {
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const DMY_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
-const MES_ENCABEZADO = /^Mes (\d+) \((\d{4}-\d{2})\)$/
-/** Month columns read from `8. Programación`; anything beyond is ignored (DoS guard). */
-export const MAX_MESES = 60
 
 const HOJAS_CON_ENCABEZADO: readonly HojaKey[] = [
   "proyecto",
@@ -72,7 +66,6 @@ const HOJAS_CON_ENCABEZADO: readonly HojaKey[] = [
   "entregables",
   "indicadores",
   "presupuesto",
-  "programacion",
 ]
 
 const ETIQUETAS_PROYECTO: Record<keyof ParsedTemplate["proyecto"], string> = {
@@ -282,6 +275,7 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
 
   const nombres = new Set(workbook.worksheets.map((hoja) => hoja.name))
   const hojasPresentes = Object.values(HOJAS).filter((nombre) => nombres.has(nombre))
+  const hojasObsoletas = [HOJA_PROGRAMACION_ANTERIOR].filter((nombre) => nombres.has(nombre))
 
   const excesoFilas: Record<string, number> = {}
   const registrarExceso = (hoja: ExcelJS.Worksheet | undefined): void => {
@@ -315,28 +309,13 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
     return leerFilas(hoja, columnasEncabezado(hoja))
   }
 
-  const hojaProgramacion = workbook.getWorksheet(HOJAS.programacion)
-  const meses: { encabezado: string; columna: string; periodo: Periodo | null }[] = []
-  let filasProgramacion: Fila[] = []
-  let excesoMeses = 0
-  if (hojaProgramacion) {
-    registrarExceso(hojaProgramacion)
-    const columnas = columnasEncabezado(hojaProgramacion)
-    const columnasMes = columnas.slice(2).filter((col) => MES_ENCABEZADO.test(col.encabezado))
-    excesoMeses = Math.max(0, columnasMes.length - MAX_MESES)
-    for (const col of columnasMes.slice(0, MAX_MESES)) {
-      const match = MES_ENCABEZADO.exec(col.encabezado)
-      if (match) meses.push({ encabezado: col.encabezado, columna: col.columna, periodo: match[2] })
-    }
-    filasProgramacion = leerFilas(hojaProgramacion, columnas)
-  }
-
   const instrucciones = workbook.getWorksheet(HOJAS.instrucciones)
   const versionValor = instrucciones ? leerValor(instrucciones.getCell("B2")) : null
 
   return {
     version: versionValor === null ? null : String(versionValor),
     hojasPresentes,
+    hojasObsoletas,
     encabezados,
     proyecto,
     objetivos: leerHoja("objetivos"),
@@ -344,8 +323,6 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
     entregables: leerHoja("entregables"),
     indicadores: leerHoja("indicadores"),
     presupuesto: leerHoja("presupuesto"),
-    programacion: { meses, filas: filasProgramacion },
     excesoFilas,
-    excesoMeses,
   }
 }

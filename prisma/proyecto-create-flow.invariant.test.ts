@@ -160,7 +160,6 @@ describe("project creation flow (live DB, forced rollback)", () => {
           municipio_ids: [municipio.id],
           fecha_inicio: "2026-01-05",
           fecha_fin: "2026-03-30",
-          valor_total: 1000000,
           beneficiarios_meta: 10,
         }),
       );
@@ -238,7 +237,10 @@ describe("project creation flow (live DB, forced rollback)", () => {
       expect(res.status).toBe(201);
       const { proyecto } = await res.json();
       expect(proyecto.nombre).toBe(oportunidad.nombre);
-      expect(String(proyecto.valor_total)).toBe("500000");
+      // T11 S2: the value is the sum of the budget lines, so a converted project starts at 0 and the
+      // difference against the opportunity estimate is the whole estimate.
+      expect(Number(proyecto.valor_total)).toBe(0);
+      expect(Number(proyecto.diferencia_valor_oportunidad)).toBe(-500000);
 
       const converted = await tx.oportunidad.findUnique({ where: { id: oportunidad.id } });
       expect(converted?.fase).toBe("EJECUCION");
@@ -317,7 +319,6 @@ describe("project creation flow (live DB, forced rollback)", () => {
             municipio_ids: [municipio.id],
             fecha_inicio: "2026-01-05",
             fecha_fin: "2026-03-30",
-            valor_total: 1000000,
           },
         ),
         { params: Promise.resolve({ id: cliente.id, opportunityId: oportunidad.id }) },
@@ -352,7 +353,6 @@ describe("project creation flow (live DB, forced rollback)", () => {
           municipio_ids: [municipio.id],
           fecha_inicio: "2026-01-05",
           fecha_fin: "2026-03-30",
-        valor_total: 1000000,
         }),
       );
       expect(res.status).toBe(201);
@@ -384,7 +384,6 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
       municipio_ids: [municipioId],
       fecha_inicio: "2026-01-05",
       fecha_fin: "2026-03-30",
-      valor_total: 1000000,
       ...extra,
     };
   }
@@ -407,7 +406,6 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
             municipio_ids: [municipio.id],
             fecha_inicio: "2026-01-05",
             fecha_fin: "2026-03-30",
-          valor_total: 1000000,
           },
         ),
         { params: Promise.resolve({ id: cliente.id, opportunityId: oportunidad.id }) },
@@ -620,7 +618,6 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
             municipio_ids: [municipio.id],
             fecha_inicio: "2026-01-05",
             fecha_fin: "2026-03-30",
-            valor_total: 1000000,
             miembro_ids: [gerente.id],
           },
         ),

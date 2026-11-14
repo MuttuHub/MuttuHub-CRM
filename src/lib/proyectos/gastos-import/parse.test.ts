@@ -10,7 +10,7 @@ import {
   SUBTOTAL_POSITIVO_MESSAGE,
 } from "@/lib/api/gastos"
 import { toCents } from "../money"
-import type { RubroCatalogo } from "../presupuesto-po/parse"
+import type { RubroCatalogo } from "../excel-celdas"
 import {
   ARCHIVO_ILEGIBLE,
   DUPLICADO_EN_ARCHIVO_MESSAGE,

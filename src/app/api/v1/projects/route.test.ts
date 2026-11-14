@@ -184,7 +184,6 @@ const createBody = {
   municipio_ids: ["mun-1"],
   fecha_inicio: "2026-10-05",
   fecha_fin: "2027-01-29",
-  valor_total: 245450000,
   beneficiarios_meta: 120,
 };
 
@@ -644,21 +643,25 @@ describe("POST /api/v1/projects (E-03)", () => {
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
-  it("requires valor_total at creation (PO-5)", async () => {
-    const sinValor: Partial<typeof createBody> = { ...createBody };
-    delete sinValor.valor_total;
-    const res = await POST(postRequest(sinValor));
+  // S2 (T11): valor_total is the sum of the budget lines, never typed. A new project has no lines yet.
+  it("starts the project at valor_total 0 with no opportunity difference", async () => {
+    const res = await POST(postRequest(createBody));
 
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("El valor total es obligatorio.");
-    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> & { valor_total: Prisma.Decimal } },
+    ];
+    expect(String(createArgs.data.valor_total)).toBe("0");
+    expect(createArgs.data).not.toHaveProperty("diferencia_valor_oportunidad");
   });
 
-  it.each([0, -1, null])("rejects valor_total %s: it must be greater than zero", async (valor) => {
+  it.each([245450000, 0, null])("rejects a typed valor_total (%s) with 400: it is derived (S2)", async (valor) => {
     const res = await POST(postRequest({ ...createBody, valor_total: valor }));
+    const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/valor total/i);
+    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(json.error).toBe("El campo 'valor_total' no se puede establecer en este endpoint.");
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
@@ -674,15 +677,6 @@ describe("POST /api/v1/projects (E-03)", () => {
       expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
     },
   );
-
-  it("rejects an out-of-range valor_total with 400 instead of a 500", async () => {
-    const res = await POST(postRequest({ ...createBody, valor_total: 1e15 }));
-    const json = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(json.code).toBe("VALIDATION_ERROR");
-    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
-  });
 
   it("stores the trimmed description, and NULL when it is blank or omitted", async () => {
     await POST(postRequest({ ...createBody, descripcion: "  Alcance del convenio  " }));
