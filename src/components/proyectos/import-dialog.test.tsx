@@ -31,7 +31,7 @@ const PROYECTO: ProjectListRow = {
   municipios: [],
 }
 
-const RESUMEN = { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 32 }
+const RESUMEN = { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 0 }
 const REEMPLAZA = { objetivos: 2, actividades: 3, entregables: 4, indicadores: 1 }
 const ADVERTENCIA = {
   regla: "W-01",
@@ -270,8 +270,8 @@ describe("ImportDialog", () => {
       expect(resumen).toHaveTextContent("4 actividades")
       expect(resumen).toHaveTextContent("7 entregables")
       expect(resumen).toHaveTextContent("2 indicadores")
-      expect(resumen).toHaveTextContent("8 rubros con presupuesto")
-      expect(resumen).toHaveTextContent("32 celdas de programación")
+      expect(resumen).toHaveTextContent("8 líneas de presupuesto")
+      expect(resumen).not.toHaveTextContent("programación")
       expect(within(dialogo).getByTestId("import-reemplaza")).toHaveTextContent(
         "Se reemplazará: 2 objetivos, 3 actividades, 4 entregables y 1 indicador.",
       )

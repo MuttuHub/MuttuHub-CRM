@@ -15,7 +15,8 @@ import {
   ENCABEZADOS,
   ENCABEZADOS_ANTERIORES,
   ENCABEZADO_PROYECTO,
-  ENCABEZADOS_PROGRAMACION,
+  ENCABEZADOS_PRESUPUESTO_POR_RUBRO,
+  FORMATO_NUEVO_MENSAJE,
   HOJAS,
   MAX_ERRORES,
   MAX_FILAS_HOJA,
@@ -23,7 +24,6 @@ import {
   type HojaKey,
 } from "./columns"
 import {
-  MAX_MESES,
   parseFechaCelda,
   parseNumeroColombiano,
   type Celda,
@@ -31,7 +31,7 @@ import {
   type ParsedTemplate,
 } from "./parse"
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "../money"
-import { durationWeeks, projectPeriods, type Periodo } from "../weeks"
+import { durationWeeks } from "../weeks"
 import { validarSemanas } from "../actividad"
 
 /** The catalog data a template's project is validated against. */
@@ -65,7 +65,6 @@ const MAX_META = 2_147_483_647
 /** `Decimal(15,2)`, duplicated here so the pure lib never imports the API layer. */
 export const MONTO_MAXIMO_CENTS = toCents("9999999999999.99")
 
-const MES_ENCABEZADO = /^mes \d+ \(\d{4}-\d{2}\)$/
 const HOJAS_CODIGO = ["objetivos", "actividades", "entregables", "indicadores"] as const
 const HOJAS_DATOS = ["objetivos", "actividades", "entregables", "indicadores", "presupuesto"] as const
 const RE_ENTERO = /^-?\d+$/
@@ -223,19 +222,6 @@ function encabezadosOk(p: ParsedTemplate, key: (typeof HOJAS_DATOS)[number]): bo
   return coincideEncabezado(actual, ENCABEZADOS[key]) || coincideEncabezado(actual, ENCABEZADOS_ANTERIORES[key])
 }
 
-function programacionEstructuraOk(p: ParsedTemplate): boolean {
-  const normal = normalizarEncabezados(p.encabezados.programacion)
-  if (normal.length < 4) return false
-  if (normal[0] !== ENCABEZADOS_PROGRAMACION.codigoRubro.toLowerCase()) return false
-  if (normal[1] !== ENCABEZADOS_PROGRAMACION.rubro.toLowerCase()) return false
-  if (normal[normal.length - 2] !== ENCABEZADOS_PROGRAMACION.total.toLowerCase()) return false
-  if (normal[normal.length - 1] !== ENCABEZADOS_PROGRAMACION.control.toLowerCase()) return false
-  for (let i = 2; i < normal.length - 2; i++) {
-    if (!MES_ENCABEZADO.test(normal[i] ?? "")) return false
-  }
-  return true
-}
-
 function estructuraOk(p: ParsedTemplate, key: HojaKey): boolean {
   if (!p.hojasPresentes.includes(HOJAS[key])) return false
   if (key === "proyecto") {
@@ -244,7 +230,6 @@ function estructuraOk(p: ParsedTemplate, key: HojaKey): boolean {
     // A missing required label row is structural: suppress that sheet's rules.
     return ETIQUETAS_PROYECTO_REQUERIDAS.every(([campo]) => p.proyecto[campo].fila !== 0)
   }
-  if (key === "programacion") return programacionEstructuraOk(p)
   if (key === "instrucciones" || key === "catalogos") return true
   return encabezadosOk(p, key)
 }
@@ -276,36 +261,6 @@ function compararEncabezados(
   return errores
 }
 
-function compararEncabezadoProgramacion(p: ParsedTemplate): ErrorPlantilla[] {
-  const hoja = HOJAS.programacion
-  const normal = normalizarEncabezados(p.encabezados.programacion)
-  const errores: ErrorPlantilla[] = []
-  if (normal.length < 4) {
-    return [error("V-01", hoja, 1, null, null, "La hoja de programación no tiene las columnas esperadas.")]
-  }
-  const fija = (indice: number, esperado: string) => {
-    if (normal[indice] !== esperado.toLowerCase()) {
-      const columna = columnLetter(indice + 1)
-      errores.push(
-        error("V-01", hoja, 1, columna, normal[indice] ?? null, `El encabezado de la columna ${columna} debe ser «${esperado}».`),
-      )
-    }
-  }
-  fija(0, ENCABEZADOS_PROGRAMACION.codigoRubro)
-  fija(1, ENCABEZADOS_PROGRAMACION.rubro)
-  fija(normal.length - 2, ENCABEZADOS_PROGRAMACION.total)
-  fija(normal.length - 1, ENCABEZADOS_PROGRAMACION.control)
-  for (let i = 2; i < normal.length - 2; i++) {
-    if (!MES_ENCABEZADO.test(normal[i] ?? "")) {
-      const columna = columnLetter(i + 1)
-      errores.push(
-        error("V-01", hoja, 1, columna, normal[i] ?? null, `El encabezado «${normal[i]}» debe tener la forma «Mes k (AAAA-MM)».`),
-      )
-    }
-  }
-  return errores
-}
-
 // ---------------------------------------------------------------------------
 // V-01 — structural
 // ---------------------------------------------------------------------------
@@ -323,7 +278,21 @@ export function v01(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 
   if (p.version !== PLANTILLA_VERSION) {
     errores.push(
-      error("V-01", HOJAS.instrucciones, 2, "B", p.version, `La versión de la plantilla debe ser ${PLANTILLA_VERSION}.`),
+      error(
+        "V-01",
+        HOJAS.instrucciones,
+        2,
+        "B",
+        p.version,
+        `La versión de la plantilla debe ser ${PLANTILLA_VERSION}. ${FORMATO_NUEVO_MENSAJE}`,
+      ),
+    )
+  }
+
+  // A2: the old layout is named, never half-imported — a rubro-only row has no activity to sit on.
+  for (const nombre of p.hojasObsoletas) {
+    errores.push(
+      error("V-01", nombre, null, null, null, `La hoja «${nombre}» ya no hace parte de la plantilla. ${FORMATO_NUEVO_MENSAJE}`),
     )
   }
 
@@ -337,13 +306,24 @@ export function v01(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
   }
 
   for (const key of HOJAS_DATOS) {
-    if (presentes.has(HOJAS[key]) && !encabezadosOk(p, key)) {
+    if (!presentes.has(HOJAS[key]) || encabezadosOk(p, key)) continue
+    const porRubro =
+      key === "presupuesto" &&
+      coincideEncabezado(normalizarEncabezados(p.encabezados.presupuesto), ENCABEZADOS_PRESUPUESTO_POR_RUBRO)
+    if (porRubro) {
+      errores.push(
+        error(
+          "V-01",
+          HOJAS.presupuesto,
+          1,
+          null,
+          null,
+          `La hoja ${HOJAS.presupuesto} tiene el formato anterior, por rubro. ${FORMATO_NUEVO_MENSAJE}`,
+        ),
+      )
+    } else {
       errores.push(...compararEncabezados(HOJAS[key], p.encabezados[key], ENCABEZADOS[key]))
     }
-  }
-
-  if (presentes.has(HOJAS.programacion)) {
-    errores.push(...compararEncabezadoProgramacion(p))
   }
 
   return errores
@@ -609,6 +589,20 @@ export function v06(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
     }
   }
 
+  // S5: «la actividad existe» — a budget line names an activity of this same template.
+  if (estructuraOk(p, "presupuesto") && estructuraOk(p, "actividades")) {
+    const actividades = codigosDe(p, "actividades")
+    for (const fila of p.presupuesto) {
+      const celda = celdaDe(fila, "Código de actividad")
+      const referencia = textoDe(celda?.valor)
+      if (!actividades.has(referencia.toLowerCase())) {
+        errores.push(
+          error("V-06", HOJAS.presupuesto, fila.fila, celda?.columna ?? "A", referencia || null, `La actividad «${referencia}» no existe en la hoja ${HOJAS.actividades}.`),
+        )
+      }
+    }
+  }
+
   if (estructuraOk(p, "indicadores") && estructuraOk(p, "objetivos")) {
     const objetivos = codigosDe(p, "objetivos")
     for (const fila of p.indicadores) {
@@ -740,9 +734,8 @@ const CELDAS_PROYECTO: (keyof ParsedTemplate["proyecto"])[] = [
 
 /**
  * Hub guard the SDD lacks (map §3): reports a sheet that exceeded
- * `MAX_FILAS_HOJA` (the parser drops the extra rows), a `8. Programación` that
- * exceeded `MAX_MESES` month columns, and any Excel error/formula cell
- * (`#REF!`, `#DIV/0!`, ...) found in an input cell.
+ * `MAX_FILAS_HOJA` (the parser drops the extra rows) and any Excel error/formula
+ * cell (`#REF!`, `#DIV/0!`, ...) found in an input cell.
  */
 export function vH2(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
   void _c
@@ -762,18 +755,6 @@ export function vH2(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
       )
     }
   }
-  if (p.excesoMeses > 0) {
-    errores.push(
-      error(
-        "V-H2",
-        HOJAS.programacion,
-        1,
-        null,
-        p.excesoMeses,
-        `La programación tiene ${p.excesoMeses} columna(s) de mes más de las ${MAX_MESES} permitidas; las columnas sobrantes no se importarán.`,
-      ),
-    )
-  }
 
   const revisarCelda = (celda: Celda): void => {
     if (esErrorExcel(celda.valor)) {
@@ -791,7 +772,7 @@ export function vH2(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
   }
 
   for (const key of CELDAS_PROYECTO) revisarCelda(p.proyecto[key])
-  for (const filas of [p.objetivos, p.actividades, p.entregables, p.indicadores, p.presupuesto, p.programacion.filas]) {
+  for (const filas of [p.objetivos, p.actividades, p.entregables, p.indicadores, p.presupuesto]) {
     for (const fila of filas) for (const celda of Object.values(fila.celdas)) revisarCelda(celda)
   }
 
@@ -896,44 +877,66 @@ export function v10(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 }
 
 // ---------------------------------------------------------------------------
-// V-11 — budget rubros
+// V-11 — budget lines: active rubro, one row per activity + rubro, a valid value
 // ---------------------------------------------------------------------------
+
+/** The rubro code of a cell: the catalog dropdown writes «R01 - Personal», a bare «R01» works too. */
+export function codigoRubroDe(valor: Celda["valor"] | undefined): string {
+  const texto = textoDe(valor)
+  return texto.includes(" - ") ? texto.split(" - ")[0].trim() : texto
+}
 
 export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] {
   if (!estructuraOk(p, "presupuesto")) return []
   const activos = new Set(c.rubros.filter((rubro) => rubro.activo).map((rubro) => rubro.codigo))
-  const vistos = new Set<string>()
+  /** Activity + rubro -> the first row that carries it. */
+  const vistas = new Map<string, number>()
   const errores: ErrorPlantilla[] = []
 
   for (const fila of p.presupuesto) {
-    const celdaCodigo = celdaDe(fila, "Código rubro")
-    const codigo = textoDe(celdaCodigo?.valor)
-    const columna = celdaCodigo?.columna ?? "A"
+    const celdaRubro = celdaDe(fila, "Rubro")
+    const codigo = codigoRubroDe(celdaRubro?.valor)
+    const columna = celdaRubro?.columna ?? "B"
     if (codigo === "") {
-      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, null, "El código del rubro no puede estar vacío."))
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, null, "El rubro no puede estar vacío."))
     } else if (!activos.has(codigo)) {
       errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, codigo, `El rubro «${codigo}» no existe o está suspendido.`))
-    } else if (vistos.has(codigo)) {
-      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, codigo, `El rubro «${codigo}» está repetido.`))
     } else {
-      vistos.add(codigo)
+      // S5: «no se repite la misma combinación actividad + rubro».
+      const actividad = textoCelda(fila, "Código de actividad")
+      const clave = `${actividad.toLowerCase()}|${codigo}`
+      const primera = vistas.get(clave)
+      if (primera !== undefined) {
+        errores.push(
+          error(
+            "V-11",
+            HOJAS.presupuesto,
+            fila.fila,
+            columna,
+            codigo,
+            `La actividad «${actividad}» ya tiene el rubro «${codigo}» en la fila ${primera}: cada combinación de actividad y rubro va en una sola fila.`,
+          ),
+        )
+      } else {
+        vistas.set(clave, fila.fila)
+      }
     }
 
-    const celdaValor = celdaDe(fila, "Valor asignado")
-    const asignado = leerDecimal(celdaValor?.valor)
+    const celdaValor = celdaDe(fila, "Valor")
+    const valor = leerDecimal(celdaValor?.valor)
     const columnaValor = celdaValor?.columna ?? "C"
-    if (!asignado.ok) {
+    if (!valor.ok) {
       const mensaje =
-        asignado.motivo === "decimales"
-          ? "El valor asignado admite máximo dos decimales."
-          : asignado.motivo === "vacio"
-            ? "El valor asignado es obligatorio."
-            : "El valor asignado no es un monto válido."
+        valor.motivo === "decimales"
+          ? "El valor admite máximo dos decimales."
+          : valor.motivo === "vacio"
+            ? "El valor es obligatorio."
+            : "El valor no es un monto válido."
       errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, textoDe(celdaValor?.valor), mensaje))
-    } else if (asignado.cents < ZERO) {
-      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, asignado.dec, "El valor asignado no puede ser negativo."))
-    } else if (asignado.cents > MONTO_MAXIMO_CENTS) {
-      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, asignado.dec, "El valor asignado es demasiado alto."))
+    } else if (valor.cents < ZERO) {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, valor.dec, "El valor no puede ser negativo."))
+    } else if (valor.cents > MONTO_MAXIMO_CENTS) {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, valor.dec, "El valor es demasiado alto."))
     }
   }
 
@@ -952,7 +955,7 @@ function totalYSuma(p: ParsedTemplate): { total: Cents; suma: Cents } | null {
 
   const asignados: Cents[] = []
   for (const fila of p.presupuesto) {
-    const asignado = leerDecimal(celdaDe(fila, "Valor asignado")?.valor)
+    const asignado = leerDecimal(celdaDe(fila, "Valor")?.valor)
     if (asignado.ok && asignado.cents >= ZERO) asignados.push(asignado.cents)
   }
   return { total: total.cents, suma: sumCents(asignados) }
@@ -993,118 +996,6 @@ export function w02(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
       `${mensajeDiferencia(cifras.total, cifras.suma)} Se importará ${formatCOP(cifras.suma)} como valor total del proyecto.`,
     ),
   ]
-}
-
-// ---------------------------------------------------------------------------
-// V-13 — the monthly programming sums to the assigned amount
-// ---------------------------------------------------------------------------
-
-export function v13(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
-  void _c
-  if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "programacion")) return []
-
-  const asignadoPorRubro = new Map<string, Cents>()
-  for (const fila of p.presupuesto) {
-    const codigo = textoDe(celdaDe(fila, "Código rubro")?.valor)
-    const asignado = leerDecimal(celdaDe(fila, "Valor asignado")?.valor)
-    if (codigo !== "" && asignado.ok) asignadoPorRubro.set(codigo, asignado.cents)
-  }
-
-  const errores: ErrorPlantilla[] = []
-  for (const fila of p.programacion.filas) {
-    const celda = celdaDe(fila, "Código rubro")
-    const codigo = textoDe(celda?.valor)
-    if (codigo === "") continue
-
-    const celdas: Cents[] = []
-    for (const mes of p.programacion.meses) {
-      const dec = decimalDeCelda(fila.celdas[mes.encabezado]?.valor)
-      if (dec !== null) celdas.push(toCents(redondear2(dec)))
-    }
-    const suma = sumCents(celdas)
-    const asignado = asignadoPorRubro.get(codigo) ?? ZERO
-    if (suma !== asignado) {
-      const diferencia = asignado - suma
-      errores.push(
-        error(
-          "V-13",
-          HOJAS.programacion,
-          fila.fila,
-          celda?.columna ?? "A",
-          codigo,
-          `La programación de ${codigo} suma ${formatCOP(suma)} pero el presupuesto asigna ${formatCOP(asignado)} (diferencia ${formatCOP(diferencia)}).`,
-        ),
-      )
-    }
-  }
-
-  return errores
-}
-
-// ---------------------------------------------------------------------------
-// V-14 — month columns inside the project period
-// ---------------------------------------------------------------------------
-
-export function v14(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
-  void _c
-  if (!estructuraOk(p, "programacion") || !estructuraOk(p, "proyecto")) return []
-
-  const inicio = parseFechaCelda(p.proyecto.fechaInicio.valor)
-  const fin = parseFechaCelda(p.proyecto.fechaFin.valor)
-  const periodosValidos =
-    inicio && fin && inicio < fin ? new Set<Periodo>(projectPeriods(inicio, fin)) : null
-
-  const errores: ErrorPlantilla[] = []
-
-  const porEncabezado = new Map<string, number>()
-  for (const mes of p.programacion.meses) {
-    const clave = mes.encabezado.toLowerCase()
-    porEncabezado.set(clave, (porEncabezado.get(clave) ?? 0) + 1)
-
-    if (mes.periodo === null) {
-      errores.push(error("V-14", HOJAS.programacion, 1, mes.columna, mes.encabezado, "El encabezado del mes no es válido."))
-      continue
-    }
-    if (periodosValidos && !periodosValidos.has(mes.periodo)) {
-      const conValor = p.programacion.filas.some((fila) => {
-        const dec = decimalDeCelda(fila.celdas[mes.encabezado]?.valor)
-        return dec !== null && toCents(redondear2(dec)) !== ZERO
-      })
-      if (conValor) {
-        errores.push(
-          error("V-14", HOJAS.programacion, 1, mes.columna, mes.encabezado, `El mes ${mes.periodo} está fuera del período del proyecto.`),
-        )
-      }
-    }
-  }
-  for (const [encabezado, veces] of porEncabezado) {
-    if (veces > 1) {
-      errores.push(error("V-14", HOJAS.programacion, 1, null, encabezado, `El encabezado «${encabezado}» está repetido.`))
-    }
-  }
-
-  for (const fila of p.programacion.filas) {
-    for (const mes of p.programacion.meses) {
-      const celda = fila.celdas[mes.encabezado]
-      if (!celda) continue
-      const crudo = textoDe(celda.valor)
-      if (crudo === "") continue
-      const dec = decimalDeCelda(celda.valor)
-      if (dec === null) {
-        errores.push(error("V-14", HOJAS.programacion, fila.fila, mes.columna, crudo, "El valor del mes no es un número válido."))
-        continue
-      }
-      if (contarDecimales(dec) > 2) {
-        errores.push(error("V-14", HOJAS.programacion, fila.fila, mes.columna, crudo, "El valor del mes admite máximo dos decimales."))
-        continue
-      }
-      if (toCents(dec) < ZERO) {
-        errores.push(error("V-14", HOJAS.programacion, fila.fila, mes.columna, crudo, "El valor del mes no puede ser negativo."))
-      }
-    }
-  }
-
-  return errores
 }
 
 // ---------------------------------------------------------------------------
@@ -1173,8 +1064,6 @@ export function validarPlantilla(p: ParsedTemplate, c: ContextoValidacion): Resu
     v10,
     v11,
     v12,
-    v13,
-    v14,
     vH1,
     vH2,
   ]

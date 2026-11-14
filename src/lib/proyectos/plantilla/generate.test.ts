@@ -21,9 +21,10 @@ function sheet(workbook: ExcelJS.Workbook, name: string): ExcelJS.Worksheet {
 }
 
 describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
-  it("writes the nine sheets in the canonical order", async () => {
+  it("writes the eight sheets in the canonical order, with no programming sheet (S4)", async () => {
     const workbook = await reload()
     expect(workbook.worksheets.map((w) => w.name)).toEqual(Object.values(HOJAS))
+    expect(workbook.getWorksheet("8. Programación")).toBeUndefined()
   })
 
   it("puts the version in B2 of the instructions sheet", async () => {
@@ -43,33 +44,39 @@ describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
     expect((fecha as Date).toISOString()).toBe(`${F_X1_INICIO}T00:00:00.000Z`)
   })
 
-  it("preloads all 15 rubros in the budget sheet", async () => {
+  it("writes one budget row per line: activity code, rubro and value (S3)", async () => {
     const presupuesto = sheet(await reload(), HOJAS.presupuesto)
-    const codes = Array.from({ length: 15 }, (_, i) => presupuesto.getCell(i + 2, 1).value)
-    expect(codes).toEqual([
-      "R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08",
-      "R09", "R10", "R11", "R12", "R13", "R14", "R15",
+    expect(presupuesto.getRow(1).values).toEqual([undefined, "Código de actividad", "Rubro", "Valor"])
+    const filas = Array.from({ length: 8 }, (_, i) => {
+      const fila = presupuesto.getRow(i + 2)
+      return [fila.getCell(1).value, fila.getCell(2).value, fila.getCell(3).value]
+    })
+    expect(filas).toEqual([
+      ["1.1", "R01 - Personal", 59500000],
+      ["1.1", "R06 - Caracterización", 1440000],
+      ["1.2", "R08 - Formación", 45000000],
+      ["1.2", "R12 - Transporte", 24000000],
+      ["1.3", "R04 - Promoción y divulgación", 34000000],
+      ["1.3", "R11 - Varios", 300000],
+      ["1.4", "R13 - Suministros", 12800000],
+      ["1.4", "R15 - Dotación", 320000],
     ])
-    expect(presupuesto.getCell("C2").value).toBe(59500000)
-    expect(presupuesto.getCell("C3").value).toBe(0)
+    expect(presupuesto.actualRowCount).toBe(9)
   })
 
-  it("builds one Mes k (AAAA-MM) column per project period", async () => {
-    const programacion = sheet(await reload(), HOJAS.programacion)
-    expect(programacion.getCell("C1").value).toBe("Mes 1 (2026-10)")
-    expect(programacion.getCell("D1").value).toBe("Mes 2 (2026-11)")
-    expect(programacion.getCell("E1").value).toBe("Mes 3 (2026-12)")
-    expect(programacion.getCell("F1").value).toBe("Mes 4 (2027-01)")
-    expect(programacion.getCell("G1").value).toBe("Total")
-    expect(programacion.getCell("H1").value).toBe("Control")
-    // R01 in row 2: four monthly cells.
-    expect(programacion.getCell("C2").value).toBe(14875000)
-    expect(programacion.getCell("F2").value).toBe(14875000)
+  it("leaves the activity cell empty for a legacy line without activity", async () => {
+    const input = fixtureF_X1()
+    input.presupuesto = [{ actividadCodigo: null, rubroCodigo: "R01", valor: "1000" }]
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load((await generarPlantilla(input)) as never)
+    const fila = sheet(workbook, HOJAS.presupuesto).getRow(2)
+    expect([fila.getCell(1).value, fila.getCell(2).value, fila.getCell(3).value]).toEqual([null, "R01 - Personal", 1000])
   })
 
   it("keeps the named ranges after a save/reload round trip", async () => {
     const workbook: WorkbookWithDefinedNames = await reload()
-    expect(workbook.definedNames.getRanges("Rubros").ranges).toEqual(["'9. Catálogos'!$A$2:$A$16"])
+    expect(workbook.definedNames.getRanges("Rubros").ranges).toEqual(["'8. Catálogos'!$A$2:$A$16"])
+    expect(sheet(workbook, HOJAS.catalogos).getCell("A2").value).toBe("R01 - Personal")
     expect(workbook.definedNames.getRanges("Lineas").ranges[0]).toContain("$B$2:$B$")
     expect(workbook.definedNames.getRanges("Municipios").ranges[0]).toContain("$C$2:$C$")
     expect(workbook.definedNames.getRanges("Unidades").ranges[0]).toContain("$D$2:$D$")
@@ -84,13 +91,16 @@ describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
     const ranges = workbook.definedNames.getRanges("Municipios").ranges
     // An empty list must never yield the reversed `$C$2:$C$1`, which ExcelJS
     // rewrites to `$C$1:$C$2` and wrongly includes the header row.
-    expect(ranges).toEqual(["'9. Catálogos'!$C$2"])
+    expect(ranges).toEqual(["'8. Catálogos'!$C$2"])
     expect(ranges.join()).not.toContain("$C$1")
   })
 
   it("keeps the data validations after a save/reload round trip", async () => {
     const workbook = await reload()
-    expect(sheet(workbook, HOJAS.presupuesto).getCell("A2").dataValidation.formulae).toEqual(["=Rubros"])
+    expect(sheet(workbook, HOJAS.presupuesto).getCell("A2").dataValidation.formulae).toEqual([
+      "='4. Actividades'!$A$2:$A$200",
+    ])
+    expect(sheet(workbook, HOJAS.presupuesto).getCell("B2").dataValidation.formulae).toEqual(["=Rubros"])
     expect(sheet(workbook, HOJAS.actividades).getCell("B2").dataValidation.formulae).toEqual([
       "='3. Objetivos'!$A$2:$A$200",
     ])
@@ -103,16 +113,6 @@ describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
     const catalogo = sheet(workbook, HOJAS.catalogos)
     const protection = (catalogo as unknown as { sheetProtection?: { sheet?: boolean } }).sheetProtection
     expect(protection?.sheet).toBe(true)
-  })
-
-  it("writes Total and Control formulas with a cached result", async () => {
-    const programacion = sheet(await reload(), HOJAS.programacion)
-    const total = programacion.getCell("G2")
-    const control = programacion.getCell("H2")
-    expect(total.formula).toBe("SUM(C2:F2)")
-    expect(total.result).toBe(59500000)
-    expect(control.formula).toBe("G2-VLOOKUP(A2,'7. Presupuesto'!A:C,3,FALSE)")
-    expect(control.result).toBe(0)
   })
 })
 
@@ -133,7 +133,7 @@ describe("generarPlantilla — presentación de marca y ayudas", () => {
     expect(JSON.stringify(actividades.getCell("F1").note)).toContain("ana@muttu.co")
 
     const presupuesto = sheet(workbook, HOJAS.presupuesto)
-    expect(JSON.stringify(presupuesto.getCell("C1").note)).toContain("59.500.000")
+    expect(JSON.stringify(presupuesto.getCell("C1").note)).toContain("15.000.000")
 
     const proyecto = sheet(workbook, HOJAS.proyecto)
     expect(JSON.stringify(proyecto.getCell("B8").note)).toContain("177.360.000")

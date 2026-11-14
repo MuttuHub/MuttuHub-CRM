@@ -14,8 +14,6 @@ import {
   v10,
   v11,
   v12,
-  v13,
-  v14,
   vH1,
   vH2,
   w01,
@@ -24,8 +22,8 @@ import {
   type ContextoValidacion,
 } from "./validate"
 import { generarPlantilla } from "./generate"
-import { MAX_MESES, parsePlantilla, type Celda, type Fila, type ParsedTemplate } from "./parse"
-import { HOJAS, MAX_FILAS_HOJA } from "./columns"
+import { parsePlantilla, type Celda, type Fila, type ParsedTemplate } from "./parse"
+import { HOJAS, MAX_FILAS_HOJA, PLANTILLA_VERSION } from "./columns"
 import { toCents } from "../money"
 import { fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
 
@@ -90,6 +88,55 @@ describe("V-01 structural", () => {
     parsed.version = "2025.3"
     const errores = v01(parsed, contexto())
     expect(errores.some((e) => e.regla === "V-01" && e.hoja === HOJAS.instrucciones && e.fila === 2)).toBe(true)
+  })
+
+  it("A2: names the new layout when the template is the pre-T11 version 2026.1", async () => {
+    const parsed = await parsedValido()
+    parsed.version = "2026.1"
+    const error = v01(parsed, contexto()).find((e) => e.hoja === HOJAS.instrucciones)
+    expect(error).toMatchObject({ regla: "V-01", fila: 2, columna: "B", valor: "2026.1" })
+    expect(error?.mensaje).toBe(
+      `La versión de la plantilla debe ser ${PLANTILLA_VERSION}. Descarga la plantilla nueva (versión ${PLANTILLA_VERSION}): ` +
+        "la hoja 7. Presupuesto lleva una fila por actividad y rubro, con las columnas Código de actividad, Rubro y Valor, " +
+        "y la programación mensual ya no va en la plantilla: se edita en la web.",
+    )
+  })
+
+  it("A2: rejects a rubro-only budget sheet with one finding that names the new layout", async () => {
+    const parsed = await parsedValido()
+    parsed.encabezados.presupuesto = ["Código rubro", "Rubro", "Valor asignado"]
+    const errores = v01(parsed, contexto()).filter((e) => e.hoja === HOJAS.presupuesto)
+    expect(errores).toHaveLength(1)
+    expect(errores[0]).toMatchObject({ regla: "V-01", fila: 1, columna: null })
+    expect(errores[0].mensaje).toMatch(/^La hoja 7\. Presupuesto tiene el formato anterior, por rubro\. Descarga la plantilla nueva/)
+    expect(errores[0].mensaje).toContain("Código de actividad, Rubro y Valor")
+    // The sheet's own rules stay silent behind the structural finding.
+    expect(v11(parsed, contexto())).toEqual([])
+  })
+
+  it("A2: rejects a workbook that still carries the 8. Programación sheet", async () => {
+    const parsed = await parsedValido()
+    parsed.hojasObsoletas = ["8. Programación"]
+    const error = v01(parsed, contexto()).find((e) => e.hoja === "8. Programación")
+    expect(error).toMatchObject({ regla: "V-01", fila: null, columna: null })
+    expect(error?.mensaje).toMatch(/^La hoja «8\. Programación» ya no hace parte de la plantilla\. Descarga la plantilla nueva/)
+  })
+
+  it("A2: a whole pre-T11 workbook is rejected by validarPlantilla", async () => {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(bufferValido as never)
+    workbook.getWorksheet(HOJAS.instrucciones)!.getCell("B2").value = "2026.1"
+    const presupuesto = workbook.getWorksheet(HOJAS.presupuesto)!
+    presupuesto.getRow(1).values = ["Código rubro", "Rubro", "Valor asignado"]
+    workbook.addWorksheet("8. Programación").addRow(["Código rubro", "Rubro", "Mes 1 (2026-10)", "Total", "Control"])
+    const { errores } = validarPlantilla(await parsePlantilla((await workbook.xlsx.writeBuffer()) as never), contexto())
+    expect(errores.map((e) => `${e.regla}|${e.hoja}|${e.fila}`)).toEqual(
+      expect.arrayContaining([
+        `V-01|${HOJAS.instrucciones}|2`,
+        `V-01|${HOJAS.presupuesto}|1`,
+        "V-01|8. Programación|null",
+      ]),
+    )
   })
 })
 
@@ -196,6 +243,30 @@ describe("V-06 cross-sheet references", () => {
     const parsed2 = await parsedValido()
     parsed2.entregables[0].celdas["Código actividad"].valor = "1.9"
     expect(v06(parsed2, contexto()).some((e) => e.regla === "V-06" && e.hoja === HOJAS.entregables)).toBe(true)
+  })
+
+  it("S5: reports a budget line whose activity is not in the activities sheet, with row and column", async () => {
+    const parsed = await parsedValido()
+    parsed.presupuesto[2].celdas["Código de actividad"].valor = "1.9"
+    const errores = v06(parsed, contexto()).filter((e) => e.hoja === HOJAS.presupuesto)
+    expect(errores).toEqual([
+      {
+        regla: "V-06",
+        hoja: HOJAS.presupuesto,
+        fila: 4,
+        columna: "A",
+        valor: "1.9",
+        mensaje: `La actividad «1.9» no existe en la hoja ${HOJAS.actividades}.`,
+      },
+    ])
+  })
+
+  it("S5: reports a budget line with no activity", async () => {
+    const parsed = await parsedValido()
+    parsed.presupuesto[0].celdas["Código de actividad"].valor = null
+    expect(v06(parsed, contexto()).filter((e) => e.hoja === HOJAS.presupuesto)).toMatchObject([
+      { regla: "V-06", fila: 2, columna: "A", valor: null },
+    ])
   })
 })
 
@@ -326,30 +397,71 @@ describe("V-11 budget rubros", () => {
     expect(v11(await parsedValido(), contexto())).toEqual([])
   })
 
-  it("rejects unknown, suspended or repeated rubros and negatives", async () => {
+  it("S5: rejects an unknown or suspended rubro on the Rubro column", async () => {
     const desconocido = await parsedValido()
-    desconocido.presupuesto[0].celdas["Código rubro"].valor = "R16"
-    expect(v11(desconocido, contexto()).some((e) => e.regla === "V-11")).toBe(true)
+    desconocido.presupuesto[0].celdas["Rubro"].valor = "R16 - Otro"
+    expect(v11(desconocido, contexto())).toEqual([
+      { regla: "V-11", hoja: HOJAS.presupuesto, fila: 2, columna: "B", valor: "R16", mensaje: "El rubro «R16» no existe o está suspendido." },
+    ])
 
-    const suspendido = await parsedValido()
     const ctx = contexto()
     ctx.rubros = ctx.rubros.map((r) => (r.codigo === "R01" ? { ...r, activo: false } : r))
-    expect(v11(suspendido, ctx).some((e) => e.regla === "V-11")).toBe(true)
+    expect(v11(await parsedValido(), ctx)).toMatchObject([
+      { regla: "V-11", fila: 2, columna: "B", valor: "R01", mensaje: "El rubro «R01» no existe o está suspendido." },
+    ])
 
-    const repetido = await parsedValido()
-    repetido.presupuesto = [...repetido.presupuesto, fila(HOJAS.presupuesto, 17, { "Código rubro": "R01", "Valor asignado": 1 })]
-    expect(v11(repetido, contexto()).some((e) => e.regla === "V-11")).toBe(true)
+    const vacio = await parsedValido()
+    vacio.presupuesto[0].celdas["Rubro"].valor = null
+    expect(v11(vacio, contexto())).toMatchObject([{ fila: 2, columna: "B", mensaje: "El rubro no puede estar vacío." }])
+  })
 
+  it("S7: «Una plantilla con la misma actividad y rubro en dos filas se rechaza con fila y columna.»", async () => {
+    const parsed = await parsedValido()
+    // Row 10 repeats activity 1.2 + R12 (Transporte), first written on row 5.
+    parsed.presupuesto = [
+      ...parsed.presupuesto,
+      fila(HOJAS.presupuesto, 10, { "Código de actividad": "1.2", Rubro: "R12 - Transporte", Valor: 8000000 }),
+    ]
+    expect(v11(parsed, contexto())).toEqual([
+      {
+        regla: "V-11",
+        hoja: HOJAS.presupuesto,
+        fila: 10,
+        columna: "B",
+        valor: "R12",
+        mensaje: "La actividad «1.2» ya tiene el rubro «R12» en la fila 5: cada combinación de actividad y rubro va en una sola fila.",
+      },
+    ])
+    const { errores } = validarPlantilla(parsed, contexto())
+    expect(errores.filter((e) => e.regla === "V-11").map((e) => [e.fila, e.columna])).toEqual([[10, "B"]])
+  })
+
+  it("S1: accepts one activity with several rubros and one rubro on several activities", async () => {
+    const parsed = await parsedValido()
+    parsed.presupuesto = [
+      ...parsed.presupuesto,
+      fila(HOJAS.presupuesto, 10, { "Código de actividad": "1.3", Rubro: "R12", Valor: 8000000 }),
+    ]
+    expect(v11(parsed, contexto())).toEqual([])
+  })
+
+  it("rejects a negative or missing value on the Valor column", async () => {
     const negativo = await parsedValido()
-    negativo.presupuesto[0].celdas["Valor asignado"].valor = -5
-    expect(v11(negativo, contexto()).some((e) => e.regla === "V-11")).toBe(true)
+    negativo.presupuesto[0].celdas["Valor"].valor = -5
+    expect(v11(negativo, contexto())).toMatchObject([
+      { regla: "V-11", fila: 2, columna: "C", mensaje: "El valor no puede ser negativo." },
+    ])
+
+    const vacio = await parsedValido()
+    vacio.presupuesto[0].celdas["Valor"].valor = null
+    expect(v11(vacio, contexto())).toMatchObject([{ fila: 2, columna: "C", mensaje: "El valor es obligatorio." }])
   })
 })
 
-/** The parsed F-X1 with every "Valor asignado" set to zero. */
+/** The parsed F-X1 with every budget "Valor" set to zero. */
 async function parsedSinPresupuesto(): Promise<ParsedTemplate> {
   const parsed = await parsedValido()
-  for (const filaPres of parsed.presupuesto) filaPres.celdas["Valor asignado"].valor = 0
+  for (const filaPres of parsed.presupuesto) filaPres.celdas["Valor"].valor = 0
   return parsed
 }
 
@@ -392,37 +504,6 @@ describe("W-02 the budget sum replaces a different project total", () => {
     expect(advertencias[0].mensaje).toContain("diferencia")
     expect(advertencias[0].mensaje).toContain("50.000")
     expect(advertencias[0].mensaje).toMatch(/Se importará .*177\.360\.000 como valor total del proyecto\.$/)
-  })
-})
-
-describe("V-13 programming sums per rubro", () => {
-  it("accepts the generated F-X1", async () => {
-    expect(v13(await parsedValido(), contexto())).toEqual([])
-  })
-
-  it("reports control ≠ 0 per rubro", async () => {
-    const parsed = await parsedValido()
-    const r12 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R12")!
-    r12.celdas[parsed.programacion.meses[0].encabezado].valor = 5000000
-    const errores = v13(parsed, contexto()).filter((e) => e.regla === "V-13")
-    expect(errores).toHaveLength(1)
-    expect(errores[0].valor).toBe("R12")
-  })
-})
-
-describe("V-14 months inside the project period", () => {
-  it("accepts the generated F-X1", async () => {
-    expect(v14(await parsedValido(), contexto())).toEqual([])
-  })
-
-  it("rejects months outside the project period and negative values", async () => {
-    const fuera = await parsedValido()
-    fuera.programacion.meses[0].periodo = "2027-02"
-    expect(v14(fuera, contexto()).some((e) => e.regla === "V-14")).toBe(true)
-
-    const negativa = await parsedValido()
-    negativa.programacion.filas[0].celdas[negativa.programacion.meses[0].encabezado].valor = -1
-    expect(v14(negativa, contexto()).some((e) => e.regla === "V-14")).toBe(true)
   })
 })
 
@@ -474,20 +555,6 @@ describe("F2 — V-H2 workbook limits and Excel error cells", () => {
     expect(error?.valor).toBe("5")
   })
 
-  it("reports the month columns past MAX_MESES", async () => {
-    const workbook = new ExcelJS.Workbook()
-    const hoja = workbook.addWorksheet(HOJAS.programacion)
-    const meses = Array.from(
-      { length: MAX_MESES + 3 },
-      (_, i) => `Mes ${i + 1} (2026-${String((i % 12) + 1).padStart(2, "0")})`,
-    )
-    hoja.addRow(["Código rubro", "Rubro", ...meses, "Total", "Control"])
-    hoja.addRow(["R01", "Personal", ...meses.map(() => 0), 0, 0])
-    const parsed = await parsePlantilla((await workbook.xlsx.writeBuffer()) as never)
-    const error = vH2(parsed, contexto()).find((e) => e.regla === "V-H2" && e.hoja === HOJAS.programacion)
-    expect(error?.valor).toBe("3")
-  })
-
   it("is wired into validarPlantilla", async () => {
     const workbook = new ExcelJS.Workbook()
     const hoja = workbook.addWorksheet(HOJAS.objetivos)
@@ -530,16 +597,11 @@ describe("F3 — V-01 gates the project sheet", () => {
 describe("F6 — column ordering past Z", () => {
   it("orders Z before AA by Excel column index", async () => {
     const parsed = await parsedValido()
-    parsed.programacion.meses = [
-      { encabezado: "Mes 24 (2028-08)", columna: "Z", periodo: null },
-      { encabezado: "Mes 25 (2028-09)", columna: "AA", periodo: null },
-    ]
-    for (const fila of parsed.programacion.filas) {
-      fila.celdas["Mes 24 (2028-08)"] = { hoja: HOJAS.programacion, fila: fila.fila, columna: "Z", valor: "x" }
-      fila.celdas["Mes 25 (2028-09)"] = { hoja: HOJAS.programacion, fila: fila.fila, columna: "AA", valor: "x" }
-    }
-    const fila1 = validarPlantilla(parsed, contexto()).errores.filter((e) => e.fila === 1)
-    expect(fila1.map((e) => e.columna)).toEqual(["Z", "AA"])
+    const filaPres = parsed.presupuesto[0]
+    filaPres.celdas.AA = { hoja: HOJAS.presupuesto, fila: filaPres.fila, columna: "AA", valor: "#REF!" }
+    filaPres.celdas.Z = { hoja: HOJAS.presupuesto, fila: filaPres.fila, columna: "Z", valor: "#REF!" }
+    const enFila = validarPlantilla(parsed, contexto()).errores.filter((e) => e.fila === filaPres.fila)
+    expect(enFila.map((e) => e.columna)).toEqual(["Z", "AA"])
   })
 })
 
@@ -554,12 +616,11 @@ describe("validarPlantilla", () => {
   it("returns all errors sorted by sheet and row", async () => {
     const parsed = await parsedValido()
     parsed.actividades[3].celdas["Semana fin"].valor = 19
-    const r12 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R12")!
-    r12.celdas[parsed.programacion.meses[0].encabezado].valor = 5000000
+    parsed.presupuesto[3].celdas["Valor"].valor = -1
 
     const { errores } = validarPlantilla(parsed, contexto())
     expect(errores.some((e) => e.regla === "V-07")).toBe(true)
-    expect(errores.some((e) => e.regla === "V-13")).toBe(true)
+    expect(errores.some((e) => e.regla === "V-11")).toBe(true)
 
     const hojas: string[] = Object.values(HOJAS)
     const indices = errores.map((e) => hojas.indexOf(e.hoja))
@@ -637,15 +698,15 @@ describe("validarPlantilla", () => {
     const parsed = await parsedValido()
     parsed.objetivos[0].celdas["Descripción"].valor = ""
     parsed.actividades[3].celdas["Semana fin"].valor = 19
-    const r12 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R12")!
-    r12.celdas[parsed.programacion.meses[0].encabezado].valor = -1
+    parsed.presupuesto[3].celdas["Valor"].valor = -1
+    parsed.presupuesto[3].celdas["Código de actividad"].valor = "9.9"
 
     const { errores } = validarPlantilla(parsed, contexto())
     expect(errores.map((e) => `${e.hoja}|${e.fila}|${e.columna}`)).toEqual([
       `${HOJAS.objetivos}|2|B`,
       `${HOJAS.actividades}|${parsed.actividades[3].fila}|E`,
-      `${HOJAS.programacion}|${r12.fila}|A`,
-      `${HOJAS.programacion}|${r12.fila}|${parsed.programacion.meses[0].columna}`,
+      `${HOJAS.presupuesto}|5|A`,
+      `${HOJAS.presupuesto}|5|C`,
     ])
   })
 })

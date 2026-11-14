@@ -1,21 +1,18 @@
 /**
- * S7 U1 (RF-03) — build the official nine-sheet Excel template.
+ * S7 U1 (RF-03) — build the official eight-sheet Excel template (T11 dropped the
+ * monthly programming sheet: S4).
  *
  * Node-only (`exceljs` must never reach a `"use client"` module). The workbook
  * is written from a pure `PlantillaInput`, so the route that downloads it and
- * the fixture tests share one code path. Every formula cell is written with a
- * cached `result`: `exceljs` drops the result when no value is available, and
- * the parser (U2) reads `.result`, never the `Total`/`Control` text.
+ * the fixture tests share one code path.
  */
 import ExcelJS from "exceljs"
 import { randomUUID } from "node:crypto"
-import { toCents } from "../money"
-import { projectPeriods, type IsoDate, type Periodo } from "../weeks"
+import { type IsoDate } from "../weeks"
 import {
   CATALOGOS,
   ENCABEZADO_PROYECTO,
   ENCABEZADOS,
-  ENCABEZADOS_PROGRAMACION,
   ETIQUETAS_PROYECTO,
   HOJAS,
   MAX_FILAS_HOJA,
@@ -73,27 +70,16 @@ export type PlantillaInput = {
     entregables: EntregableInput[]
     indicadores: IndicadorInput[]
   }
-  /** Rubro code -> assigned amount as a decimal string. Missing codes mean 0. */
-  presupuesto: Record<string, string>
-  /** Rubro code -> period -> programmed amount as a decimal string. */
-  programacion: Record<string, Record<Periodo, string>>
+  /**
+   * S3: the budget lines in the order they are written, one per activity + rubro. A legacy line
+   * (D9) has no activity: its activity cell is left empty, so it must be placed before importing.
+   */
+  presupuesto: { actividadCodigo: string | null; rubroCodigo: string; valor: string }[]
 }
 
 /** The subset of `exceljs` the typed surface omits (present at runtime). */
 type WorksheetConValidaciones = ExcelJS.Worksheet & {
   dataValidations: { add(range: string, dv: Partial<ExcelJS.DataValidation>): void }
-}
-
-/** 1 -> "A", 27 -> "AA". */
-function columnLetter(index: number): string {
-  let n = index
-  let letters = ""
-  while (n > 0) {
-    const remainder = (n - 1) % 26
-    letters = String.fromCharCode(65 + remainder) + letters
-    n = Math.floor((n - 1) / 26)
-  }
-  return letters
 }
 
 /* ── Presentación: colores de marca + ayudas para quien llena la plantilla ── */
@@ -170,8 +156,10 @@ function sheetRef(name: string): string {
   return `'${name}'`
 }
 
-function centsToNumber(cents: bigint): number {
-  return Number(cents) / 100
+/** «R01 - Personal», the rubro dropdown text; a rubro outside the catalog keeps its bare code. */
+function etiquetaRubro(codigo: string, rubros: PlantillaInput["catalogo"]["rubros"]): string {
+  const rubro = rubros.find((r) => r.codigo === codigo)
+  return rubro ? `${rubro.codigo} - ${rubro.nombre}` : codigo
 }
 
 function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput): ExcelJS.Worksheet {
@@ -201,7 +189,7 @@ function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput
     "3. Usa punto y coma (;) para separar varias líneas estratégicas o municipios.",
     "4. Las semanas van de 1 al total de semanas del proyecto.",
     "5. Los montos aceptan formato colombiano (59.500.000 o 1.440.000,50).",
-    "6. Revisa la hoja 9. Catálogos para los valores permitidos.",
+    "6. Revisa la hoja 8. Catálogos para los valores permitidos.",
   ]
   texto.forEach((linea, i) => {
     const celda = hoja.getCell(`A${i + 4}`)
@@ -235,8 +223,8 @@ function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput
     ["4. Actividades", "Responsable (correo)", "ana@muttu.co", "Usuario registrado; si no existe, se avisa y queda sin responsable."],
     ["5. Entregables", "Cantidad / Unidad", "4 / Acta", "Cuántos y en qué unidad se entrega (la unidad es libre)."],
     ["6. Indicadores", "Meta", "30", "Valor esperado del indicador (mayor que cero)."],
-    ["7. Presupuesto", "Valor asignado", "59.500.000", "Monto del rubro; la suma de los rubros forma el presupuesto."],
-    ["8. Programación", "Mes 1 (2026-10)", "14.880.000", "Monto del rubro ese mes; la fila debe sumar lo asignado."],
+    ["7. Presupuesto", "Código de actividad / Rubro", "1.2 / R08 - Formación", "Una fila por actividad y rubro; una actividad puede llevar varios rubros."],
+    ["7. Presupuesto", "Valor", "15.000.000", "Monto de esa actividad en ese rubro; las filas suman el valor del proyecto."],
   ]
   ejemplos.forEach((fila, i) => {
     const numero = 14 + i
@@ -302,7 +290,7 @@ function escribirProyecto(workbook: ExcelJS.Workbook, input: PlantillaInput): Ex
     Municipios: "Nombre (Departamento), separados por «; ». Ejemplo: Manizales (Caldas).",
     "Fecha de inicio": "Fecha real de Excel; define la semana 1. Ejemplo: 05/10/2026.",
     "Fecha de fin": "Fecha real de Excel; define la duración en semanas. Ejemplo: 29/01/2027.",
-    "Valor total": "Valor en pesos. Ejemplo: 177.360.000. Revisa que el presupuesto sume igual.",
+    "Valor total": "Valor en pesos. Ejemplo: 177.360.000. Al importar, el valor del proyecto es la suma de la hoja 7. Presupuesto.",
     "Meta de beneficiarios": "Número entero de beneficiarios. Ejemplo: 500.",
   }
   for (const [etiqueta, texto] of Object.entries(ayudaProyecto)) {
@@ -415,89 +403,19 @@ function escribirIndicadores(workbook: ExcelJS.Workbook, input: PlantillaInput):
 function escribirPresupuesto(workbook: ExcelJS.Workbook, input: PlantillaInput): ExcelJS.Worksheet {
   const hoja = workbook.addWorksheet(HOJAS.presupuesto)
   hoja.addRow([...ENCABEZADOS.presupuesto])
-  for (const rubro of input.catalogo.rubros) {
-    hoja.addRow([rubro.codigo, rubro.nombre, Number(input.presupuesto[rubro.codigo] ?? "0")])
+  for (const linea of input.presupuesto) {
+    hoja.addRow([linea.actividadCodigo, etiquetaRubro(linea.rubroCodigo, input.catalogo.rubros), Number(linea.valor)])
   }
   pintarCabecera(hoja.getRow(1))
   pintarCuerpo(hoja)
   congelarCabecera(hoja)
-  anchos(hoja, [16, 48, 20])
+  anchos(hoja, [20, 48, 20])
   ayudasDeCabecera(hoja, {
-    A: "Rubro del catálogo (desplegable). Ejemplo: R01.",
-    B: "Nombre del rubro (solo lectura informativa).",
-    C: "Monto asignado en pesos; puede ser 0. Ejemplo: 59.500.000.",
+    A: "Debe existir en la hoja 4. Actividades (desplegable). Ejemplo: 1.2.",
+    B: "Rubro del catálogo (desplegable). Una actividad puede tener varios rubros, cada uno en su fila. Ejemplo: R08 - Formación.",
+    C: "Monto de la actividad en ese rubro, en pesos; puede ser 0. Ejemplo: 15.000.000.",
   })
   hoja.getColumn(3).numFmt = "#,##0"
-  return hoja
-}
-
-function escribirProgramacion(workbook: ExcelJS.Workbook, input: PlantillaInput): ExcelJS.Worksheet {
-  const hoja = workbook.addWorksheet(HOJAS.programacion)
-  const periodos = projectPeriods(input.proyecto.fechaInicio, input.proyecto.fechaFin)
-  hoja.addRow([
-    ENCABEZADOS_PROGRAMACION.codigoRubro,
-    ENCABEZADOS_PROGRAMACION.rubro,
-    ...periodos.map((periodo, i) => `Mes ${i + 1} (${periodo})`),
-    ENCABEZADOS_PROGRAMACION.total,
-    ENCABEZADOS_PROGRAMACION.control,
-  ])
-
-  const primeraColumnaMes = columnLetter(3)
-  const ultimaColumnaMes = columnLetter(2 + periodos.length)
-  const columnaTotal = columnLetter(3 + periodos.length)
-  const columnaControl = columnLetter(4 + periodos.length)
-
-  for (const rubro of input.catalogo.rubros) {
-    const asignado = toCents(input.presupuesto[rubro.codigo] ?? "0")
-    const meses = periodos.map((periodo) => {
-      const valor = input.programacion[rubro.codigo]?.[periodo]
-      return valor === undefined ? null : Number(valor)
-    })
-    const totalCents = meses.reduce<bigint>(
-      (suma, valor) => (valor === null ? suma : suma + toCents(String(valor))),
-      toCents("0"),
-    )
-
-    const fila = hoja.addRow([rubro.codigo, rubro.nombre, ...meses])
-
-    const celdaTotal = hoja.getCell(`${columnaTotal}${fila.number}`)
-    celdaTotal.value = {
-      formula: `SUM(${primeraColumnaMes}${fila.number}:${ultimaColumnaMes}${fila.number})`,
-      result: centsToNumber(totalCents),
-    }
-
-    const celdaControl = hoja.getCell(`${columnaControl}${fila.number}`)
-    celdaControl.value = {
-      formula: `${columnaTotal}${fila.number}-VLOOKUP(A${fila.number},${sheetRef(HOJAS.presupuesto)}!A:C,3,FALSE)`,
-      result: centsToNumber(totalCents - asignado),
-    }
-  }
-
-  pintarCabecera(hoja.getRow(1))
-  pintarCuerpo(hoja)
-  congelarCabecera(hoja)
-  anchos(hoja, [16, 42, ...periodos.map(() => 15), 18, 18])
-  ayudasDeCabecera(hoja, {
-    A: "Rubro del catálogo (desplegable). Ejemplo: R01.",
-    B: "Nombre del rubro (solo lectura informativa).",
-  })
-  periodos.forEach((periodo, i) => {
-    nota(
-      hoja.getCell(1, 3 + i),
-      `Monto del rubro en ${periodo}. La suma de todos los meses de la fila debe ser igual al Valor asignado. Ejemplo: 14.880.000.`,
-    )
-  })
-  nota(
-    hoja.getCell(1, 3 + periodos.length),
-    "Fórmula: suma de los meses de la fila. No la modifiques.",
-  )
-  nota(
-    hoja.getCell(1, 4 + periodos.length),
-    "Fórmula: Total - Valor asignado del rubro. Si no es 0, revisa la programación. No la modifiques.",
-  )
-  for (let columna = 3; columna <= 4 + periodos.length; columna += 1) {
-    hoja.getColumn(columna).numFmt = "#,##0"
-  }
   return hoja
 }
 
@@ -506,7 +424,7 @@ async function escribirCatalogos(workbook: ExcelJS.Workbook, input: PlantillaInp
   hoja.addRow([CATALOGOS.rubros, CATALOGOS.lineas, CATALOGOS.municipios, CATALOGOS.unidades])
 
   input.catalogo.rubros.forEach((rubro, i) => {
-    hoja.getCell(i + 2, 1).value = rubro.codigo
+    hoja.getCell(i + 2, 1).value = etiquetaRubro(rubro.codigo, input.catalogo.rubros)
   })
   input.catalogo.lineas.forEach((linea, i) => {
     hoja.getCell(i + 2, 2).value = `${linea.codigo} - ${linea.nombre}`
@@ -521,7 +439,7 @@ async function escribirCatalogos(workbook: ExcelJS.Workbook, input: PlantillaInp
   pintarCabecera(hoja.getRow(1))
   anchos(hoja, [14, 40, 44, 20])
   ayudasDeCabecera(hoja, {
-    A: "Códigos y nombres de rubros disponibles (alimenta el desplegable de la hoja 7 y 8).",
+    A: "Rubros disponibles como «código - nombre» (alimenta el desplegable de la hoja 7).",
     B: "Líneas estratégicas activas como «código - nombre»; se eligen en la hoja 2 separadas por «; ».",
     C: "Municipios activos como «Nombre (Departamento)»; se eligen en la hoja 2 separadas por «; ».",
     D: "Unidades sugeridas para los entregables; la unidad es texto libre.",
@@ -556,13 +474,17 @@ function aplicarValidaciones(hojas: {
   entregables: ExcelJS.Worksheet
   indicadores: ExcelJS.Worksheet
   presupuesto: ExcelJS.Worksheet
-  programacion: ExcelJS.Worksheet
 }): void {
   const ultima = MAX_FILAS_HOJA + 1
   const referenciaObjetivos = `${sheetRef(HOJAS.objetivos)}!$A$2:$A$200`
   const referenciaActividades = `${sheetRef(HOJAS.actividades)}!$A$2:$A$200`
 
   addValidation(hojas.presupuesto, `A2:A${ultima}`, {
+    type: "list",
+    allowBlank: true,
+    formulae: [`=${referenciaActividades}`],
+  })
+  addValidation(hojas.presupuesto, `B2:B${ultima}`, {
     type: "list",
     allowBlank: true,
     formulae: [`=${NOMBRES_RANGO.rubros}`],
@@ -572,11 +494,6 @@ function aplicarValidaciones(hojas: {
     operator: "greaterThanOrEqual",
     allowBlank: true,
     formulae: [0],
-  })
-  addValidation(hojas.programacion, `A2:A${ultima}`, {
-    type: "list",
-    allowBlank: true,
-    formulae: [`=${NOMBRES_RANGO.rubros}`],
   })
   addValidation(hojas.actividades, `B2:B${ultima}`, {
     type: "list",
@@ -644,10 +561,9 @@ export async function generarPlantilla(input: PlantillaInput): Promise<Buffer> {
   const entregables = escribirEntregables(workbook, input)
   const indicadores = escribirIndicadores(workbook, input)
   const presupuesto = escribirPresupuesto(workbook, input)
-  const programacion = escribirProgramacion(workbook, input)
   await escribirCatalogos(workbook, input)
 
-  aplicarValidaciones({ objetivos, actividades, entregables, indicadores, presupuesto, programacion })
+  aplicarValidaciones({ objetivos, actividades, entregables, indicadores, presupuesto })
 
   return Buffer.from(await workbook.xlsx.writeBuffer())
 }

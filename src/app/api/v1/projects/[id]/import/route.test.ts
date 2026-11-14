@@ -5,6 +5,7 @@
 // F-X1 workbook.
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Usuario } from "@prisma/client";
+import ExcelJS from "exceljs";
 
 const mocks = vi.hoisted(() => ({
   proyectoFindFirst: vi.fn(),
@@ -48,12 +49,24 @@ const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 let valido: Buffer;
 let v12: Buffer;
-let v13: Buffer;
+/** S7: activity 1.2 + R12 repeated on row 10 (first on row 5). */
+let duplicada: Buffer;
+/** A2: a template downloaded before T11 (version 2026.1, rubro-only budget, sheet 8). */
+let anterior: Buffer;
 
 beforeAll(async () => {
   valido = await generarPlantilla(fixtureF_X1("valido"));
   v12 = await generarPlantilla(fixtureF_X1("v12"));
-  v13 = await generarPlantilla(fixtureF_X1("v13"));
+  const input = fixtureF_X1("valido");
+  input.presupuesto = [...input.presupuesto, { actividadCodigo: "1.2", rubroCodigo: "R12", valor: "8000000" }];
+  duplicada = await generarPlantilla(input);
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(valido as never);
+  workbook.getWorksheet("1. Instrucciones")!.getCell("B2").value = "2026.1";
+  workbook.getWorksheet("7. Presupuesto")!.getRow(1).values = ["Código rubro", "Rubro", "Valor asignado"];
+  workbook.addWorksheet("8. Programación").addRow(["Código rubro", "Rubro", "Mes 1 (2026-10)", "Total", "Control"]);
+  anterior = Buffer.from(await workbook.xlsx.writeBuffer());
 });
 
 function proyecto(estado = "BORRADOR") {
@@ -97,7 +110,7 @@ beforeEach(() => {
     entregables: 7,
     indicadores: 2,
     rubros: 8,
-    celdas_programacion: 32,
+    celdas_programacion: 0,
   });
   mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({ marca: "tx" }));
 });
@@ -174,20 +187,39 @@ describe("POST /projects/:id/import — gate order", () => {
 });
 
 describe("POST /projects/:id/import — validation report", () => {
-  it("400 VALIDATION_ERROR with the report when V-13 fails, and nothing is written", async () => {
-    const response = await POST(subida(v13), ctx);
+  it("S7: the same activity and rubro on two rows is rejected with row and column, and nothing is written", async () => {
+    const response = await POST(subida(duplicada), ctx);
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.code).toBe("VALIDATION_ERROR");
-    expect(body.reporte.errores.map((e: { regla: string }) => e.regla)).toEqual(["V-13"]);
+    expect(body.reporte.errores).toEqual([
+      {
+        regla: "V-11",
+        hoja: "7. Presupuesto",
+        fila: 10,
+        columna: "B",
+        valor: "R12",
+        mensaje: "La actividad «1.2» ya tiene el rubro «R12» en la fila 5: cada combinación de actividad y rubro va en una sola fila.",
+      },
+    ]);
     expect(body.reporte.truncado).toBe(false);
-    expect(body.reporte.resumen["V-13"]).toBe(1);
+    expect(body.reporte.resumen["V-11"]).toBe(1);
     expect(mocks.transaction).not.toHaveBeenCalled();
     expect(mocks.importarPlantilla).not.toHaveBeenCalled();
   });
 
+  it("A2: a pre-T11 template is rejected with findings that name the new layout", async () => {
+    const response = await POST(subida(anterior), ctx);
+    expect(response.status).toBe(400);
+    const { reporte } = await response.json();
+    const v01 = reporte.errores.filter((e: { regla: string }) => e.regla === "V-01");
+    expect(v01.map((e: { hoja: string }) => e.hoja)).toEqual(["8. Programación", "1. Instrucciones", "7. Presupuesto"]);
+    for (const e of v01) expect(e.mensaje).toContain("Código de actividad, Rubro y Valor");
+    expect(mocks.importarPlantilla).not.toHaveBeenCalled();
+  });
+
   it("applies the same report to a dry run", async () => {
-    const response = await POST(subida(v13, { modo: "validar" }), ctx);
+    const response = await POST(subida(duplicada, { modo: "validar" }), ctx);
     expect(response.status).toBe(400);
     expect((await response.json()).reporte.errores.length).toBeGreaterThan(0);
   });
@@ -223,7 +255,7 @@ describe("POST /projects/:id/import — dry run", () => {
     expect(await response.json()).toEqual({
       importado: false,
       valido: true,
-      resumen: { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 32 },
+      resumen: { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 0 },
       reemplaza: { objetivos: 2, actividades: 3, entregables: 4, indicadores: 1 },
       advertencias: [],
     });

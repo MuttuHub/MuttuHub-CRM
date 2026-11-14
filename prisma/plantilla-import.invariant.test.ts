@@ -3,17 +3,19 @@
 // What a mocked client cannot prove, the local Postgres does:
 //
 //   - the valid F-X1 workbook replaces the draft with the exact counts, weights,
-//     budget, programming and ONE audit lote;
-//   - a blocking V-13 failure writes nothing (counts before == after);
+//     budget lines (each on its new activity, T11) and ONE audit lote;
+//   - a blocking V-11 failure (S7: the same activity + rubro twice) writes nothing;
 //   - the PRODUCTION path is atomic: a late failure injected at the last audit
 //     insert while the route wraps the writer in its own `db.$transaction`
 //     leaves zero new rows, zero audit rows and the previous draft intact;
 //   - the writer's own writes are undoable: a failure after the objectives and
 //     activities were inserted can be rolled back with a savepoint (this proves
 //     undoability, NOT that the route wraps the writer — see the test below);
-//   - a re-import soft-deletes the old rows and the same codes stay insertable;
-//   - a pre-existing gasto and its soporte survive an import (budget lines are
-//     updated to $0, never deleted);
+//   - a re-import soft-deletes the old rows and the same codes stay insertable, and
+//     keeps each budget line the template repeats (re-pointed at the new activity)
+//     with its programming cells (S4/S8: the template carries no programming);
+//   - a line the template leaves out is deleted, but one with a gasto refuses the
+//     import with 409 and nothing is written (A3);
 //   - a non-BORRADOR project, or one that already has progress history (an
 //     avance OR a medición), is 409.
 //
@@ -64,13 +66,13 @@ vi.mock("@/lib/db", () => ({
 import { requireApiUser } from "@/lib/supabase/server";
 import { RUBROS_V2 } from "@/lib/catalogs";
 import { RespuestaAbortada } from "@/lib/api/presupuesto";
-import { importarPlantilla } from "@/lib/api/plantilla-import";
+import { LINEA_CON_GASTOS_MESSAGE, importarPlantilla } from "@/lib/api/plantilla-import";
 import { POST } from "@/app/api/v1/projects/[id]/import/route";
 import { generarPlantilla, type PlantillaInput } from "@/lib/proyectos/plantilla/generate";
 import { parsePlantilla } from "@/lib/proyectos/plantilla/parse";
 import { construirPlan } from "@/lib/proyectos/plantilla/mapear";
 import { cargarContexto } from "@/lib/api/plantilla-import";
-import { F_X1_PRESUPUESTO, fixtureF_X1 } from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
+import { F_X1_LINEAS, fixtureF_X1 } from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
 
 const TX_OPTIONS = { timeout: 120_000, maxWait: 20_000 };
 const MARKER = "sdd-invariant-plantilla";
@@ -109,7 +111,7 @@ type Contexto = {
   tx: Tx;
   gerente: Usuario;
   proyecto: { id: string; codigo: string };
-  input: (variante: "valido" | "v13") => PlantillaInput;
+  input: () => PlantillaInput;
   antiguo: { objetivoId: string };
 };
 
@@ -187,8 +189,8 @@ async function fixture(tx: Tx, estado: "BORRADOR" | "EN_EJECUCION" = "BORRADOR")
     data: { proyecto_id: proyecto.id, rubro_id: rubro.id, monto_proyectado_cop: new Prisma.Decimal("5.00") },
   });
 
-  const input = (variante: "valido" | "v13"): PlantillaInput => {
-    const base = fixtureF_X1(variante);
+  const input = (): PlantillaInput => {
+    const base = fixtureF_X1("valido");
     return {
       ...base,
       proyecto: {
@@ -270,14 +272,26 @@ beforeEach(() => {
 });
 
 async function plantillas(ctx: Contexto) {
+  const duplicada = ctx.input();
+  duplicada.presupuesto = [...duplicada.presupuesto, { actividadCodigo: "1.2", rubroCodigo: "R12", valor: "8000000" }];
   return {
-    valido: await generarPlantilla(ctx.input("valido")),
-    v13: await generarPlantilla(ctx.input("v13")),
+    valido: await generarPlantilla(ctx.input()),
+    duplicada: await generarPlantilla(duplicada),
   };
 }
 
+/** Every budget line points at a LIVE activity of the project; returns «código|rubro» -> line. */
+async function lineasPorActividad(tx: Tx, proyectoId: string) {
+  const lineas = await tx.lineaPresupuestal.findMany({
+    where: { proyecto_id: proyectoId },
+    include: { actividad: true, rubro: true },
+  });
+  for (const linea of lineas) expect(linea.actividad ? linea.actividad.deleted_at : "sin actividad").toBeNull();
+  return new Map(lineas.map((l) => [`${l.actividad?.codigo}|${l.rubro.codigo}`, l]));
+}
+
 describe("template import (live DB)", () => {
-  it("imports the valid F-X1 workbook: counts, weights, budget, programming, project fields and one audit lote", async () => {
+  it("imports the valid F-X1 workbook: counts, weights, budget lines, project fields and one audit lote", async () => {
     await runAndRollback(async (tx) => {
       const ctx = await fixture(tx);
       autenticar(ctx.gerente);
@@ -293,7 +307,7 @@ describe("template import (live DB)", () => {
         entregables: 7,
         indicadores: 2,
         rubros: 8,
-        celdas_programacion: 32,
+        celdas_programacion: 0,
       });
       expect(holder.transacciones).toBe(1);
 
@@ -332,19 +346,22 @@ describe("template import (live DB)", () => {
       expect(despues.lineasCat.filter((l) => l.principal)).toHaveLength(1);
       expect(despues.munis).toHaveLength(2);
 
-      // Budget: eight funded lines, plus the old R02 line (kept, now $0: lines are never deleted).
-      const rubros = await tx.rubro.findMany({ where: { id: { in: despues.lineas.map((l) => l.rubro_id) } } });
-      const porCodigo = new Map(
-        despues.lineas.map((l) => [rubros.find((r) => r.id === l.rubro_id)?.codigo, l.monto_proyectado_cop.toString()]),
+      // S3: eight lines, each on its new live activity; the old legacy R02 line (no activity) is gone.
+      const lineas = await lineasPorActividad(tx, ctx.proyecto.id);
+      expect([...lineas.entries()].map(([k, l]) => [k, l.monto_proyectado_cop.toString()]).sort()).toEqual(
+        F_X1_LINEAS.map((l) => [`${l.actividadCodigo}|${l.rubroCodigo}`, l.valor]).sort(),
       );
-      for (const [codigo, monto] of Object.entries(F_X1_PRESUPUESTO)) expect(porCodigo.get(codigo)).toBe(monto);
-      expect(porCodigo.get("R02")).toBe("0");
-      expect(despues.lineas).toHaveLength(9);
-      expect(despues.celdas).toHaveLength(32);
+      expect(despues.lineas).toHaveLength(8);
+      // S2: valor_total is the sum of the lines (checked above: 177360000). S4: no programming written.
+      expect(despues.celdas).toHaveLength(0);
 
       // One lote, only IMPORTAR rows, including the `reemplazo` summary row.
       const filas = await tx.auditoriaCambio.findMany({ where: { lote_id: cuerpo.lote_id } });
-      expect(filas.length).toBeGreaterThan(40);
+      // S4: no programming sheet, so no `programacion` rows; `presupuesto` = 8 new lines + the dropped legacy R02.
+      const porEntidad = Object.fromEntries(
+        [...new Set(filas.map((f) => f.entidad))].map((e) => [e, filas.filter((f) => f.entidad === e).length]),
+      );
+      expect(porEntidad).toEqual({ actividad: 4, entregable: 7, indicador: 2, objetivo: 1, presupuesto: 9, proyecto: 9 });
       expect(new Set(filas.map((f) => f.lote_id))).toEqual(new Set([cuerpo.lote_id]));
       expect(new Set(filas.map((f) => f.accion))).toEqual(new Set(["IMPORTAR"]));
       const reemplazo = filas.find((f) => f.entidad === "proyecto" && f.campo === "reemplazo");
@@ -355,18 +372,18 @@ describe("template import (live DB)", () => {
     });
   });
 
-  // V-12 became the non-blocking W-02 (#85); V-13 (programming != assigned) still blocks.
-  it("a V-13 failure answers 400 and writes nothing", async () => {
+  // S7: «Una plantilla con la misma actividad y rubro en dos filas se rechaza con fila y columna.»
+  it("a repeated activity + rubro answers 400 with row and column and writes nothing", async () => {
     await runAndRollback(async (tx) => {
       const ctx = await fixture(tx);
       autenticar(ctx.gerente);
-      const { v13 } = await plantillas(ctx);
+      const { duplicada } = await plantillas(ctx);
       const antes = await snapshot(tx, ctx.proyecto.id);
 
-      const respuesta = await POST(...peticion(ctx.proyecto.id, v13));
+      const respuesta = await POST(...peticion(ctx.proyecto.id, duplicada));
       expect(respuesta.status).toBe(400);
       const cuerpo = await respuesta.json();
-      expect(cuerpo.reporte.errores.map((e: { regla: string }) => e.regla)).toContain("V-13");
+      expect(cuerpo.reporte.errores).toMatchObject([{ regla: "V-11", hoja: "7. Presupuesto", fila: 10, columna: "B" }]);
 
       expect(holder.transacciones).toBe(0);
       expect(await snapshot(tx, ctx.proyecto.id)).toEqual(antes);
@@ -489,6 +506,11 @@ describe("template import (live DB)", () => {
       const { valido } = await plantillas(ctx);
 
       expect((await POST(...peticion(ctx.proyecto.id, valido))).status).toBe(200);
+      // S8: programming is typed on the web between imports, on line 1.2 + R08.
+      const primera = (await lineasPorActividad(tx, ctx.proyecto.id)).get("1.2|R08")!;
+      await tx.programacionPeriodo.create({
+        data: { proyecto_id: ctx.proyecto.id, linea_id: primera.id, periodo: "2026-10", valor: new Prisma.Decimal("45000000") },
+      });
       const segundo = await POST(...peticion(ctx.proyecto.id, valido));
       expect(segundo.status).toBe(200);
 
@@ -502,8 +524,12 @@ describe("template import (live DB)", () => {
       expect(filas.actividades).toHaveLength(9);
       expect(filas.entregables).toHaveLength(15);
       expect(filas.indicadores).toHaveLength(4);
-      expect(filas.celdas).toHaveLength(32);
-      expect(filas.lineas).toHaveLength(9);
+      // The line survives the re-import with its id and its cell, now on the second import's activity.
+      const despues = (await lineasPorActividad(tx, ctx.proyecto.id)).get("1.2|R08")!;
+      expect(despues.id).toBe(primera.id);
+      expect(despues.actividad_id).not.toBe(primera.actividad_id);
+      expect(filas.celdas.map((c) => [c.linea_id, c.periodo, c.valor.toString()])).toEqual([[primera.id, "2026-10", "45000000"]]);
+      expect(filas.lineas).toHaveLength(8);
       expect(filas.lineasCat).toHaveLength(2);
       expect(filas.munis).toHaveLength(2);
     });
@@ -577,7 +603,7 @@ describe("template import (live DB)", () => {
     });
   });
 
-  it("a pre-existing gasto and its soporte survive an import (the budget line is zeroed, never deleted)", async () => {
+  it("A3: a line the template leaves out that has a gasto refuses the import (409) and nothing is written", async () => {
     await runAndRollback(async (tx) => {
       const ctx = await fixture(tx);
       autenticar(ctx.gerente);
@@ -610,15 +636,17 @@ describe("template import (live DB)", () => {
         },
       });
 
-      expect((await POST(...peticion(ctx.proyecto.id, valido))).status).toBe(200);
+      const antes = await snapshot(tx, ctx.proyecto.id);
 
-      const gastoDespues = await tx.gasto.findUniqueOrThrow({ where: { id: gasto.id } });
-      expect(gastoDespues.linea_id).toBe(linea.id);
+      const respuesta = await POST(...peticion(ctx.proyecto.id, valido));
+      expect(respuesta.status).toBe(409);
+      expect(await respuesta.json()).toMatchObject({ error: LINEA_CON_GASTOS_MESSAGE, code: "CONFLICT" });
+
+      expect(await snapshot(tx, ctx.proyecto.id)).toEqual(antes);
+      expect((await tx.gasto.findUniqueOrThrow({ where: { id: gasto.id } })).linea_id).toBe(linea.id);
       const soporteDespues = await tx.soporteProyecto.findUniqueOrThrow({ where: { id: soporte.id } });
       expect(soporteDespues.gasto_id).toBe(gasto.id);
       expect(soporteDespues.deleted_at).toBeNull();
-      const lineaDespues = await tx.lineaPresupuestal.findUniqueOrThrow({ where: { id: linea.id } });
-      expect(lineaDespues.monto_proyectado_cop.toString()).toBe("0");
     });
   });
 
