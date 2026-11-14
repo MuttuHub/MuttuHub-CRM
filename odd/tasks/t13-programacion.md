@@ -54,8 +54,8 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | #188 `f1789f5` |
 | T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | #188 `f1789f5` |
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | done | `6089552` |
-| T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | delegated (writer, with T13.6) | done, verifying | `aed85bc` |
-| T13.6 | S5 | Modification engine, control, forms and traslado by line | delegated (writer, parallel with T13.8) | done, verifying | `82029c4` |
+| T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | delegated (writer, with T13.6) | done, verified | `aed85bc` |
+| T13.6 | S5 | Modification engine, control, forms and traslado by line | delegated (writer, parallel with T13.8) | done, verified | `82029c4` |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | done | `278074c` |
 | T13.8 | S7 | Template «Tipo» column | delegated (writer, parallel with T13.5/T13.6, disjoint surfaces) | done | `c239152` |
 | T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
@@ -123,3 +123,10 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   mover valores del mes en curso hacia meses futuros, o entre meses futuros» (literally excludes it); the
   implementation allows it. Follow-ups: `diffSnapshots` (versiones.ts) still keys by rubro; `loadEjecutadoPorLinea`
   and the «line has expenses» checks must count `gastos_reparto` once lane B lands.
+- **L14** Independent verifier over `0679f95..aed85bc` (risk item 3): S4 PASS, S5 PASS, no blockers. Differential
+  against the baseline on the same probes: only intended fixes (old one-line rubro keys crashed with 500 and now apply;
+  line keys crashed in a Prisma upsert and now answer 400; ambiguous old keys answered ANTES_DESACTUALIZADO and now
+  CLAVE_AMBIGUA). Every rejected command left the data hash unchanged. Advisories: `project-modificaciones.tsx:194`
+  replaces only the first «|» of a clave (cosmetic, pre-existing); a rubro with a legacy line plus an activity line
+  resolves an old key to the legacy line; the seed chain needs Supabase Auth, so bare-Postgres probes build fixtures
+  with Prisma. Disposable DB `verif_t13_325` (port 55432) left in place.
