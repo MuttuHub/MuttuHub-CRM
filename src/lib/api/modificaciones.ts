@@ -20,6 +20,7 @@ import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import {
   applyModificacion,
+  claveLineaDe,
   validarModificacion,
   type DetalleItem,
   type ErrorRegla,
@@ -152,17 +153,18 @@ export async function loadSolicitudView(solicitudId: string): Promise<SolicitudV
 type EjecutadoReader = Pick<Prisma.TransactionClient, "gasto">;
 
 /**
- * Executed total per rubro code (E). At approval time it runs under the line locks, so no
- * registration can commit between this read and the write. AJ-08: REGISTRADO already counts.
+ * Executed total per budget line key (E; T13 S5: `ACT|RUBRO`, or the rubro code of a legacy line). At
+ * approval time it runs under the line locks, so no registration can commit between this read and the
+ * write. AJ-08: REGISTRADO already counts.
  */
-export async function loadEjecutadoPorRubro(client: EjecutadoReader, proyectoId: string): Promise<Map<string, Cents>> {
+export async function loadEjecutadoPorLinea(client: EjecutadoReader, proyectoId: string): Promise<Map<string, Cents>> {
   const filas = await client.gasto.findMany({
     where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
-    select: { monto_cop: true, linea: { select: { rubro: { select: { codigo: true } } } } },
+    select: { monto_cop: true, linea: { select: { rubro: { select: { codigo: true } }, actividad: { select: { codigo: true } } } } },
   });
   const total = new Map<string, Cents>();
   for (const fila of filas) {
-    const codigo = fila.linea.rubro.codigo;
+    const codigo = claveLineaDe(fila.linea.rubro.codigo, fila.linea.actividad?.codigo);
     if (codigo === null) continue;
     total.set(codigo, (total.get(codigo) ?? BigInt(0)) + toCents(fila.monto_cop));
   }
@@ -195,8 +197,9 @@ export async function evaluarSolicitud(
     throw new Error("A project with an approved baseline always has its header complete.");
   }
 
-  // A rubro that is not in the budget yet must exist in the catalog and be active.
-  const enPresupuesto = new Set(live.presupuesto.map((r) => r.rubro_codigo));
+  // A rubro that is not in the budget yet must exist in the catalog and be active. A key of the budget
+  // is a line key or (requests stored before T13) the bare code of a rubro that has lines.
+  const enPresupuesto = new Set(live.presupuesto.flatMap((r) => [r.rubro_codigo, r.codigo_linea]));
   const nuevos = [
     ...new Set(solicitud.detalle.filter((i) => i.elemento === "presupuesto" && !enPresupuesto.has(i.clave)).map((i) => i.clave)),
   ];
@@ -213,7 +216,7 @@ export async function evaluarSolicitud(
   }
   if (reglas.length > 0) return { live, reglas, catalogo };
 
-  const [ejecutado, parametros] = await Promise.all([loadEjecutadoPorRubro(client, proyectoId), getSemaforoParametrosV2()]);
+  const [ejecutado, parametros] = await Promise.all([loadEjecutadoPorLinea(client, proyectoId), getSemaforoParametrosV2()]);
   const errores = validarModificacion(live, solicitud, ejecutado, periodOf(todayInBogota()), {
     bloqueaPeriodosPasados: parametros.modificacion_bloquea_periodos_pasados.valor,
   });
@@ -294,7 +297,10 @@ const decimal2 = (text: string) => new Prisma.Decimal(text);
 
 type Aplicador = Prisma.TransactionClient;
 
-/** Maps a (project) code to the row id and writes the new values by diff. Returns ids for the audit. */
+/**
+ * Maps a (project) code to the row id and writes the new values by diff. Budget lines and cells are keyed
+ * by line key (T13 S5), as `applyModificacion` left them. Returns ids for the audit.
+ */
 async function escribirCambios(tx: Aplicador, proyectoId: string, antes: LiveProyecto, despues: LiveProyecto) {
   const ids = { linea: new Map<string, string>(), actividad: new Map<string, string>(), entregable: new Map<string, string>(), indicador: new Map<string, string>() };
 
@@ -313,22 +319,29 @@ async function escribirCambios(tx: Aplicador, proyectoId: string, antes: LivePro
     });
   }
 
-  // Budget lines: a rubro leaving the budget keeps its row at A = 0 (expenses may reference it).
+  // Budget lines: a line leaving the budget keeps its row at A = 0 (expenses may reference it).
   const lineas = await tx.lineaPresupuestal.findMany({
     where: { proyecto_id: proyectoId },
-    select: { id: true, monto_proyectado_cop: true, rubro: { select: { codigo: true } } },
+    select: { id: true, monto_proyectado_cop: true, rubro: { select: { codigo: true } }, actividad: { select: { codigo: true } } },
   });
-  for (const linea of lineas) if (linea.rubro.codigo) ids.linea.set(linea.rubro.codigo, linea.id);
-  const asignado = (live: LiveProyecto, codigo: string) => live.presupuesto.find((r) => r.rubro_codigo === codigo)?.asignado ?? "0";
-  const codigos = new Set([...antes.presupuesto, ...despues.presupuesto].map((r) => r.rubro_codigo ?? ""));
+  const existentes = new Map<string, (typeof lineas)[number]>();
+  for (const linea of lineas) {
+    const clave = claveLineaDe(linea.rubro.codigo, linea.actividad?.codigo);
+    if (clave === null) continue;
+    existentes.set(clave, linea);
+    ids.linea.set(clave, linea.id);
+  }
+  const asignado = (live: LiveProyecto, codigo: string) => live.presupuesto.find((r) => claveLive(r) === codigo)?.asignado ?? "0";
+  const codigos = new Set([...antes.presupuesto, ...despues.presupuesto].map(claveLive));
   for (const codigo of [...codigos].sort()) {
     const nuevo = toCents(asignado(despues, codigo));
-    const existente = lineas.find((l) => l.rubro.codigo === codigo);
+    const existente = existentes.get(codigo);
     if (existente) {
       if (toCents(existente.monto_proyectado_cop) !== nuevo) {
         await tx.lineaPresupuestal.update({ where: { id: existente.id }, data: { monto_proyectado_cop: decimalFromCents(nuevo) } });
       }
     } else if (nuevo > BigInt(0)) {
+      // Only a bare rubro reaches here (a new activity line is refused as ELEMENTO_INEXISTENTE): no activity.
       const rubro = await tx.rubro.findFirstOrThrow({ where: { codigo }, select: { id: true } });
       const creada = await tx.lineaPresupuestal.create({
         data: { proyecto_id: proyectoId, rubro_id: rubro.id, monto_proyectado_cop: decimalFromCents(nuevo) },
@@ -340,14 +353,14 @@ async function escribirCambios(tx: Aplicador, proyectoId: string, antes: LivePro
 
   // Programming cells: a cell that becomes $0 is deleted (S5 pattern).
   const valorCelda = (live: LiveProyecto) =>
-    new Map(live.programacion.map((c) => [`${c.rubro_codigo}|${c.periodo}`, toCents(c.valor)]));
+    new Map(live.programacion.map((c) => [`${claveLive(c)}|${c.periodo}`, toCents(c.valor)]));
   const previas = valorCelda(antes);
   const nuevas = valorCelda(despues);
   for (const clave of [...new Set([...previas.keys(), ...nuevas.keys()])].sort()) {
     const previo = previas.get(clave) ?? BigInt(0);
     const nuevo = nuevas.get(clave) ?? BigInt(0);
     if (previo === nuevo) continue;
-    const [codigo = "", periodo = ""] = clave.split("|");
+    const { linea: codigo, periodo } = partirCelda(clave);
     const lineaId = ids.linea.get(codigo) as string;
     if (nuevo === BigInt(0)) {
       await tx.programacionPeriodo.deleteMany({ where: { linea_id: lineaId, periodo } });
@@ -396,7 +409,16 @@ async function escribirCambios(tx: Aplicador, proyectoId: string, antes: LivePro
   return ids;
 }
 
-/** One audit row per changed field. A line or cell that appears/disappears is recorded as A or P going to/from $0. */
+/** The line key of a live or snapshot row (`codigo_linea`, or the rubro code of a legacy row). */
+const claveLive = (fila: { rubro_codigo: string | null; codigo_linea?: string | null }): string => fila.codigo_linea ?? fila.rubro_codigo ?? "";
+
+/** `ACT|RUBRO|AAAA-MM` or `RUBRO|AAAA-MM` -> the line key and the month. */
+const partirCelda = (clave: string) => ({ linea: clave.slice(0, clave.lastIndexOf("|")), periodo: clave.slice(clave.lastIndexOf("|") + 1) });
+
+/**
+ * One audit row per changed field. A line or cell that appears/disappears is recorded as A or P going to/from $0.
+ * Budget and programming rows are compared per line key (T13 S5: two lines of one rubro are two rows).
+ */
 function auditoriaDeCambios(
   base: { usuario_id: string; proyecto_id: string; lote_id: string },
   proyectoId: string,
@@ -404,40 +426,50 @@ function auditoriaDeCambios(
   despues: SnapshotV1,
   ids: { linea: Map<string, string>; actividad: Map<string, string>; entregable: Map<string, string>; indicador: Map<string, string> },
 ): CambioInput[] {
-  const asignado = (s: SnapshotV1, codigo: string) => s.presupuesto.find((r) => r.rubro_codigo === codigo)?.asignado ?? "0.00";
-  const programado = (s: SnapshotV1, clave: string) => s.programacion.find((c) => `${c.rubro_codigo}|${c.periodo}` === clave)?.valor ?? "0.00";
-  return diffSnapshots(antes, despues).map((d): CambioInput => {
+  const asignados = (s: SnapshotV1) => new Map(s.presupuesto.map((r) => [claveLive(r), r.asignado]));
+  const programados = (s: SnapshotV1) => new Map(s.programacion.map((c) => [`${claveLive(c)}|${c.periodo}`, c.valor]));
+  const cambios = (a: Map<string, string>, b: Map<string, string>) =>
+    [...new Set([...a.keys(), ...b.keys()])].sort().filter((clave) => (a.get(clave) ?? "0.00") !== (b.get(clave) ?? "0.00"));
+  const [asigAntes, asigDespues, progAntes, progDespues] = [asignados(antes), asignados(despues), programados(antes), programados(despues)];
+
+  const presupuesto = cambios(asigAntes, asigDespues).map((clave): CambioInput => ({
+    ...base,
+    accion: "EDITAR",
+    entidad: "presupuesto",
+    entidad_id: ids.linea.get(clave) ?? proyectoId,
+    campo: "asignado",
+    valor_anterior: asigAntes.get(clave) ?? "0.00",
+    valor_nuevo: asigDespues.get(clave) ?? "0.00",
+  }));
+  const programacion = cambios(progAntes, progDespues).map((clave): CambioInput => {
+    const { linea, periodo } = partirCelda(clave);
+    return {
+      ...base,
+      accion: "EDITAR",
+      entidad: "programacion",
+      entidad_id: ids.linea.get(linea) ?? proyectoId,
+      campo: periodo,
+      valor_anterior: progAntes.get(clave) ?? "0.00",
+      valor_nuevo: progDespues.get(clave) ?? "0.00",
+    };
+  });
+
+  const resto = diffSnapshots(antes, despues).flatMap((d): CambioInput[] => {
     switch (d.elemento) {
-      case "proyecto":
-        return { ...base, accion: "EDITAR", entidad: "proyecto", entidad_id: proyectoId, campo: d.campo, valor_anterior: d.desde, valor_nuevo: d.hasta };
       case "presupuesto":
-        return {
-          ...base,
-          accion: "EDITAR",
-          entidad: "presupuesto",
-          entidad_id: ids.linea.get(d.clave) ?? proyectoId,
-          campo: "asignado",
-          valor_anterior: asignado(antes, d.clave),
-          valor_nuevo: asignado(despues, d.clave),
-        };
-      case "programacion": {
-        const [codigo = "", periodo = ""] = d.clave.split("|");
-        return {
-          ...base,
-          accion: "EDITAR",
-          entidad: "programacion",
-          entidad_id: ids.linea.get(codigo) ?? proyectoId,
-          campo: periodo,
-          valor_anterior: programado(antes, d.clave),
-          valor_nuevo: programado(despues, d.clave),
-        };
-      }
+      case "programacion":
+        return [];
+      case "proyecto":
+        return [{ ...base, accion: "EDITAR", entidad: "proyecto", entidad_id: proyectoId, campo: d.campo, valor_anterior: d.desde, valor_nuevo: d.hasta }];
       case "actividad":
       case "entregable":
       case "indicador":
-        return { ...base, accion: "EDITAR", entidad: d.elemento, entidad_id: ids[d.elemento].get(d.clave) ?? proyectoId, campo: d.campo, valor_anterior: d.desde, valor_nuevo: d.hasta };
+        return [{ ...base, accion: "EDITAR", entidad: d.elemento, entidad_id: ids[d.elemento].get(d.clave) ?? proyectoId, campo: d.campo, valor_anterior: d.desde, valor_nuevo: d.hasta }];
     }
   });
+  // Same order as the snapshot diff: proyecto, presupuesto, programacion, then the structure.
+  const proyecto = resto.filter((c) => c.entidad === "proyecto");
+  return [...proyecto, ...presupuesto, ...programacion, ...resto.filter((c) => c.entidad !== "proyecto")];
 }
 
 export type AprobacionResult = { version: { id: string; numero: number; aprobado_at: string } };

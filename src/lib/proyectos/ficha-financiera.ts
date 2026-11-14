@@ -137,7 +137,8 @@ export type PrecondicionFalla = { codigo: PrecondicionCodigo; mensaje: string; r
 /**
  * A budget line for the programming control. `lineaId` keys the control per line
  * (T11: a rubro can have one line per activity); without it the control falls back
- * to the rubro, which is still how the post-approval modification check calls it.
+ * to the rubro. The baseline and the post-approval modification check (T13 S5) both
+ * pass it.
  */
 export type LineaControl = {
   lineaId?: string

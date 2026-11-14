@@ -32,6 +32,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { construirDetalle, type CampoEditable, type TipoModificacion } from "@/lib/proyectos/modificacion-detalle";
+import { claveLineaDe } from "@/lib/proyectos/modificaciones";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -102,21 +103,34 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
   const clave = (...partes: string[]) => partes.join("|");
   const campos: CampoEditable[] = [];
   const grilla = tipo === "TRASLADO" || tipo === "ADICION" || tipo === "REDUCCION" || tipo === "REPROGRAMACION";
-  const rubros = (budget.data?.rubros ?? []).filter((r) => r.codigo !== null && (r.activo || toCents(r.asignado) > BigInt(0)));
+  // T13 (S5): one row per budget line (activity + rubro), keyed `ACT|RUBRO` (the bare rubro for a legacy
+  // line); an active catalog rubro without a line is a row keyed by its code, so an ADICION can bring it in.
+  const lineasPresupuesto = budget.data?.lineas ?? [];
+  const filas = [
+    ...lineasPresupuesto.flatMap((l) => {
+      const codigo = claveLineaDe(l.rubro_codigo, l.actividad_codigo);
+      if (codigo === null) return [];
+      const etiqueta = l.actividad_codigo ? `${l.actividad_codigo} ${l.rubro_codigo}` : codigo;
+      return [{ id: l.linea_id, codigo, etiqueta, actividad: l.actividad_codigo, rubro: l.rubro_codigo as string, nombre: l.rubro_nombre, asignado: l.valor }];
+    }),
+    ...(budget.data?.rubros ?? [])
+      .filter((r) => r.codigo !== null && r.activo && !lineasPresupuesto.some((l) => l.rubro_id === r.rubro_id))
+      .map((r) => ({ id: r.rubro_id, codigo: r.codigo as string, etiqueta: r.codigo as string, actividad: null, rubro: r.codigo as string, nombre: r.nombre, asignado: r.asignado })),
+  ];
   const periodos = programming.data?.periodos ?? [];
-  const celdaActual = (rubroId: string, periodo: string) =>
-    programming.data?.filas.find((f) => f.rubro_id === rubroId && f.periodo === periodo)?.valor ?? "0.00";
+  const celdaActual = (lineaId: string, periodo: string) =>
+    programming.data?.filas.find((f) => f.linea_id === lineaId && f.periodo === periodo)?.valor ?? "0.00";
 
   if (grilla) {
-    for (const rubro of rubros) {
-      const codigo = rubro.codigo as string;
-      campos.push({ elemento: "presupuesto", clave: codigo, campo: "asignado", antes: rubro.asignado, valor: valores[clave("a", codigo)] ?? "" });
+    for (const fila of filas) {
+      const codigo = fila.codigo;
+      campos.push({ elemento: "presupuesto", clave: codigo, campo: "asignado", antes: fila.asignado, valor: valores[clave("a", codigo)] ?? "" });
       for (const periodo of periodos) {
         campos.push({
           elemento: "programacion",
           clave: `${codigo}|${periodo}`,
           campo: "valor",
-          antes: celdaActual(rubro.rubro_id, periodo),
+          antes: celdaActual(fila.id, periodo),
           valor: valores[clave("p", codigo, periodo)] ?? "",
         });
       }
@@ -194,7 +208,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
           <Table className="w-full text-[12.5px]">
             <TableHeader>
               <TableRow>
-                <TableHead scope="col">Rubro</TableHead>
+                <TableHead scope="col">Actividad y rubro</TableHead>
                 <TableHead scope="col" numeric>Asignado</TableHead>
                 {periodos.map((periodo) => (
                   <TableHead key={periodo} scope="col" numeric>{periodo}</TableHead>
@@ -202,22 +216,23 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rubros.map((rubro) => {
-                const codigo = rubro.codigo as string;
+              {filas.map((fila) => {
+                const codigo = fila.codigo;
                 return (
-                  <TableRow key={rubro.rubro_id}>
+                  <TableRow key={fila.id}>
                     <TableCell className="text-ink-800 whitespace-normal">
-                      <span className="font-mono text-[11.5px] text-ink-500">{codigo} </span>
-                      {rubro.nombre}
+                      {fila.actividad && <span className="font-mono text-[11.5px] text-ink-500">{fila.actividad} · </span>}
+                      <span className="font-mono text-[11.5px] text-ink-500">{fila.rubro} </span>
+                      {fila.nombre}
                     </TableCell>
                     <TableCell numeric>
                       {tipo === "REPROGRAMACION" ? (
-                        <span className="tabular-nums">{formatCOP(toCents(rubro.asignado))}</span>
+                        <span className="tabular-nums">{formatCOP(toCents(fila.asignado))}</span>
                       ) : (
                         <Input
-                          aria-label={`Asignado ${codigo}`}
+                          aria-label={`Asignado ${fila.etiqueta}`}
                           inputMode="decimal"
-                          value={valorDe(clave("a", codigo), rubro.asignado)}
+                          value={valorDe(clave("a", codigo), fila.asignado)}
                           onChange={(event) => escribir(clave("a", codigo))(event.target.value)}
                           className={CELDA_CLASS}
                         />
@@ -226,9 +241,9 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                     {periodos.map((periodo) => (
                       <TableCell key={periodo} numeric>
                         <Input
-                          aria-label={`Programado ${codigo} ${periodo}`}
+                          aria-label={`Programado ${fila.etiqueta} ${periodo}`}
                           inputMode="decimal"
-                          value={valorDe(clave("p", codigo, periodo), celdaActual(rubro.rubro_id, periodo))}
+                          value={valorDe(clave("p", codigo, periodo), celdaActual(fila.id, periodo))}
                           onChange={(event) => escribir(clave("p", codigo, periodo))(event.target.value)}
                           className={CELDA_CLASS}
                         />

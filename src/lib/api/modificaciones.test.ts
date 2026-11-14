@@ -10,9 +10,12 @@ vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/lib/api/versiones", () => ({ loadLiveProyecto: mocks.loadLive }));
 vi.mock("@/lib/settings", () => ({ getSemaforoParametrosV2: vi.fn(async () => mocks.parametros) }));
 
-import { evaluarSolicitud, loadEjecutadoPorRubro } from "./modificaciones";
+import { evaluarSolicitud, loadEjecutadoPorLinea } from "./modificaciones";
 
-const gasto = (codigo: string | null, monto: string) => ({ monto_cop: monto, linea: { rubro: { codigo } } });
+const gasto = (codigo: string | null, monto: string, actividad: string | null = null) => ({
+  monto_cop: monto,
+  linea: { rubro: { codigo }, actividad: actividad === null ? null : { codigo: actividad } },
+});
 const cliente = (gastos: unknown[], rubros: unknown[] = []) =>
   ({
     gasto: { findMany: vi.fn(async () => gastos) },
@@ -29,15 +32,20 @@ beforeEach(() => {
 
 afterEach(() => vi.useRealTimers());
 
-describe("loadEjecutadoPorRubro", () => {
-  it("sums the executed expenses per rubro code and skips legacy rubros without a code", async () => {
-    const total = await loadEjecutadoPorRubro(cliente([gasto("R12", "1000.50"), gasto("R12", "2000"), gasto("R01", "5"), gasto(null, "9")]), "pry-1");
+describe("loadEjecutadoPorLinea", () => {
+  it("sums the executed expenses per legacy line (its rubro code) and skips legacy rubros without a code", async () => {
+    const total = await loadEjecutadoPorLinea(cliente([gasto("R12", "1000.50"), gasto("R12", "2000"), gasto("R01", "5"), gasto(null, "9")]), "pry-1");
     expect(Object.fromEntries(total)).toEqual({ R12: BigInt(300050), R01: BigInt(500) });
+  });
+
+  it("keys an activity line by ACT|RUBRO, so two lines of one rubro add up apart (T13 S5)", async () => {
+    const total = await loadEjecutadoPorLinea(cliente([gasto("R12", "100", "1.1"), gasto("R12", "40", "1.2"), gasto("R12", "1", "1.1")]), "pry-1");
+    expect(Object.fromEntries(total)).toEqual({ "1.1|R12": BigInt(10100), "1.2|R12": BigInt(4000) });
   });
 
   it("reads REGISTRADO and VALIDADO: a registered expense already counts as executed (AJ-08)", async () => {
     const findMany = vi.fn(async () => []);
-    await loadEjecutadoPorRubro({ gasto: { findMany } } as never, "pry-1");
+    await loadEjecutadoPorLinea({ gasto: { findMany } } as never, "pry-1");
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "VALIDADO"] } },
@@ -73,6 +81,23 @@ describe("evaluarSolicitud", () => {
     expect(reglas).toEqual([
       { codigo: "ELEMENTO_INEXISTENTE", clave: "R99", mensaje: "El rubro «R99» no existe o está suspendido." },
     ]);
+  });
+
+  it("reads an existing activity line by its line key, without looking it up in the catalog (T13 S5)", async () => {
+    const live = liveF_V1();
+    mocks.loadLive.mockResolvedValue({
+      entrada: {},
+      live: {
+        ...live,
+        presupuesto: live.presupuesto.map((r) => ({ ...r, codigo_linea: r.rubro_codigo === "R12" ? "1.2|R12" : r.rubro_codigo })),
+        programacion: live.programacion.map((c) => ({ ...c, codigo_linea: c.rubro_codigo === "R12" ? "1.2|R12" : c.rubro_codigo })),
+      },
+    });
+    const porLinea = traslado.map((i) => ({ ...i, clave: i.clave.replace(/^R12/, "1.2|R12") }));
+    const rubro = vi.fn(async () => []);
+    const { reglas } = await evaluarSolicitud({ gasto: { findMany: vi.fn(async () => []) }, rubro: { findMany: rubro } } as never, "pry-1", { tipo: "TRASLADO", detalle: porLinea });
+    expect(reglas).toEqual([]);
+    expect(rubro).not.toHaveBeenCalled();
   });
 
   it("brings a catalog rubro into the budget with its name", async () => {

@@ -43,6 +43,11 @@ const BUDGET = {
     { rubro_id: "r20", codigo: "R20", nombre: "Imprevistos", activo: true, linea_id: null, asignado: "0.00", heredado_pendiente: false },
     { rubro_id: "r99", codigo: null, nombre: "Material POP", activo: false, linea_id: null, asignado: "0.00", heredado_pendiente: false },
   ],
+  // Legacy lines (no activity): their key is the bare rubro code.
+  lineas: [
+    { linea_id: "l12", actividad_id: null, actividad_codigo: null, actividad_nombre: null, rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "24000000.00" },
+    { linea_id: "l13", actividad_id: null, actividad_codigo: null, actividad_nombre: null, rubro_id: "r13", rubro_codigo: "R13", rubro_nombre: "Dotación", valor: "12800000.00" },
+  ],
   suma: "36800000.00",
   valor_total: "36800000.00",
   diferencia: "0.00",
@@ -52,12 +57,12 @@ const PROGRAMMING = {
   estado: "EN_EJECUCION",
   periodos: ["2026-10", "2026-11", "2026-12"],
   filas: [
-    { rubro_id: "r12", periodo: "2026-10", valor: "8000000.00" },
-    { rubro_id: "r12", periodo: "2026-11", valor: "8000000.00" },
-    { rubro_id: "r12", periodo: "2026-12", valor: "8000000.00" },
-    { rubro_id: "r13", periodo: "2026-10", valor: "6400000.00" },
-    { rubro_id: "r13", periodo: "2026-11", valor: "3200000.00" },
-    { rubro_id: "r13", periodo: "2026-12", valor: "3200000.00" },
+    { linea_id: "l12", rubro_id: "r12", periodo: "2026-10", valor: "8000000.00" },
+    { linea_id: "l12", rubro_id: "r12", periodo: "2026-11", valor: "8000000.00" },
+    { linea_id: "l12", rubro_id: "r12", periodo: "2026-12", valor: "8000000.00" },
+    { linea_id: "l13", rubro_id: "r13", periodo: "2026-10", valor: "6400000.00" },
+    { linea_id: "l13", rubro_id: "r13", periodo: "2026-11", valor: "3200000.00" },
+    { linea_id: "l13", rubro_id: "r13", periodo: "2026-12", valor: "3200000.00" },
   ],
   control_por_rubro: [],
   programacion_pendiente: false,
@@ -90,8 +95,8 @@ describe("TrasladoForm", () => {
   const enviar = () => screen.getByRole("button", { name: "Enviar solicitud" })
 
   async function llenar(user: ReturnType<typeof userEvent.setup>, valor: string, motivo = "Mover transporte a dotación") {
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Rubro de origen" }), "R12")
-    await user.selectOptions(screen.getByRole("combobox", { name: "Rubro de destino" }), "R13")
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Actividad y rubro de origen" }), "R12")
+    await user.selectOptions(screen.getByRole("combobox", { name: "Actividad y rubro de destino" }), "R13")
     await user.type(screen.getByLabelText("Valor"), valor)
     if (motivo) await user.type(screen.getByLabelText("Motivo"), motivo)
   }
@@ -116,11 +121,11 @@ describe("TrasladoForm", () => {
     setup()
 
     // Only the project's budget lines: no rubro without a line (R20) and no legacy rubro without a code.
-    const origen = await screen.findByRole("combobox", { name: "Rubro de origen" })
+    const origen = await screen.findByRole("combobox", { name: "Actividad y rubro de origen" })
     expect(opciones(origen)).toEqual(["", "R12", "R13"])
     await user.selectOptions(origen, "R12")
     // The destination never offers the origin.
-    const destino = screen.getByRole("combobox", { name: "Rubro de destino" })
+    const destino = screen.getByRole("combobox", { name: "Actividad y rubro de destino" })
     expect(opciones(destino)).toEqual(["", "R13"])
     await user.selectOptions(destino, "R13")
     await user.type(screen.getByLabelText("Valor"), "1.000.000")
@@ -145,6 +150,59 @@ describe("TrasladoForm", () => {
     expect(toast.success).toHaveBeenCalledWith("Solicitud de modificación enviada.")
   })
 
+  it("offers every activity line of a rubro apart and sends the traslado by activity and rubro (T13 S5)", async () => {
+    const user = userEvent.setup()
+    // R12 has one line in activity 1.1 and one in 1.2; R13 one in 1.2.
+    const linea = (id: string, act: string, rubro: string, nombre: string, valor: string) => ({
+      linea_id: id, actividad_id: `a${act}`, actividad_codigo: act, actividad_nombre: `Actividad ${act}`, rubro_id: rubro.toLowerCase(), rubro_codigo: rubro, rubro_nombre: nombre, valor,
+    })
+    const presupuesto = {
+      ...BUDGET,
+      lineas: [linea("l1", "1.1", "R12", "Transporte", "6000000.00"), linea("l2", "1.2", "R12", "Transporte", "18000000.00"), linea("l3", "1.2", "R13", "Dotación", "12800000.00")],
+    }
+    const programacion = {
+      ...PROGRAMMING,
+      filas: [
+        { linea_id: "l1", rubro_id: "r12", periodo: "2026-11", valor: "3000000.00" },
+        { linea_id: "l1", rubro_id: "r12", periodo: "2026-12", valor: "3000000.00" },
+        { linea_id: "l2", rubro_id: "r12", periodo: "2026-11", valor: "9000000.00" },
+        { linea_id: "l2", rubro_id: "r12", periodo: "2026-12", valor: "9000000.00" },
+        { linea_id: "l3", rubro_id: "r13", periodo: "2026-11", valor: "6400000.00" },
+        { linea_id: "l3", rubro_id: "r13", periodo: "2026-12", valor: "6400000.00" },
+      ],
+    }
+    fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/modifications") && init?.method === "POST") return Promise.resolve(jsonResponse({ solicitud: {} }, 201))
+      if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(presupuesto))
+      if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(programacion))
+      return Promise.resolve(jsonResponse({}))
+    })
+    render(<TrasladoForm proyecto={PROYECTO} onDone={onDone} />, { wrapper })
+
+    const origen = await screen.findByRole("combobox", { name: "Actividad y rubro de origen" })
+    expect(opciones(origen)).toEqual(["", "1.1|R12", "1.2|R12", "1.2|R13"])
+    expect(within(origen).getByRole("option", { name: "Actividad 1.1 · R12 · Transporte" })).toBeInTheDocument()
+    await user.selectOptions(origen, "1.1|R12")
+    const destino = screen.getByRole("combobox", { name: "Actividad y rubro de destino" })
+    // Another activity of the same rubro is a valid destination.
+    expect(opciones(destino)).toEqual(["", "1.2|R12", "1.2|R13"])
+    await user.selectOptions(destino, "1.2|R12")
+    await user.type(screen.getByLabelText("Valor"), "2.000.000")
+    await user.type(screen.getByLabelText("Motivo"), "Mover entre actividades")
+    await user.click(enviar())
+
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(JSON.parse(String(posts()[0]![1].body)).detalle).toEqual([
+      { elemento: "presupuesto", clave: "1.1|R12", campo: "asignado", antes: "6000000.00", despues: "4000000.00" },
+      { elemento: "programacion", clave: "1.1|R12|2026-11", campo: "valor", antes: "3000000.00", despues: "2000000.00" },
+      { elemento: "programacion", clave: "1.1|R12|2026-12", campo: "valor", antes: "3000000.00", despues: "2000000.00" },
+      { elemento: "presupuesto", clave: "1.2|R12", campo: "asignado", antes: "18000000.00", despues: "20000000.00" },
+      { elemento: "programacion", clave: "1.2|R12|2026-11", campo: "valor", antes: "9000000.00", despues: "10000000.00" },
+      { elemento: "programacion", clave: "1.2|R12|2026-12", campo: "valor", antes: "9000000.00", despues: "10000000.00" },
+    ])
+  })
+
   it("cannot be sent without both rubros, a value above zero and a motivo", async () => {
     const user = userEvent.setup()
     setup()
@@ -158,7 +216,7 @@ describe("TrasladoForm", () => {
     await user.clear(screen.getByLabelText("Valor"))
     await user.type(screen.getByLabelText("Valor"), "1000")
     expect(enviar()).toBeEnabled()
-    await user.selectOptions(screen.getByRole("combobox", { name: "Rubro de destino" }), "")
+    await user.selectOptions(screen.getByRole("combobox", { name: "Actividad y rubro de destino" }), "")
     expect(enviar()).toBeDisabled()
     expect(posts()).toHaveLength(0)
   })

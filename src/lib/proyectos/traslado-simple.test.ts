@@ -122,4 +122,31 @@ describe("construirTrasladoSimple", () => {
     expect(reglas).toEqual([])
     expect(detalle.some((d) => d.clave.endsWith("|2026-10"))).toBe(false)
   })
+
+  it("moves between two activity lines of the same rubro by their line keys, and the server rules accept it (T13 S5)", () => {
+    // R12 split in two activity lines: 1.1|R12 and 1.2|R12, each half of every month.
+    const live = liveF_V1()
+    const mitad = (valor: string) => String(toCents(valor) / BigInt(200))
+    const porLinea: typeof live = {
+      ...live,
+      presupuesto: live.presupuesto.flatMap((r) =>
+        r.rubro_codigo === "R12" ? ["1.1", "1.2"].map((a) => ({ ...r, codigo_linea: `${a}|R12`, asignado: mitad(r.asignado) })) : [r],
+      ),
+      programacion: live.programacion.flatMap((c) =>
+        c.rubro_codigo === "R12" ? ["1.1", "1.2"].map((a) => ({ ...c, codigo_linea: `${a}|R12`, valor: mitad(c.valor) })) : [c],
+      ),
+    }
+    const lineas = porLinea.presupuesto.map((r) => {
+      const clave = r.codigo_linea ?? r.rubro_codigo ?? ""
+      const celdas = porLinea.programacion.filter((c) => (c.codigo_linea ?? c.rubro_codigo) === clave)
+      return rubro(clave, r.asignado, Object.fromEntries(celdas.map((c) => [c.periodo, c.valor])))
+    })
+    const detalle = detalleDe(construir("1.1|R12", "1.2|R12", "1500000", lineas))
+
+    expect(detalle.map((d) => d.clave)).toEqual([
+      "1.1|R12", "1.1|R12|2026-11", "1.1|R12|2026-12", "1.1|R12|2027-01",
+      "1.2|R12", "1.2|R12|2026-11", "1.2|R12|2026-12", "1.2|R12|2027-01",
+    ])
+    expect(validarModificacion(porLinea, { tipo: "TRASLADO", detalle }, new Map(), "2026-11", { bloqueaPeriodosPasados: true })).toEqual([])
+  })
 })

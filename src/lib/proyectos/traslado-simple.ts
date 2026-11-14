@@ -1,4 +1,5 @@
-// AJ-09: the simple "traslado entre rubros". The person only says origin, destination and amount; this
+// AJ-09: the simple "traslado entre rubros" (T13 S5: between budget lines, activity + rubro). The person
+// only says origin, destination and amount; this
 // turns it into the `detalle` of a TRASLADO request by spreading the amount over the OPEN periods of each
 // rubro. Pure and exact (cents in bigint): the server (`validarModificacion`) stays the authority on every
 // rule, this only builds a request that keeps each rubro's programming equal to its assigned amount.
@@ -7,7 +8,11 @@ import { construirDetalle, type CampoEditable, type DetalleModificacion } from "
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "./money"
 import type { Periodo } from "./weeks"
 
-/** One budget line as the screen shows it: A and its programming cells (a missing period is $0). */
+/**
+ * One budget line as the screen shows it: A and its programming cells (a missing period is $0). T13 (S5):
+ * `codigo` is the line key, `ACT|RUBRO` (or the bare rubro of a legacy line), so two activity lines of
+ * one rubro are two origins / destinations and the detalle addresses each line apart.
+ */
 export type RubroTraslado = {
   codigo: string
   asignado: string

@@ -43,6 +43,11 @@ const BUDGET = {
     { rubro_id: "r13", codigo: "R13", nombre: "Dotación", activo: true, linea_id: "l13", asignado: "12800000.00", heredado_pendiente: false },
     { rubro_id: "r99", codigo: null, nombre: "Material POP", activo: false, linea_id: null, asignado: "0.00", heredado_pendiente: false },
   ],
+  // Legacy lines (no activity): their key is the bare rubro code.
+  lineas: [
+    { linea_id: "l12", actividad_id: null, actividad_codigo: null, actividad_nombre: null, rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "24000000.00" },
+    { linea_id: "l13", actividad_id: null, actividad_codigo: null, actividad_nombre: null, rubro_id: "r13", rubro_codigo: "R13", rubro_nombre: "Dotación", valor: "12800000.00" },
+  ],
   suma: "36800000.00",
   valor_total: "36800000.00",
   diferencia: "0.00",
@@ -51,10 +56,10 @@ const PROGRAMMING = {
   estado: "EN_EJECUCION",
   periodos: ["2026-10", "2026-11"],
   filas: [
-    { rubro_id: "r12", periodo: "2026-10", valor: "12000000.00" },
-    { rubro_id: "r12", periodo: "2026-11", valor: "12000000.00" },
-    { rubro_id: "r13", periodo: "2026-10", valor: "6400000.00" },
-    { rubro_id: "r13", periodo: "2026-11", valor: "6400000.00" },
+    { linea_id: "l12", rubro_id: "r12", periodo: "2026-10", valor: "12000000.00" },
+    { linea_id: "l12", rubro_id: "r12", periodo: "2026-11", valor: "12000000.00" },
+    { linea_id: "l13", rubro_id: "r13", periodo: "2026-10", valor: "6400000.00" },
+    { linea_id: "l13", rubro_id: "r13", periodo: "2026-11", valor: "6400000.00" },
   ],
   control_por_rubro: [
     { rubro_id: "r12", codigo: "R12", nombre: "Transporte", asignado: "24000000.00", programado: "24000000.00", control: "0.00" },
@@ -124,6 +129,72 @@ describe("SolicitarModificacion", () => {
     expect(within(dialogo).getByLabelText("Asignado R13")).toHaveValue("12800000.00")
     expect(within(dialogo).getByLabelText("Programado R12 2026-11")).toHaveValue("12000000.00")
     expect(within(dialogo).queryByLabelText(/R99|Material POP/)).not.toBeInTheDocument() // legacy rubro without a code
+  })
+
+  it("shows one row per activity line of a rubro and sends each line's change by activity and rubro (T13 S5)", async () => {
+    const user = userEvent.setup()
+    const linea = (id: string, act: string, valor: string) => ({
+      linea_id: id, actividad_id: `a${act}`, actividad_codigo: act, actividad_nombre: `Actividad ${act}`, rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor,
+    })
+    const presupuesto = {
+      ...BUDGET,
+      rubros: [
+        { rubro_id: "r12", codigo: "R12", nombre: "Transporte", activo: true, linea_id: "l1", asignado: "24000000.00", heredado_pendiente: false },
+        { rubro_id: "r20", codigo: "R20", nombre: "Imprevistos", activo: true, linea_id: null, asignado: "0.00", heredado_pendiente: false },
+      ],
+      lineas: [linea("l1", "1.1", "6000000.00"), linea("l2", "1.2", "18000000.00")],
+    }
+    const programacion = {
+      ...PROGRAMMING,
+      filas: [
+        { linea_id: "l1", rubro_id: "r12", periodo: "2026-11", valor: "6000000.00" },
+        { linea_id: "l2", rubro_id: "r12", periodo: "2026-10", valor: "9000000.00" },
+        { linea_id: "l2", rubro_id: "r12", periodo: "2026-11", valor: "9000000.00" },
+      ],
+    }
+    fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/modifications") && init?.method === "POST") return Promise.resolve(jsonResponse({ solicitud: {} }, 201))
+      if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(presupuesto))
+      if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(programacion))
+      if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES }))
+      if (url.endsWith("/deliverables")) return Promise.resolve(jsonResponse({ entregables: ENTREGABLES }))
+      if (url.endsWith("/indicators")) return Promise.resolve(jsonResponse({ indicadores: INDICADORES }))
+      return Promise.resolve(jsonResponse({}))
+    })
+    render(<SolicitarModificacion proyecto={PROYECTO} />, { wrapper })
+    const dialogo = await abrir(user)
+
+    expect(await within(dialogo).findByLabelText("Asignado 1.1 R12")).toHaveValue("6000000.00")
+    expect(within(dialogo).getByLabelText("Asignado 1.2 R12")).toHaveValue("18000000.00")
+    expect(within(dialogo).getByLabelText("Programado 1.1 R12 2026-10")).toHaveValue("0.00")
+    expect(within(dialogo).getByLabelText("Programado 1.2 R12 2026-10")).toHaveValue("9000000.00")
+    // A catalog rubro without a line can still be brought in (ADICION), by its bare code.
+    expect(within(dialogo).getByLabelText("Asignado R20")).toHaveValue("0.00")
+    expect(within(dialogo).queryByLabelText("Asignado R12")).not.toBeInTheDocument()
+
+    const a11 = within(dialogo).getByLabelText("Asignado 1.1 R12")
+    await user.clear(a11)
+    await user.type(a11, "4000000")
+    const a12 = within(dialogo).getByLabelText("Asignado 1.2 R12")
+    await user.clear(a12)
+    await user.type(a12, "20000000")
+    const p11 = within(dialogo).getByLabelText("Programado 1.1 R12 2026-11")
+    await user.clear(p11)
+    await user.type(p11, "4000000")
+    const p12 = within(dialogo).getByLabelText("Programado 1.2 R12 2026-11")
+    await user.clear(p12)
+    await user.type(p12, "11000000")
+    await user.type(within(dialogo).getByLabelText("Motivo"), "Entre actividades")
+    await user.click(within(dialogo).getByRole("button", { name: "Enviar solicitud" }))
+
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(JSON.parse(String(posts()[0]![1].body)).detalle).toEqual([
+      { elemento: "presupuesto", clave: "1.1|R12", campo: "asignado", antes: "6000000.00", despues: "4000000" },
+      { elemento: "programacion", clave: "1.1|R12|2026-11", campo: "valor", antes: "6000000.00", despues: "4000000" },
+      { elemento: "presupuesto", clave: "1.2|R12", campo: "asignado", antes: "18000000.00", despues: "20000000" },
+      { elemento: "programacion", clave: "1.2|R12|2026-11", campo: "valor", antes: "9000000.00", despues: "11000000" },
+    ])
   })
 
   it("closes on Cancelar without sending anything, like the other project dialogs", async () => {
