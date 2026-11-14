@@ -54,8 +54,8 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | #188 `f1789f5` |
 | T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | #188 `f1789f5` |
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | done | `6089552` |
-| T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
-| T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
+| T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | delegated (writer, with T13.6) | done, verifying | `aed85bc` |
+| T13.6 | S5 | Modification engine, control, forms and traslado by line | delegated (writer, parallel with T13.8) | done, verifying | `82029c4` |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | done | `278074c` |
 | T13.8 | S7 | Template «Tipo» column | delegated (writer, parallel with T13.5/T13.6, disjoint surfaces) | done | `c239152` |
 | T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
@@ -115,3 +115,11 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   long-session backstop). «Tipo» is column G; PLANTILLA_VERSION stays 2026.2 and a workbook without «Tipo» imports as
   before; a transversal has no objective and is proposed evenly by month. Parent spot check: plantilla,
   plantilla-import, programacion-propuesta 159/159. T13.5 + T13.6 still with the second writer.
+- **L13** T13.6 `82029c4` (line keys `ACT|RUBRO`; `resolverClaves`; stored rubro keys apply with one line, 400
+  CLAVE_AMBIGUA with several; per-line control and executed) and T13.5 `aed85bc` (POST programming/move in
+  EN_EJECUCION, open months only, audit campo «mover»; UI block). Parent: fixture test broken by T13.8 fixed
+  (`627401f`); budget section copy updated. Risk item 3 → independent verifier running; full unit suite running.
+  Open product question: may a value move from a future month INTO the current month? PO text: «Solo se pueden
+  mover valores del mes en curso hacia meses futuros, o entre meses futuros» (literally excludes it); the
+  implementation allows it. Follow-ups: `diffSnapshots` (versiones.ts) still keys by rubro; `loadEjecutadoPorLinea`
+  and the «line has expenses» checks must count `gastos_reparto` once lane B lands.
