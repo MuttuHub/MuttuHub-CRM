@@ -307,7 +307,8 @@ describe("template import (live DB)", () => {
         entregables: 7,
         indicadores: 2,
         rubros: 8,
-        celdas_programacion: 0,
+        // T13 S1: one proposed cell per month each activity occupies (1.1–1.3 one month, 1.4 two).
+        celdas_programacion: 10,
       });
       expect(holder.transacciones).toBe(1);
 
@@ -352,8 +353,21 @@ describe("template import (live DB)", () => {
         F_X1_LINEAS.map((l) => [`${l.actividadCodigo}|${l.rubroCodigo}`, l.valor]).sort(),
       );
       expect(despues.lineas).toHaveLength(8);
-      // S2: valor_total is the sum of the lines (checked above: 177360000). S4: no programming written.
-      expect(despues.celdas).toHaveLength(0);
+      // S2: valor_total is the sum of the lines (checked above: 177360000).
+      // T13 S1: «Al importar la plantilla, todas las líneas tienen una programación propuesta que suma su valor.»
+      expect(despues.celdas).toHaveLength(10);
+      for (const linea of lineas.values()) {
+        const suma = despues.celdas.filter((c) => c.linea_id === linea.id).reduce((t, c) => t.add(c.valor), new Prisma.Decimal(0));
+        expect(suma.toString()).toBe(linea.monto_proyectado_cop.toString());
+      }
+      // 1.4 runs 2026-10-19..2026-11-15: 13 days in October and 15 in November (the PO example's split).
+      const r13 = lineas.get("1.4|R13")!;
+      expect(
+        despues.celdas.filter((c) => c.linea_id === r13.id).map((c) => [c.periodo, c.valor.toString()]).sort(),
+      ).toEqual([
+        ["2026-10", "5942857"],
+        ["2026-11", "6857143"],
+      ]);
 
       // One lote, only IMPORTAR rows, including the `reemplazo` summary row.
       const filas = await tx.auditoriaCambio.findMany({ where: { lote_id: cuerpo.lote_id } });
@@ -361,7 +375,15 @@ describe("template import (live DB)", () => {
       const porEntidad = Object.fromEntries(
         [...new Set(filas.map((f) => f.entidad))].map((e) => [e, filas.filter((f) => f.entidad === e).length]),
       );
-      expect(porEntidad).toEqual({ actividad: 4, entregable: 7, indicador: 2, objetivo: 1, presupuesto: 9, proyecto: 9 });
+      expect(porEntidad).toEqual({
+        actividad: 4,
+        entregable: 7,
+        indicador: 2,
+        objetivo: 1,
+        presupuesto: 9,
+        programacion: 10,
+        proyecto: 9,
+      });
       expect(new Set(filas.map((f) => f.lote_id))).toEqual(new Set([cuerpo.lote_id]));
       expect(new Set(filas.map((f) => f.accion))).toEqual(new Set(["IMPORTAR"]));
       const reemplazo = filas.find((f) => f.entidad === "proyecto" && f.campo === "reemplazo");
@@ -506,10 +528,18 @@ describe("template import (live DB)", () => {
       const { valido } = await plantillas(ctx);
 
       expect((await POST(...peticion(ctx.proyecto.id, valido))).status).toBe(200);
-      // S8: programming is typed on the web between imports, on line 1.2 + R08.
-      const primera = (await lineasPorActividad(tx, ctx.proyecto.id)).get("1.2|R08")!;
-      await tx.programacionPeriodo.create({
-        data: { proyecto_id: ctx.proyecto.id, linea_id: primera.id, periodo: "2026-10", valor: new Prisma.Decimal("45000000") },
+      // S8: programming is adjusted on the web between imports. 1.4 + R13 moves all of its $12.800.000 to
+      // November (still sums its value: T13 keeps it); 1.2 + R08 is left at $40.000.000 of $45.000.000 (does
+      // not sum: T13 replaces it with the proposal).
+      const antes = await lineasPorActividad(tx, ctx.proyecto.id);
+      const primera = antes.get("1.2|R08")!;
+      const ajustada = antes.get("1.4|R13")!;
+      await tx.programacionPeriodo.deleteMany({ where: { linea_id: { in: [primera.id, ajustada.id] } } });
+      await tx.programacionPeriodo.createMany({
+        data: [
+          { proyecto_id: ctx.proyecto.id, linea_id: primera.id, periodo: "2026-10", valor: new Prisma.Decimal("40000000") },
+          { proyecto_id: ctx.proyecto.id, linea_id: ajustada.id, periodo: "2026-11", valor: new Prisma.Decimal("12800000") },
+        ],
       });
       const segundo = await POST(...peticion(ctx.proyecto.id, valido));
       expect(segundo.status).toBe(200);
@@ -524,11 +554,16 @@ describe("template import (live DB)", () => {
       expect(filas.actividades).toHaveLength(9);
       expect(filas.entregables).toHaveLength(15);
       expect(filas.indicadores).toHaveLength(4);
-      // The line survives the re-import with its id and its cell, now on the second import's activity.
+      // The lines survive the re-import with their ids, now on the second import's activities.
       const despues = (await lineasPorActividad(tx, ctx.proyecto.id)).get("1.2|R08")!;
       expect(despues.id).toBe(primera.id);
       expect(despues.actividad_id).not.toBe(primera.actividad_id);
-      expect(filas.celdas.map((c) => [c.linea_id, c.periodo, c.valor.toString()])).toEqual([[primera.id, "2026-10", "45000000"]]);
+      const celdasDe = (lineaId: string) =>
+        filas.celdas.filter((c) => c.linea_id === lineaId).map((c) => [c.periodo, c.valor.toString()]).sort();
+      // T13: a programming that sums its line is the Gestor's and stays; one that does not is re-proposed.
+      expect(celdasDe(ajustada.id)).toEqual([["2026-11", "12800000"]]);
+      expect(celdasDe(primera.id)).toEqual([["2026-10", "45000000"]]);
+      expect(filas.celdas).toHaveLength(9);
       expect(filas.lineas).toHaveLength(8);
       expect(filas.lineasCat).toHaveLength(2);
       expect(filas.munis).toHaveLength(2);

@@ -128,10 +128,14 @@ describe("importarPlantilla", () => {
       "rubro.findMany",
       "lineaPresupuestal.findMany",
       "lineaPresupuestal.create",
+      // T13 S1: the proposal step reads the final lines and their cells.
+      "lineaPresupuestal.findMany",
+      "programacionPeriodo.findMany",
       "auditoriaCambio.createMany",
     ]);
-    // S4: the template carries no programming, so an import never writes a cell.
-    expect(llamadas.some((l) => l.op.startsWith("programacionPeriodo."))).toBe(false);
+    // S4: the template carries no programming. Cells come only from the T13 proposal over the lines the import
+    // leaves; this recorder returns none, so nothing is written (the live invariant pins the proposal).
+    expect(llamadas.some((l) => /^programacionPeriodo\.(create|update|delete)/.test(l.op))).toBe(false);
 
     const lote = (llamadas.at(-1)?.args as { data: { lote_id: string; accion: string; entidad: string; campo: string | null }[] }).data;
     expect(new Set(lote.map((c) => c.lote_id))).toEqual(new Set(["lote-1"]));
@@ -187,11 +191,11 @@ describe("importarPlantilla budget lines (T11.3)", () => {
     const ops = llamadas.map((l) => l.op);
     const quitadas = ["l-legacy", "l-gone"];
     expect(llamadas.find((l) => l.op === "gasto.count")?.args).toEqual({ where: { proyecto_id: "p1", linea_id: { in: quitadas } } });
-    // Cells go before their line (ProgramacionPeriodo -> line is NoAction); the kept line's cells are untouched.
+    // Cells go before their line (ProgramacionPeriodo -> line is NoAction). The kept line's programming follows
+    // T13 S1 (kept when it sums the line, re-proposed otherwise): pinned live in plantilla-import.invariant.
     expect(llamadas.find((l) => l.op === "programacionPeriodo.deleteMany")?.args).toEqual({ where: { proyecto_id: "p1", linea_id: { in: quitadas } } });
     expect(llamadas.find((l) => l.op === "lineaPresupuestal.deleteMany")?.args).toEqual({ where: { proyecto_id: "p1", id: { in: quitadas } } });
     expect(ops.indexOf("programacionPeriodo.deleteMany")).toBeLessThan(ops.indexOf("lineaPresupuestal.deleteMany"));
-    expect(ops.filter((op) => op.startsWith("programacionPeriodo.")).length).toBe(1);
 
     const nueva12 = datos<{ id: string; codigo: string }[]>(llamadas, "actividad.createMany").find((a) => a.codigo === "1.2")!.id;
     const update = llamadas.find((l) => l.op === "lineaPresupuestal.update")?.args as {
@@ -281,7 +285,7 @@ describe("cargarPlantillaInput budget lines (export, S3)", () => {
 });
 
 describe("resumenDePlan", () => {
-  it("counts the F-X1 plan: 1 objective, 4 activities, 7 deliverables, 2 indicators, 8 funded lines, no cells", async () => {
+  it("counts the F-X1 plan: 1 objective, 4 activities, 7 deliverables, 2 indicators, 8 funded lines, 10 proposed cells (T13)", async () => {
     const parsed = await parsePlantilla(await generarPlantilla(fixtureF_X1("valido")));
     const plan = construirPlan(parsed, fixtureContextoFX1());
     expect(resumenDePlan(plan)).toEqual({
@@ -290,7 +294,7 @@ describe("resumenDePlan", () => {
       entregables: 7,
       indicadores: 2,
       rubros: 8,
-      celdas_programacion: 0,
+      celdas_programacion: 10,
     });
   });
 });
