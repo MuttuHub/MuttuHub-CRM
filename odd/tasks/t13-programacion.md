@@ -58,7 +58,7 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | pending | |
 | T13.8 | S7 | Template «Tipo» column | inline | pending | |
-| T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | pending | |
+| T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
 
 Route evidence: one agent, sequential units sharing `presupuesto.ts`/`hooks/projects.ts` → no Writer trigger; inline.
 Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T13.7 item 1 (re-import deletes rows).
@@ -105,3 +105,9 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   `feat/t13-4-pantalla-programacion`.
 - **L10** (2026-11-14, user, on T13.7's open question): «si tiene un presupuesto asignado se borra junto con la
   actividad, le toca hacerlo de cero» → S8, task T13.9.
+- **L11** T13.9 `4ba1637`: `borrarPresupuestoDeActividad` + shared `fijarValorTotal` (budget PUT reuses it);
+  dialog warns. Checks: live linea-base 14, presupuesto, plantilla-import, modificaciones, estructura; 2138 unit tests;
+  tsc/eslint/knip clean. Lane B migration `20261115120000_t14_gasto_reparto` reviewed and APPROVED
+  (`odd/tasks/t14-revision-migracion.md`, `45ba544`): six points verified on a seeded disposable DB. Cross-lane debt:
+  once T14.2-B writes multi-line repartos, the three «line has expenses» checks of lane A (budget PUT A3,
+  plantilla-import, borrarPresupuestoDeActividad) must count `gastos_reparto` — lane A does it when lane B reaches main.
