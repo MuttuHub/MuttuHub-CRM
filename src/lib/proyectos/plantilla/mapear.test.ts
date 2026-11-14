@@ -6,7 +6,14 @@ import { parsePlantilla } from "./parse"
 import ExcelJS from "exceljs"
 import { toCents } from "../money"
 import { HOJAS } from "./columns"
-import { F_X1_LINEAS, fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
+import {
+  F_X1_LINEAS,
+  fixtureConTransversal,
+  fixtureContextoFX1,
+  fixtureF_X1,
+  plantillaFormatoAnterior,
+  plantillaSinTipo,
+} from "../__fixtures__/plantilla-cedetextil"
 
 let bufferValido: Buffer
 
@@ -14,10 +21,13 @@ beforeAll(async () => {
   bufferValido = await generarPlantilla(fixtureF_X1())
 })
 
-/** Appends the «Peso (opcional)» column the old layout had, with a value the rule must ignore. */
+/**
+ * The layout before AJ-02: the 2026.2 sheet (no «Tipo») plus the «Peso (opcional)» column, with a value
+ * the rule must ignore.
+ */
 async function conColumnaPeso(buffer: Buffer): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.load(buffer as unknown as ArrayBuffer)
+  await workbook.xlsx.load((await plantillaSinTipo(buffer)) as unknown as ArrayBuffer)
   const hoja = workbook.getWorksheet(HOJAS.actividades)
   if (!hoja) throw new Error("Missing sheet Actividades")
   const columna = (hoja.actualColumnCount ?? 0) + 1
@@ -136,6 +146,23 @@ describe("construirPlan of the valid F-X1", () => {
     expect(p.actividades).toHaveLength(4)
     expect(p.actividades[0]).not.toHaveProperty("peso")
     expect(p.actividades[0]).toMatchObject({ codigo: "1.1", semanaInicio: 1, semanaFin: 1 })
+  })
+
+  it("maps each activity's type: a Transversal has no objective (T13.8)", async () => {
+    const p = construirPlan(await parsePlantilla(await generarPlantilla(fixtureConTransversal())), fixtureContextoFX1())
+    expect(p.actividades.map((a) => [a.codigo, a.tipo, a.objetivoCodigo])).toEqual([
+      ["1.1", "NORMAL", "OE1"],
+      ["1.2", "NORMAL", "OE1"],
+      ["1.3", "NORMAL", "OE1"],
+      ["1.4", "NORMAL", "OE1"],
+      ["G.1", "TRANSVERSAL", ""],
+    ])
+  })
+
+  it("maps every activity of a 2026.2 workbook without «Tipo» as Normal, as before (T13.8)", async () => {
+    const p = construirPlan(await parsePlantilla(await plantillaSinTipo(bufferValido)), fixtureContextoFX1())
+    expect(p).toEqual({ ...(await plan()) })
+    expect(p.actividades.map((a) => a.tipo)).toEqual(["NORMAL", "NORMAL", "NORMAL", "NORMAL"])
   })
 
   it("rejects a scientific-notation total with a domain error, not a RangeError", async () => {

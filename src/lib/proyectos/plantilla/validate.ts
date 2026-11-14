@@ -21,6 +21,7 @@ import {
   MAX_ERRORES,
   MAX_FILAS_HOJA,
   PLANTILLA_VERSION,
+  TIPOS_ACTIVIDAD,
   type HojaKey,
 } from "./columns"
 import {
@@ -32,7 +33,7 @@ import {
 } from "./parse"
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "../money"
 import { durationWeeks } from "../weeks"
-import { validarSemanas } from "../actividad"
+import { validarSemanas, type TipoActividad } from "../actividad"
 
 /** The catalog data a template's project is validated against. */
 export type ContextoValidacion = {
@@ -216,10 +217,13 @@ function coincideEncabezado(actual: string[], esperado: readonly string[] | unde
   return actual.length === normal.length && actual.every((valor, i) => valor === normal[i])
 }
 
-/** The current layout, or the previous one (`ENCABEZADOS_ANTERIORES`) still accepted. */
+/** The current layout, or a previous one (`ENCABEZADOS_ANTERIORES`) still accepted. */
 function encabezadosOk(p: ParsedTemplate, key: (typeof HOJAS_DATOS)[number]): boolean {
   const actual = normalizarEncabezados(p.encabezados[key])
-  return coincideEncabezado(actual, ENCABEZADOS[key]) || coincideEncabezado(actual, ENCABEZADOS_ANTERIORES[key])
+  return (
+    coincideEncabezado(actual, ENCABEZADOS[key]) ||
+    (ENCABEZADOS_ANTERIORES[key] ?? []).some((anterior) => coincideEncabezado(actual, anterior))
+  )
 }
 
 function estructuraOk(p: ParsedTemplate, key: HojaKey): boolean {
@@ -555,6 +559,49 @@ export function v05(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 // V-06 — cross-sheet references
 // ---------------------------------------------------------------------------
 
+/**
+ * T13.8 (S7): the type an activity row's «Tipo» cell names — case and spaces do not matter, and an empty
+ * cell (or a 2026.2 sheet without the column) is Normal — or `null` when it names neither type.
+ */
+export function tipoActividadDe(fila: Fila): TipoActividad | null {
+  const texto = textoCelda(fila, "Tipo").toLowerCase()
+  if (texto === "" || texto === TIPOS_ACTIVIDAD.NORMAL.toLowerCase()) return "NORMAL"
+  if (texto === TIPOS_ACTIVIDAD.TRANSVERSAL.toLowerCase()) return "TRANSVERSAL"
+  return null
+}
+
+/** V-06 for one activity row: a valid type, and an objective only on a Normal activity. */
+function referenciaObjetivo(fila: Fila, objetivos: Set<string>): ErrorPlantilla | null {
+  const tipo = tipoActividadDe(fila)
+  if (tipo === null) {
+    const celdaTipo = celdaDe(fila, "Tipo")
+    const valor = textoDe(celdaTipo?.valor)
+    return error(
+      "V-06",
+      HOJAS.actividades,
+      fila.fila,
+      celdaTipo?.columna ?? "G",
+      valor,
+      `El tipo «${valor}» no es válido: usa ${TIPOS_ACTIVIDAD.NORMAL} o ${TIPOS_ACTIVIDAD.TRANSVERSAL}.`,
+    )
+  }
+  const celda = celdaDe(fila, "Código objetivo")
+  const referencia = textoDe(celda?.valor)
+  if (tipo === "TRANSVERSAL") {
+    if (referencia === "") return null
+    return error(
+      "V-06",
+      HOJAS.actividades,
+      fila.fila,
+      celda?.columna ?? "B",
+      referencia,
+      "Una actividad transversal no lleva objetivo: deja vacío el código objetivo (va en «Gestión del proyecto»).",
+    )
+  }
+  if (objetivos.has(referencia.toLowerCase())) return null
+  return error("V-06", HOJAS.actividades, fila.fila, celda?.columna ?? "B", referencia || null, `El objetivo «${referencia}» no existe en la hoja ${HOJAS.objetivos}.`)
+}
+
 function codigosDe(p: ParsedTemplate, key: (typeof HOJAS_CODIGO)[number]): Set<string> {
   return new Set(p[key].map((fila) => textoCelda(fila, "Código").toLowerCase()).filter((codigo) => codigo !== ""))
 }
@@ -566,13 +613,8 @@ export function v06(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
   if (estructuraOk(p, "actividades") && estructuraOk(p, "objetivos")) {
     const objetivos = codigosDe(p, "objetivos")
     for (const fila of p.actividades) {
-      const celda = celdaDe(fila, "Código objetivo")
-      const referencia = textoDe(celda?.valor)
-      if (!objetivos.has(referencia.toLowerCase())) {
-        errores.push(
-          error("V-06", HOJAS.actividades, fila.fila, celda?.columna ?? "B", referencia || null, `El objetivo «${referencia}» no existe en la hoja ${HOJAS.objetivos}.`),
-        )
-      }
+      const hallazgo = referenciaObjetivo(fila, objetivos)
+      if (hallazgo) errores.push(hallazgo)
     }
   }
 

@@ -43,6 +43,9 @@ export const ENCABEZADOS: Record<
     "Semana inicio",
     "Semana fin",
     "Responsable (correo)",
+    // T13.8 (S7): Normal or Transversal (`TIPOS_ACTIVIDAD`). A 2026.2 template without it still imports
+    // (see ENCABEZADOS_ANTERIORES) and every activity is Normal, as before.
+    "Tipo",
     // AJ-02: the weight is the duration in weeks, so the sheet no longer asks for it. A template
     // filled in with the previous layout still imports (see ENCABEZADOS_ANTERIORES): its weight
     // column is accepted and never read.
@@ -67,24 +70,27 @@ export const FORMATO_NUEVO_MENSAJE =
   "con las columnas Código de actividad, Rubro y Valor, y la programación mensual ya no va en la plantilla: se edita en la web."
 
 /**
- * Header rows of templates downloaded before 2026-10-26. They are still accepted so a
- * template filled in with the previous layout imports as before; their extra columns
- * are optional.
+ * Header rows of previous layouts, still accepted so a template filled in with one of them imports as
+ * before; their extra columns are optional and a missing one takes its default.
  */
-export const ENCABEZADOS_ANTERIORES: Partial<Record<keyof typeof ENCABEZADOS, readonly string[]>> = {
-  entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad", "Tipo de medio exigido"],
-  indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Unidad", "Línea base"],
-  // AJ-02: before the weight became the duration in weeks, the sheet asked for it.
+export const ENCABEZADOS_ANTERIORES: Partial<Record<keyof typeof ENCABEZADOS, readonly (readonly string[])[]>> = {
+  // Before 2026-10-26.
+  entregables: [["Código", "Código actividad", "Descripción", "Cantidad", "Unidad", "Tipo de medio exigido"]],
+  indicadores: [["Código", "Código objetivo", "Nombre", "Meta", "Unidad", "Línea base"]],
   actividades: [
-    "Código",
-    "Código objetivo",
-    "Nombre",
-    "Semana inicio",
-    "Semana fin",
-    "Responsable (correo)",
-    "Peso (opcional)",
+    // T13.8: the 2026.2 sheet before the «Tipo» column; its activities are Normal. The version is
+    // not bumped, so these workbooks keep importing exactly as before.
+    ["Código", "Código objetivo", "Nombre", "Semana inicio", "Semana fin", "Responsable (correo)"],
+    // AJ-02: before the weight became the duration in weeks, the sheet asked for it.
+    ["Código", "Código objetivo", "Nombre", "Semana inicio", "Semana fin", "Responsable (correo)", "Peso (opcional)"],
   ],
 }
+
+/**
+ * T13.8 (S7): the «Tipo» values of sheet 4, by `TipoActividad`. An empty cell is Normal. A Transversal
+ * activity goes under «Gestión del proyecto» and leaves «Código objetivo» empty.
+ */
+export const TIPOS_ACTIVIDAD = { NORMAL: "Normal", TRANSVERSAL: "Transversal" } as const
 
 export const ENCABEZADO_PROYECTO = ["Campo", "Valor"] as const
 

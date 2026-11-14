@@ -115,6 +115,7 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): FixtureF_X1 {
           semanaInicio: 1,
           semanaFin: 1,
           responsable: F_X1_RESPONSABLE,
+          tipo: "NORMAL",
         },
         {
           codigo: "1.2",
@@ -123,6 +124,7 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): FixtureF_X1 {
           semanaInicio: 2,
           semanaFin: 2,
           responsable: F_X1_RESPONSABLE,
+          tipo: "NORMAL",
         },
         {
           codigo: "1.3",
@@ -131,6 +133,7 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): FixtureF_X1 {
           semanaInicio: 3,
           semanaFin: 3,
           responsable: F_X1_RESPONSABLE,
+          tipo: "NORMAL",
         },
         {
           codigo: "1.4",
@@ -139,6 +142,7 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): FixtureF_X1 {
           semanaInicio: 3,
           semanaFin: 6,
           responsable: F_X1_RESPONSABLE,
+          tipo: "NORMAL",
         },
       ],
       entregables: [
@@ -260,6 +264,48 @@ export async function plantillaFormatoAnterior(
   }
   insertar(HOJAS.entregables, 6, "Tipo de medio exigido", valores.tipoMedio)
   insertar(HOJAS.indicadores, 5, "Unidad", valores.unidadIndicador)
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}
+
+/**
+ * T13.8 (S7): F-X1 plus a Transversal activity «G.1» — «Gestión del proyecto», no objective, the whole
+ * project (weeks 1–17, October to January) — with one deliverable and one budget line of 4.000.000 on R01.
+ */
+export function fixtureConTransversal(): FixtureF_X1 {
+  const input = fixtureF_X1()
+  input.estructura.actividades.push({
+    codigo: "G.1",
+    objetivoCodigo: "",
+    nombre: "Coordinación del proyecto",
+    semanaInicio: 1,
+    semanaFin: 17,
+    responsable: F_X1_RESPONSABLE,
+    tipo: "TRANSVERSAL",
+  })
+  input.estructura.entregables.push({
+    codigo: "G.1-E1",
+    actividadCodigo: "G.1",
+    descripcion: "Informe de gestión",
+    cantidad: "1",
+    unidad: "Informe",
+  })
+  input.presupuesto.push({ actividadCodigo: "G.1", rubroCodigo: "R01", valor: "4000000" })
+  return input
+}
+
+/**
+ * Rewrites a generated template into the 2026.2 layout released before T13.8: the «4. Actividades» sheet
+ * without its «Tipo» column (the last one).
+ */
+export async function plantillaSinTipo(buffer: Buffer): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer as unknown as ArrayBuffer)
+  const hoja = workbook.getWorksheet(HOJAS.actividades)
+  if (!hoja) throw new Error(`Missing sheet ${HOJAS.actividades}`)
+  const columna = hoja.getRow(1).values as unknown[]
+  const indice = columna.indexOf("Tipo")
+  if (indice < 1) throw new Error("The sheet has no «Tipo» column")
+  hoja.spliceColumns(indice, 1)
   return Buffer.from(await workbook.xlsx.writeBuffer())
 }
 

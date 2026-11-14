@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { fromCents, sumCents, toCents } from "./money"
-import { proponerProgramacion } from "./programacion-propuesta"
+import { programacionDelPlan, proponerProgramacion } from "./programacion-propuesta"
 
 const pesos = (celdas: { periodo: string; valor: bigint }[]) => celdas.map((c) => [c.periodo, fromCents(c.valor)])
 
@@ -70,5 +70,44 @@ describe("proponerProgramacion (T13, S7)", () => {
         transversal: false,
       }),
     ).toEqual([])
+  })
+})
+
+describe("programacionDelPlan (T13.8, S7)", () => {
+  // «En las transversales la propuesta sale pareja por mes, y el Gestor la ajusta.»
+  it("proposes a Transversal activity evenly by month and a Normal one by days, from the plan's type", () => {
+    const actividad = { objetivoCodigo: "", nombre: "", semanaInicio: 1, semanaFin: 17, responsableId: null }
+    const propuesta = programacionDelPlan({
+      proyecto: {
+        fechaInicio: "2026-10-05",
+        fechaFin: "2027-01-29",
+        valorTotalCents: toCents("8000000"),
+        beneficiariosMeta: 1,
+        lineas: [],
+        municipioIds: [],
+      },
+      actividades: [
+        { ...actividad, codigo: "G.1", tipo: "TRANSVERSAL" },
+        { ...actividad, codigo: "1.1", objetivoCodigo: "OE1", tipo: "NORMAL" },
+      ],
+      presupuesto: [
+        { actividadCodigo: "G.1", rubroCodigo: "R01", cents: toCents("4000000") },
+        { actividadCodigo: "1.1", rubroCodigo: "R01", cents: toCents("4000000") },
+      ],
+    })
+
+    expect(pesos(propuesta.get("G.1|R01")!)).toEqual([
+      ["2026-10", "1000000.00"],
+      ["2026-11", "1000000.00"],
+      ["2026-12", "1000000.00"],
+      ["2027-01", "1000000.00"],
+    ])
+    // 27, 30, 31 and 29 days of 117.
+    expect(pesos(propuesta.get("1.1|R01")!)).toEqual([
+      ["2026-10", "923076.00"],
+      ["2026-11", "1025641.00"],
+      ["2026-12", "1059829.00"],
+      ["2027-01", "991454.00"],
+    ])
   })
 })

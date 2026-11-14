@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import ExcelJS from "exceljs"
 import { generarPlantilla } from "./generate"
 import { HOJAS, PLANTILLA_VERSION } from "./columns"
-import { fixtureF_X1, F_X1_CLIENTE, F_X1_CODIGO, F_X1_INICIO } from "../__fixtures__/plantilla-cedetextil"
+import { fixtureConTransversal, fixtureF_X1, F_X1_CLIENTE, F_X1_CODIGO, F_X1_INICIO } from "../__fixtures__/plantilla-cedetextil"
 
 type WorkbookWithDefinedNames = ExcelJS.Workbook
 
@@ -108,6 +108,28 @@ describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
     expect(sheet(workbook, HOJAS.actividades).getCell("D2").dataValidation.type).toBe("whole")
   })
 
+  it("adds a «Tipo» column with a Normal/Transversal dropdown and writes each activity's type (T13.8)", async () => {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load((await generarPlantilla(fixtureConTransversal())) as never)
+    const actividades = sheet(workbook, HOJAS.actividades)
+
+    expect(actividades.getCell("G1").value).toBe("Tipo")
+    expect(actividades.getCell("G2").dataValidation).toMatchObject({ type: "list", formulae: ['"Normal,Transversal"'] })
+    const filas = [2, 3, 4, 5, 6].map((fila) => [
+      actividades.getCell(`A${fila}`).value,
+      actividades.getCell(`B${fila}`).value ?? "",
+      actividades.getCell(`G${fila}`).value,
+    ])
+    expect(filas).toEqual([
+      ["1.1", "OE1", "Normal"],
+      ["1.2", "OE1", "Normal"],
+      ["1.3", "OE1", "Normal"],
+      ["1.4", "OE1", "Normal"],
+      ["G.1", "", "Transversal"],
+    ])
+    expect(JSON.stringify(actividades.getCell("G1").note)).toContain("Transversal")
+  })
+
   it("protects the catalog sheet with a password that is not stored", async () => {
     const workbook = await reload()
     const catalogo = sheet(workbook, HOJAS.catalogos)
@@ -144,6 +166,17 @@ describe("generarPlantilla — presentación de marca y ayudas", () => {
     const instrucciones = sheet(workbook, HOJAS.instrucciones)
     expect(instrucciones.getCell("A12").value).toContain("Ejemplos de uso")
     expect(instrucciones.getCell("A14").value).toBe("3. Objetivos")
+  })
+
+  it("explica la columna Tipo de la hoja Actividades en las instrucciones (T13.8)", async () => {
+    const workbook = await reload()
+    const instrucciones = sheet(workbook, HOJAS.instrucciones)
+    const filas: string[] = []
+    instrucciones.eachRow((fila) => filas.push((fila.values as unknown[]).slice(1).map(String).join(" | ")))
+    const tipo = filas.find((fila) => fila.startsWith("4. Actividades | Tipo"))
+    expect(tipo).toContain("Transversal")
+    expect(tipo).toContain("Gestión del proyecto")
+    expect(instrucciones.getCell("A23").value).toContain("punto y coma")
   })
 })
 

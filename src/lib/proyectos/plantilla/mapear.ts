@@ -8,7 +8,8 @@
  * it never throws on the F-X1 fixtures; money stays in exact `bigint` cents.
  */
 import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
-import { codigoRubroDe, resolverLineaToken, resolverMunicipioToken, type ContextoValidacion } from "./validate"
+import { codigoRubroDe, resolverLineaToken, resolverMunicipioToken, tipoActividadDe, type ContextoValidacion } from "./validate"
+import type { TipoActividad } from "../actividad"
 import { fromCents, sumCents, toCents, type Cents } from "../money"
 import { type IsoDate } from "../weeks"
 
@@ -24,11 +25,14 @@ export type PlanImportacion = {
   objetivos: { codigo: string; descripcion: string; orden: number }[]
   actividades: {
     codigo: string
+    /** Empty on a Transversal activity: it has no objective (T13.8). */
     objetivoCodigo: string
     nombre: string
     semanaInicio: number
     semanaFin: number
     responsableId: string | null
+    /** T13.8 (S7): the «Tipo» column; Normal when the sheet (2026.2) has none. */
+    tipo: TipoActividad
   }[]
   entregables: {
     codigo: string
@@ -147,6 +151,8 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
       semanaInicio,
       semanaFin,
       responsableId: email === "" ? null : usuarios.get(email) ?? null,
+      // V-06 already rejected any other value, so a validated row is always one of the two.
+      tipo: tipoActividadDe(fila) ?? "NORMAL",
     }
   })
 

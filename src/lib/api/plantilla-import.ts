@@ -200,6 +200,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
           nombre: true,
           semana_inicio: true,
           semana_fin: true,
+          tipo: true,
           objetivo: { select: { codigo: true } },
           responsable: { select: { email: true } },
         },
@@ -304,6 +305,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
         semanaInicio: actividad.semana_inicio,
         semanaFin: actividad.semana_fin,
         responsable: actividad.responsable?.email ?? null,
+        tipo: actividad.tipo,
       })),
       entregables: entregables.map((entregable) => ({
         codigo: entregable.codigo,
@@ -373,7 +375,14 @@ export async function borrarEstructura(tx: Prisma.TransactionClient, id: string)
   };
 }
 
-export type EstructuraPlan = Pick<PlanImportacion, "objetivos" | "actividades" | "entregables" | "indicadores">;
+/**
+ * The structure `crearEstructura` writes. An activity without `tipo` is Normal: the PO structure import
+ * (`estructura-po-import.ts`) carries no type (T13.8).
+ */
+type ActividadPlan = PlanImportacion["actividades"][number];
+export type EstructuraPlan = Pick<PlanImportacion, "objetivos" | "entregables" | "indicadores"> & {
+  actividades: (Omit<ActividadPlan, "tipo"> & { tipo?: ActividadPlan["tipo"] })[];
+};
 export type AuditoriaImportacion = { usuario_id: string; accion: "IMPORTAR"; proyecto_id: string; lote_id: string };
 
 /**
@@ -410,16 +419,21 @@ export async function crearEstructura(
   }
 
   const actividadIds = new Map(plan.actividades.map((a) => [clave(a.codigo), randomUUID()]));
-  const actividades = plan.actividades.map((a) => ({
-    id: buscar(actividadIds, a.codigo, "la actividad"),
-    proyecto_id: id,
-    objetivo_id: buscar(objetivoIds, a.objetivoCodigo, "el objetivo"),
-    codigo: a.codigo,
-    nombre: a.nombre,
-    semana_inicio: a.semanaInicio,
-    semana_fin: a.semanaFin,
-    responsable_id: a.responsableId,
-  }));
+  const actividades = plan.actividades.map((a) => {
+    // T13.8 (S7): a Transversal has no objective (the `actividades_tipo_objetivo_check` constraint).
+    const tipo = a.tipo ?? "NORMAL";
+    return {
+      id: buscar(actividadIds, a.codigo, "la actividad"),
+      proyecto_id: id,
+      tipo,
+      objetivo_id: tipo === "TRANSVERSAL" ? null : buscar(objetivoIds, a.objetivoCodigo, "el objetivo"),
+      codigo: a.codigo,
+      nombre: a.nombre,
+      semana_inicio: a.semanaInicio,
+      semana_fin: a.semanaFin,
+      responsable_id: a.responsableId,
+    };
+  });
   await tx.actividad.createMany({ data: actividades });
   for (const a of actividades) {
     cambios.push({
@@ -427,6 +441,7 @@ export async function crearEstructura(
       entidad: "actividad",
       entidad_id: a.id,
       valor_nuevo: {
+        tipo: a.tipo,
         objetivo_id: a.objetivo_id,
         codigo: a.codigo,
         nombre: a.nombre,
