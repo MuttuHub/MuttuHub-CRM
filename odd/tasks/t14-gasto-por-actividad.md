@@ -53,7 +53,8 @@ Bitácora de la rebanada: reportes, evidencia y decisiones. Specs textuales de l
 | ID | Specs | Qué | Ruta | Estado | Commit |
 |---|---|---|---|---|---|
 | T14.1 | S9 | El formulario elige Objetivo → Actividad → Rubro y guarda el `linea_id` exacto (sin schema) | delegated (writer) | done | `466abb0` |
-| T14.2 | S9 | Factura distribuida: tabla de reparto, suma = total, migración de riesgo 1 con reporte de seis puntos | inline | pending | — |
+| T14.2A | S9 | Schema y migración del reparto (riesgo 1) con reporte de seis puntos | delegated (writer) | done | `45e98f7` |
+| T14.2B | S9 | API y UI del reparto: suma = total, `DROP NOT NULL` y reescritura de lectores | pending | **espera la revisión de Claude** | — |
 | T14.3 | S9 | Importación con «Código de actividad», agrupación por documento y umbral de duplicados en tres capas | inline | pending | — |
 | T14.4 | S10 | Vistas por actividad / por rubro, fila «Sin actividad», costura única `loadGastosEjecutados` | inline | pending | — |
 | T14.5 | S11 | Cierre de gastos de la actividad (solo con autorización explícita del humano) | inline | pending | — |
