@@ -168,6 +168,7 @@ model Usuario {
   accesos            Acceso[] // PRD §3.3
   auditorias         Auditoria[]
   proyectos_responsable Proyecto[] @relation("ProyectoResponsable")
+  proyectos_programacion_confirmada Proyecto[] @relation("ProyectoProgramacionConfirmadaPor")
   proyectos_miembro ProyectoMiembro[] @relation("MiembroProyecto")
   actividades_responsable Actividad[] @relation("ActividadResponsable")
 
@@ -765,6 +766,10 @@ model Proyecto {
   beneficiarios_meta           Int?
   umbrales_override            Json?
   programacion_pendiente       Boolean         @default(false)
+  // T13 (S7): the Gestor confirmed the programming (every line fully programmed). Cleared by any later
+  // budget or programming write in BORRADOR; the baseline requires it.
+  programacion_confirmada_at     DateTime?
+  programacion_confirmada_por_id String?
   created_at                   DateTime        @default(now())
   updated_at                   DateTime        @updatedAt
   deleted_at                   DateTime?
@@ -772,6 +777,7 @@ model Proyecto {
   cliente     Cliente       @relation(fields: [cliente_id], references: [id])
   oportunidad Oportunidad?  @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
   responsable Usuario?      @relation("ProyectoResponsable", fields: [responsable_id], references: [id])
+  programacion_confirmada_por Usuario? @relation("ProyectoProgramacionConfirmadaPor", fields: [programacion_confirmada_por_id], references: [id])
   lineas      ProyectoLinea[]
   municipios  ProyectoMunicipio[]
   miembros    ProyectoMiembro[]
