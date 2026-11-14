@@ -57,7 +57,7 @@ Bitácora de la rebanada: reportes, evidencia y decisiones. Specs textuales de l
 | T14.2B | S9 | API y UI del reparto: suma = total, `DROP NOT NULL` y reescritura de lectores | pending | **espera la revisión de Claude** | — |
 | T14.3 | S9 | Importación con «Código de actividad», agrupación por documento y umbral de duplicados en tres capas | inline | pending | — |
 | T14.4A | S10 | Vistas por actividad, lado servidor: costura con `actividadId` y `actividades` con detalle por rubro | delegated (writer) | done | `1a9c4fa` |
-| T14.4B | S10 | Selector «Por actividad / Por rubro» en Finanzas y árbol de detalle | pending | siguiente | — |
+| T14.4B | S10 | Selector «Por actividad / Por rubro» en Finanzas y árbol de detalle | delegated (writer) | done | `1f85a18` |
 | T14.5 | S11 | Cierre de gastos de la actividad (solo con autorización explícita del humano) | inline | pending | — |
 
 ## Log
@@ -259,3 +259,40 @@ en los consumidores (`atencion`, `curva`, `openapi`, export, `project-financiero
 aditivo, sin dato, seguridad, concurrencia ni entrega: el payload por rubro y los totales siguen intactos y el
 OpenAPI de `/budget` no se tocó. Tamaño: 660 líneas de autoría en un commit, otra vez sobre la guía; se deja junto
 porque es un solo comportamiento con sus tests y el límite se anota para la revisión.
+
+---
+
+### Rebanada 4-B (T14.4-B) — selector de vistas en Finanzas
+
+**L29** Commit `1f85a18310ea5091799a94ae2e0edf7000267d6d` — `feat(finanzas): pick the per-activity or the per-rubro view
+(S10, T14.4b)`. Cinco archivos: `ficha-finanzas.tsx` (solo el swap del Resumen), dos componentes nuevos
+(`vistas-financieras.tsx` 68 líneas, `por-actividad.tsx` 254) y su test (584).
+
+**L30** Cobertura con sus tests: (a) ida y vuelta del selector y vista por rubro intacta →
+`cambia a «Por actividad» y vuelve a «Por rubro» montando solo la vista activa (S10)`,
+`abre en «Por rubro» con la tabla por rubro, su disponible y su semáforo (S10)`; (b) criterio de igualdad →
+`es igual en las dos vistas porque sale del mismo payload (S10)` y `pinta el total, los colores y los umbrales que
+manda el servidor, sin recalcularlos (S10)`; (c) agrupación → `agrupa por objetivo y deja «Gestión del proyecto» al
+final, con su fila «Sin actividad» (S10)` y `no inventa «Gestión del proyecto» cuando el payload no trae filas
+transversales (S10)`; (d) detalle → `abre una actividad y muestra sus rubros con los montos del payload (S10)` y
+`el detalle no se mezcla entre actividades: cada una abre solo sus rubros (S10)`; (e) BORRADOR →
+`no pinta color ni porcentajes: los dos llegan nulos y la UI no los inventa (S10)`; (f) accesibilidad →
+`es un grupo etiquetado, con las dos opciones, y anuncia la vista elegida (S10)`.
+
+**L31** Verificación propia: `npx tsc --noEmit` 0, `npx eslint` 0, `npx knip` 0, **189 tests** en `ficha` + `a11y-guards`
+y **1087 tests** en todo `src/components/proyectos` (79 archivos). Riesgo: **`Risk: none`** — no toca datos, seguridad,
+contratos ni concurrencia; el único cambio sobre una pantalla existente es el hijo del segmento Resumen, y la vista por
+rubro queda fijada por un test que la pinta completa.
+
+**L32** Deuda visible que deja esta rebanada, para decidir en la revisión (ninguna rompe S10 hoy):
+
+1. **Corte y base:** `por-actividad.tsx:52` consulta con `corte = null` y `base = "vigente"` fijo, porque los
+   controles viven en `src/components/proyectos/project-financiero.tsx` —el path real; el del brief,
+   `src/components/proyectos/ficha/project-financiero.tsx`, no existe— y está fuera de la superficie. Mientras no haya
+   corte elegible desde Finanzas el criterio se cumple; el día que lo haya, esta vista tiene que tomar el mismo corte
+   o «el ejecutado total es igual en las dos vistas» deja de ser estructural.
+2. **Móvil:** usa tabla con scroll horizontal en vez del patrón de tarjetas que sí tiene la vista por rubro. S10 no lo
+   pide, pero es una inconsistencia con el vecino.
+3. **Nombre del objetivo:** el payload trae `objetivo_codigo` pero no su descripción, así que el título dice
+   «Objetivo 1» y no «Objetivo 1. Ferias» como en Actividades. Se arregla en la UI con `useProjectObjectives`; no
+   necesita servidor.
