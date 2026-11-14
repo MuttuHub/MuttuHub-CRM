@@ -44,9 +44,9 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 
 | ID | S# | Task | Route | Status | Commit |
 |---|---|---|---|---|---|
-| T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | `243e47d` |
-| T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | `0da52bf` |
-| T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | `461ff29` |
+| T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | #188 `f1789f5` |
+| T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | #188 `f1789f5` |
+| T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | #188 `f1789f5` |
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | pending | |
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
@@ -89,3 +89,10 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   Checks: live invariants linea-base + plantilla-import (22) on muttu-hub; 3058 unit tests in the touched suites; CI
   seed order on an empty DB (ci_t13); tsc, eslint, knip clean. Risk: item 1 (T13.1 migration) and item 3 (the baseline
   now requires a confirmation every existing BORRADOR project lacks).
+- **L9** (2026-11-14, user: «Deja el proyecto listo en un estado final para que comiencen los dos») #188 merged
+  `f1789f5` (T13.1–T13.3 + lane B prompt). First CI run failed: `prisma/modificaciones.invariant.test.ts` approved a
+  baseline without the T13 confirmation; fixed in its fixture (`263253d`) after running all 34 invariants file by file
+  on muttu-hub. Lesson: a baseline or schema change runs every `prisma/*.test.ts`, as CI does. Lane B (deepseek) started
+  on `feat/t14-gasto-por-actividad` from `220d544`; its step 0 merges main (with #188) before its migration. The main
+  worktree is on `docs/t14-prompt-carril-b` (another session's prompt branch): left untouched. Next: T13.4 on
+  `feat/t13-4-pantalla-programacion`.
