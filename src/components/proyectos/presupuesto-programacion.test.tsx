@@ -113,7 +113,8 @@ describe("PresupuestoProgramacion", () => {
       "Falta por programar",
     ])
     expect(within(grid).getByLabelText("Programado R01 oct 2026")).toBeInTheDocument()
-    expect(within(grid).getByText("Sin actividad")).toBeInTheDocument()
+    // T13 (S7): a legacy line sits in its own «Sin actividad» group.
+    expect(within(grid).getByRole("button", { name: "Sin actividad" })).toHaveAttribute("aria-expanded", "true")
   })
 
   it("S8: programs each activity line of a rubro apart and saves the cells on their own line", async () => {
@@ -203,6 +204,68 @@ describe("PresupuestoProgramacion", () => {
     )
     const enviado = JSON.parse(String((put[1] as RequestInit).body)).filas.find((f: { periodo: string }) => f.periodo === "2026-11")
     expect(enviado.valor).toBe(Number(submitted).toFixed(2))
+  })
+
+  it("T13 (S7): shows the totals by rubro and by month on top, one row per rubro across its activities", async () => {
+    // «… con arriba los totales por rubro y por mes.»
+    setup({
+      data: {
+        ...POR_ACTIVIDAD,
+        filas: [
+          { linea_id: "lt", rubro_id: "r5", periodo: "2026-10", valor: "15000000.00" },
+          { linea_id: "lf", rubro_id: "r5", periodo: "2026-10", valor: "5000000.00" },
+          { linea_id: "lf", rubro_id: "r5", periodo: "2026-11", valor: "3000000.00" },
+        ],
+      },
+    })
+    const totales = await screen.findByTestId("programacion-totales")
+    expect(within(totales).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Rubro",
+      "oct 2026",
+      "nov 2026",
+      "dic 2026",
+      "Total",
+    ])
+    const filas = within(totales).getAllByRole("row").slice(1)
+    expect(filas.map((f) => within(f).getAllByRole("cell").map((c) => c.textContent))).toEqual([
+      ["R05 Formación", "$ 20.000.000", "$ 3.000.000", "$ 0", "$ 23.000.000"],
+      ["Total", "$ 20.000.000", "$ 3.000.000", "$ 0", "$ 23.000.000"],
+    ])
+  })
+
+  it("T13 (S7): editing a month updates the totals on top before saving", async () => {
+    // «Al editar un mes, el total por rubro y por mes de arriba se actualiza.»
+    const user = userEvent.setup()
+    setup({ data: POR_ACTIVIDAD })
+    const grid = await screen.findByTestId("programacion-grid")
+    await user.type(within(grid).getByLabelText("Programado 1.2 R05 dic 2026"), "4000000")
+    const total = within(screen.getByTestId("programacion-totales")).getAllByRole("row").at(-1)!
+    expect(within(total).getAllByRole("cell").map((c) => c.textContent)).toEqual([
+      "Total",
+      "$ 0",
+      "$ 0",
+      "$ 4.000.000",
+      "$ 4.000.000",
+    ])
+    expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit)?.method === "PUT")).toBe(false)
+  })
+
+  it("T13 (S7): groups the lines by activity in groups that collapse and expand", async () => {
+    // «… en una pantalla agrupada por actividad (grupos que se pliegan y despliegan) …»
+    const user = userEvent.setup()
+    setup({ data: POR_ACTIVIDAD })
+    const grid = await screen.findByTestId("programacion-grid")
+    const grupo = within(grid).getByRole("button", { name: /1\.1 Taller/ })
+    expect(grupo).toHaveAttribute("aria-expanded", "true")
+    expect(within(grid).getByLabelText("Programado 1.1 R05 oct 2026")).toBeInTheDocument()
+
+    await user.click(grupo)
+    expect(grupo).toHaveAttribute("aria-expanded", "false")
+    expect(within(grid).queryByLabelText("Programado 1.1 R05 oct 2026")).not.toBeInTheDocument()
+    // The other activity stays open, and a collapsed group keeps its typed values.
+    expect(within(grid).getByLabelText("Programado 1.2 R05 oct 2026")).toBeInTheDocument()
+    await user.click(grupo)
+    expect(within(grid).getByLabelText("Programado 1.1 R05 oct 2026")).toBeInTheDocument()
   })
 
   it("T13 (S7): confirms only a fully programmed, saved programming, and then shows it confirmed", async () => {
