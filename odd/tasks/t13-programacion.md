@@ -46,7 +46,7 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 |---|---|---|---|---|---|
 | T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | `243e47d` |
 | T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | `0da52bf` |
-| T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | pending | |
+| T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | `461ff29` |
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | pending | |
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
@@ -81,3 +81,11 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   fixture rebuilt in the 2026.2 layout; slice 4 e2e expects the derived $ 0. Force-push was denied, so each later slice
   took main by merge (squash keeps main linear). T13 rebased onto `220d544`: T13.1 `243e47d`, T13.2 `0da52bf`; tsc
   clean, 215 unit tests and invariants plantilla-import + presupuesto (21) green on muttu-hub.
+- **L8** T13.3 `461ff29` (584+/23−, 22 files). Confirm route, clear on budget PUT / programming PUT / template import
+  (IMPORTAR in the import lote), PROGRAMACION_SIN_CONFIRMAR baseline precondition, `programacion_confirmada` in the view,
+  «Confirmar programación» button (enabled only for a saved, fully programmed grid) and «Programación confirmada»
+  badge; demo seed confirms project B before its baseline. Decisions: who confirms = who may write the programming
+  (gatePresupuestoWrite); the help text under the grid now explains the confirmation (two tests pinned the old copy).
+  Checks: live invariants linea-base + plantilla-import (22) on muttu-hub; 3058 unit tests in the touched suites; CI
+  seed order on an empty DB (ci_t13); tsc, eslint, knip clean. Risk: item 1 (T13.1 migration) and item 3 (the baseline
+  now requires a confirmation every existing BORRADOR project lacks).
