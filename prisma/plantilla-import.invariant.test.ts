@@ -286,7 +286,7 @@ async function lineasPorActividad(tx: Tx, proyectoId: string) {
     where: { proyecto_id: proyectoId },
     include: { actividad: true, rubro: true },
   });
-  for (const linea of lineas) expect(linea.actividad?.deleted_at ?? "sin actividad").toBeNull();
+  for (const linea of lineas) expect(linea.actividad ? linea.actividad.deleted_at : "sin actividad").toBeNull();
   return new Map(lineas.map((l) => [`${l.actividad?.codigo}|${l.rubro.codigo}`, l]));
 }
 
@@ -357,7 +357,11 @@ describe("template import (live DB)", () => {
 
       // One lote, only IMPORTAR rows, including the `reemplazo` summary row.
       const filas = await tx.auditoriaCambio.findMany({ where: { lote_id: cuerpo.lote_id } });
-      expect(filas.length).toBeGreaterThan(40);
+      // S4: no programming sheet, so no `programacion` rows; `presupuesto` = 8 new lines + the dropped legacy R02.
+      const porEntidad = Object.fromEntries(
+        [...new Set(filas.map((f) => f.entidad))].map((e) => [e, filas.filter((f) => f.entidad === e).length]),
+      );
+      expect(porEntidad).toEqual({ actividad: 4, entregable: 7, indicador: 2, objetivo: 1, presupuesto: 9, proyecto: 9 });
       expect(new Set(filas.map((f) => f.lote_id))).toEqual(new Set([cuerpo.lote_id]));
       expect(new Set(filas.map((f) => f.accion))).toEqual(new Set(["IMPORTAR"]));
       const reemplazo = filas.find((f) => f.entidad === "proyecto" && f.campo === "reemplazo");
