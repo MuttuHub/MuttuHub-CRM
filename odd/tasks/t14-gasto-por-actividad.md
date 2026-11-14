@@ -166,7 +166,8 @@ columna, la segunda trivial (ensanchar la restricción, sin datos).
 está en la lista de prohibidos pero tampoco en mi superficie; es del área de T13. Antes de la 2-B se avisa a Claude para
 que no haya dos manos en ese archivo.
 
-**L16** Commit de la 2-A con la migración y su reporte. La migración es **puramente aditiva**: crea `gastos_reparto`
+**L16** Commit `45e98f754a9bb3790b2b7780dc28220ed55532f7` — `feat(prisma): distribute an invoice across budget lines with
+gastos_reparto (S9, T14.2a)`. La migración es **puramente aditiva**: crea `gastos_reparto`
 (uuid, `proyecto_id`, `gasto_id`, `linea_id`, `valor DECIMAL(15,2)`, timestamps, cascada desde `Gasto`, dos FKs
 compuestas al par `(id, proyecto_id)`, CHECK `valor > 0`, tres índices) y backfillea **una** fila por cada gasto
 existente con su `linea_id` y su `monto_cop`. No hay un solo `ALTER TABLE "gastos"`. Vuelta atrás: `DROP TABLE
