@@ -141,3 +141,63 @@ omita cae al formulario viejo sin cascada (los tres puntos actuales lo pasan).
 commit** porque es un único comportamiento con sus tests y separarlos pondría los tests lejos de lo que prueban; se
 anota aquí el límite para que la revisión sepa qué mirar. Para T14.2 se parte en dos commits: primero el schema y la
 migración (con su reporte de seis puntos), después la API y la UI del reparto.
+
+---
+
+### Rebanada 2-A (T14.2-A) — schema y migración
+
+**L12** Paso 0 repetido antes de escribir la migración: **dio 1**. El PR #188 (`f1789f5`, T13.1–T13.3) entró a main; se
+mergeó `origin/main` en la rama sin conflictos y ya está `20261114180000_t13_programacion_confirmada`. Mi migración va
+con fecha `20261115…` y no toco los modelos `Proyecto` ni `Usuario`.
+
+**L13** Base descartable en `55433` (`muttu-t14-db`): todas las migraciones aplicadas y `npx vitest run prisma` con 34
+archivos / 252 tests en verde antes de tocar nada. El `55432` sigue siendo del Paso 0.
+
+**L14** **Decisión sobre `Gasto.linea_id`** (reportada por el worker como contradicción real): dejarlo nullable exige que
+`Gasto.linea` pase a `LineaPresupuestal?`, y eso rompe `tsc` en siete accesos no nulos de cuatro archivos
+(`src/lib/api/financiera.ts:36-37`, `src/lib/api/gastos.ts:450,607`, `src/app/api/v1/projects/[id]/expenses/[expenseId]/route.ts:122,129`,
+`src/lib/api/modificaciones.ts:165`). Como los lectores de `gasto.linea` se reescriben igual en la 2-B —ahí el ejecutado
+pasa a salir del reparto—, **la nulabilidad se difiere a la 2-B** y esta rebanada mantiene `linea_id` NOT NULL. Razones:
+la migración de esta rebanada no cambia el contrato de nadie, `tsc` sigue en verde y la 2-B arrastra el `DROP NOT NULL`
+junto con la reescritura de lectores que de todos modos tiene que hacer. Costo aceptado: dos migraciones sobre la misma
+columna, la segunda trivial (ensanchar la restricción, sin datos).
+
+**L15** Consecuencia anotada para la 2-B: al soltar NOT NULL hay que tocar `src/lib/api/modificaciones.ts`, que **no**
+está en la lista de prohibidos pero tampoco en mi superficie; es del área de T13. Antes de la 2-B se avisa a Claude para
+que no haya dos manos en ese archivo.
+
+**L16** Commit de la 2-A con la migración y su reporte. La migración es **puramente aditiva**: crea `gastos_reparto`
+(uuid, `proyecto_id`, `gasto_id`, `linea_id`, `valor DECIMAL(15,2)`, timestamps, cascada desde `Gasto`, dos FKs
+compuestas al par `(id, proyecto_id)`, CHECK `valor > 0`, tres índices) y backfillea **una** fila por cada gasto
+existente con su `linea_id` y su `monto_cop`. No hay un solo `ALTER TABLE "gastos"`. Vuelta atrás: `DROP TABLE
+"gastos_reparto"` + sacar el directorio de la migración; no se pierde nada que no se pueda reconstruir desde la
+cabecera.
+
+**L17** Reporte de seis puntos, medido sobre el fixture insertado **antes** de la migración (proyecto con actividades
+1.2 y 1.3, un rubro presupuestado en las dos, y gastos en REGISTRADO ×3, VALIDADO, RECHAZADO y ANULADO):
+
+1. SQL completo: en `prisma/migrations/20261115120000_t14_gasto_reparto/migration.sql`.
+2. Conteos antes → después: `gastos` 6 → 6, `gastos_reparto` (tabla nueva) 0 → 6, `lineas_presupuestales` 3 → 3.
+3. Suma del ejecutado (REGISTRADO + VALIDADO) antes = después = **1.064.000,00**; total de todos los gastos
+   1.383.000,00 → 1.383.000,00; y la suma de todos los repartos = 1.383.000,00.
+4. `sin_reparto = 0` · `suma_no_cuadra = 0` · `linea_distinta = 0` · `fuera_del_proyecto = 0` · `huerfanas = 0`;
+   factura por factura la suma de sus repartos es exactamente su `monto_cop`.
+5. Nada más cambió: hash de fila completa sobre todas las columnas de `gastos` idéntico antes y después
+   (`md5 = 42a39fdc83efa1a1fb5d346e2549a937`) y `gastos.linea_id` sigue `NOT NULL` en `information_schema`.
+6. Vuelta atrás: ver L16.
+
+**L18** Verificación propia del orquestador (no solo el reporte del worker): `npx tsc --noEmit` exit 0; `npx vitest run
+prisma --no-file-parallelism` → **35 archivos / 259 tests** en verde (la base era 34/252 más el archivo nuevo);
+auditoría SQL directa sobre la base → 6 gastos, `sin_reparto: 0`, `desalineados: 0`, `una_fila_otra_linea: 0`. Los
+números globales (`ejecutado 1.064.000,00` contra `repartido 1.383.000,00`) son correctos y no un descuadre: el
+ejecutado cuenta solo REGISTRADO+VALIDADO, el repartido suma también RECHAZADO y ANULADO.
+
+**L19** Riesgo: **`Risk: item 1`** (datos existentes) y **probado**, no declarado: hash idéntico, suma idéntica y el
+backfill verificado factura por factura sobre la base descartable. La migración no borra ni reescribe la tabla de
+gastos. Deudas anotadas que **no** introduce esta rebanada: (a) existe un drift previo de T10 —
+`lineas_presupuestales_actividad_id_idx` se crea en SQL y no está declarado en el schema, así que Prisma propone
+borrarlo; se quitó esa sentencia de esta migración y hay que declarar `@@index([actividad_id])` para cerrarlo; (b) el
+worker se desvió con razón de mi brief en `Decimal(15,2)`/`uuid()`, que es la convención real del repo.
+
+**L20** **Alto:** la rebanada 3 no arranca hasta que Claude revise esta migración, como manda el prompt. La 2-B
+(API y UI del reparto, con el `DROP NOT NULL` y la reescritura de lectores) también espera esa revisión.
