@@ -44,8 +44,8 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 
 | ID | S# | Task | Route | Status | Commit |
 |---|---|---|---|---|---|
-| T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | `728dc88` |
-| T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | `54338f9` |
+| T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | `243e47d` |
+| T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | `0da52bf` |
 | T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | pending | |
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | pending | |
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
@@ -74,3 +74,10 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   them (the Gestor's web adjustment survives); any other line is re-proposed. The template has no activity type yet, so
   every line is proposed by days until T13.8. Checks: 181 unit tests, plantilla-import invariant 11/11 on muttu-hub.
 - **L6** T11 PRs opened against main (stacked, merge in order): #183 → #184 → #185 → #186 → #187; T12 is #182.
+- **L7** (2026-11-14, user: «listo dale, vamos con los merge en el orden recomendado») T11 and T12 merged to main:
+  #183 `18a44db`, #184 `1e371fe`, #185 `27500f2` (+ empty `eaf0a4a` from a retried merge after a GitHub 504), #186
+  `d4793fe`, #187 `4e98711`, #182 `220d544`. CI fixes on the way: slice 1 `bg-white` → `bg-input-bg` (design-guards);
+  slice 3 demo seed programs each line before the baseline (it aborted with PROGRAMACION_PENDIENTE) and the e2e PO
+  fixture rebuilt in the 2026.2 layout; slice 4 e2e expects the derived $ 0. Force-push was denied, so each later slice
+  took main by merge (squash keeps main linear). T13 rebased onto `220d544`: T13.1 `243e47d`, T13.2 `0da52bf`; tsc
+  clean, 215 unit tests and invariants plantilla-import + presupuesto (21) green on muttu-hub.
