@@ -1633,6 +1633,34 @@ export type ProjectFinancialRow = {
   color: ColorSemaforo | null;
 };
 
+/** S10: fila por actividad de la hoja financiera («Por actividad»), agrupable por objetivo o por «Gestión del proyecto». Se exportará cuando la pantalla de T14.4-B la necesite como tipo de prop. */
+type ProjectFinancialActivityRow = {
+  /** Nulo en la fila «Sin actividad» (líneas cargadas antes de la Parte 2). */
+  actividad_id: string | null;
+  codigo: string | null;
+  /** «Sin actividad» en esa fila. */
+  nombre: string;
+  /** Nulo en «Gestión del proyecto»: una actividad transversal no lleva objetivo. */
+  objetivo_id: string | null;
+  objetivo_codigo: string | null;
+  /** True en «Gestión del proyecto»: actividad TRANSVERSAL o fila «Sin actividad». */
+  gestion: boolean;
+  asignado: string;
+  programado: string;
+  ejecutado: string;
+  diferencia: string;
+  /** Asignado − ejecutado: saldo mientras los gastos están abiertos (S11). */
+  saldo: string;
+  /** E/P en décimas de punto porcentual (300 = 30 %); nulo si P = 0 o sin gastos. */
+  ep_decimas: number | null;
+  ea_decimas: number | null;
+  umbral_rojo: string;
+  /** Nulo mientras `ejecucion_disponible` es false. */
+  color: ColorSemaforo | null;
+  /** S10: el detalle por rubro que se abre al elegir la actividad, con la forma del nivel superior. */
+  rubros: ProjectFinancialRow[];
+};
+
 export type ProjectFinancialSheet = {
   base: ProjectBase;
   /** Periodo AAAA-MM. */
@@ -1641,6 +1669,8 @@ export type ProjectFinancialSheet = {
   ejecucion_disponible: boolean;
   rubros: ProjectFinancialRow[];
   total: ProjectFinancialRow;
+  /** S10: las mismas cifras por actividad, con el mismo ejecutado total que `total`. */
+  actividades: ProjectFinancialActivityRow[];
   alerta_retraso: boolean;
   parametros: { tolerancia: number; retraso: number; confirmado: boolean };
 };

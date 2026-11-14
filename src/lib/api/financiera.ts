@@ -14,7 +14,17 @@ import type { Periodo } from "@/lib/proyectos/weeks";
 
 // S5/T10: la línea, no sólo el rubro. Sin ella dos líneas del mismo rubro se quedan con los mismos
 // gastos y el ejecutado se duplica al sumar el total.
-type GastoAgregable = { rubroId: string; lineaId: string; periodo: Periodo; valor: Cents; estado: GastoEstado };
+// S10: además la actividad de la línea (`actividad_id`, nulo en una línea heredada), para que la vista
+// «Por actividad» y la vista «Por rubro» se armen con esta única lista y su ejecutado total no pueda
+// diferir. Requerida y nullable: toda fila declara de qué actividad es, y null es la fila «Sin actividad».
+type GastoAgregable = {
+  rubroId: string;
+  lineaId: string;
+  actividadId: string | null;
+  periodo: Periodo;
+  valor: Cents;
+  estado: GastoEstado;
+};
 
 export type GastosFuente = {
   /** False when E is not real (no expense source, or the project is still BORRADOR): no color is shown. */
@@ -28,13 +38,19 @@ export async function loadGastosEjecutados(
 ): Promise<GastosFuente> {
   const rows = await client.gasto.findMany({
     where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
-    select: { periodo: true, monto_cop: true, estado: true, linea: { select: { id: true, rubro_id: true } } },
+    select: {
+      periodo: true,
+      monto_cop: true,
+      estado: true,
+      linea: { select: { id: true, rubro_id: true, actividad_id: true } },
+    },
   });
   return {
     disponible: true,
     gastos: rows.map((row) => ({
       rubroId: row.linea.rubro_id,
       lineaId: row.linea.id,
+      actividadId: row.linea.actividad_id,
       periodo: row.periodo,
       valor: toCents(row.monto_cop),
       estado: row.estado,
