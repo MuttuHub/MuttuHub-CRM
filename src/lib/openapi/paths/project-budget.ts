@@ -81,6 +81,14 @@ const ProgrammingViewSchema = registry.register(
       .openapi({ description: "Una fila por línea del presupuesto (actividad + rubro): lo que se programa." }),
     control_por_rubro: z.array(ControlProgramacion).openapi({ description: "Las líneas de cada rubro sumadas." }),
     programacion_pendiente: z.boolean().openapi({ description: "Derivado: ninguna celda por encima de $0." }),
+    programacion_confirmada: z
+      .object({ at: z.string().datetime(), por_id: z.string().uuid().nullable() })
+      .nullable()
+      .openapi({
+        description:
+          "T13: cuándo y quién confirmó la programación. Nula hasta que el Gestor la confirma, y otra vez nula después de " +
+          "cualquier cambio del presupuesto o de la programación. La línea base la exige.",
+      }),
   }),
 );
 
@@ -149,6 +157,24 @@ registry.registerPath({
   responses: {
     200: { description: "Programación guardada.", content: { "application/json": { schema: ProgrammingViewSchema } } },
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/programming/confirm",
+  tags: ["Projects"],
+  summary: "Confirma la programación de un proyecto en Borrador",
+  description:
+    `${WRITE_NOTE} El Gestor confirma cuando «Falta por programar» queda en $0 en todas las líneas; después el Gerente aprueba la ` +
+    "línea base, que exige la confirmación (precondición `PROGRAMACION_SIN_CONFIRMAR`). 409 CONFLICT con `pendientes` " +
+    "(línea y control) si alguna línea no está programada completa. Registra cuándo y quién, y audita `programacion_confirmada_at`. " +
+    "Cualquier cambio posterior del presupuesto o de la programación quita la confirmación.",
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectParams },
+  responses: {
+    200: { description: "Programación confirmada.", content: { "application/json": { schema: ProgrammingViewSchema } } },
+    ...standardErrorResponses([401, 403, 404, 409, 500]),
   },
 });
 

@@ -21,7 +21,13 @@ export type EntradaLineaBase = {
   entregables: readonly { codigo: string; actividadCodigo: string }[]
   lineas: readonly LineaControl[]
   programacion: readonly CeldaControl[]
+  /** T13 (S7): the Gestor confirmed the programming (`proyectos.programacion_confirmada_at` is set). */
+  programacionConfirmada: boolean
 }
+
+/** T13 (S7): the baseline waits for the Gestor's confirmation of the programming. */
+const MENSAJE_PROGRAMACION_SIN_CONFIRMAR =
+  "La programación no está confirmada. El Gestor la confirma cuando «Falta por programar» queda en $0 en todas las líneas."
 
 /** The number of beneficiaries must be positive: baseline approval and the execution-time edit share this copy. */
 export const MENSAJE_BENEFICIARIOS = "El número de beneficiarios debe ser mayor que cero."
@@ -79,5 +85,12 @@ export function precondicionesLineaBase(entrada: EntradaLineaBase): Precondicion
     periodosProyecto: periodos ?? [],
   })
   // Without valid dates there is no range to check against: SIN_FECHAS already says it.
-  return [...fallas, ...presupuesto.filter((f) => periodos !== null || f.codigo !== "PERIODO_FUERA_DE_RANGO")]
+  const confirmacion: PrecondicionFalla[] = entrada.programacionConfirmada
+    ? []
+    : [{ codigo: "PROGRAMACION_SIN_CONFIRMAR", mensaje: MENSAJE_PROGRAMACION_SIN_CONFIRMAR }]
+  return [
+    ...fallas,
+    ...presupuesto.filter((f) => periodos !== null || f.codigo !== "PERIODO_FUERA_DE_RANGO"),
+    ...confirmacion,
+  ]
 }

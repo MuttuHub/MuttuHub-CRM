@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest"
 
 import { db } from "@/lib/db"
 import { RespuestaAbortada } from "@/lib/api/errors"
-import { lockProyecto, lockProyectoBorrador } from "@/lib/api/presupuesto"
+import { confirmarProgramacion, limpiarConfirmacion, lockProyecto, lockProyectoBorrador } from "@/lib/api/presupuesto"
 import { aprobarLineaBase } from "@/lib/api/versiones"
 
 const TX_OPTIONS = { timeout: 30_000, maxWait: 10_000 }
@@ -38,7 +38,7 @@ async function runAndRollback<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
 const MARKER = "sdd-invariant-linea-base"
 
 /** A project that satisfies every REQ-VER-01 item: 100 over two months, one objective, activity, deliverable. */
-async function fixture(tx: Tx, over: { sinObjetivos?: boolean } = {}) {
+async function fixture(tx: Tx, over: { sinObjetivos?: boolean; sinConfirmar?: boolean } = {}) {
   const suffix = randomUUID()
   const usuario = await tx.usuario.create({ data: { email: `${MARKER}-${suffix}@example.test`, nombre: MARKER } })
   const cliente = await tx.cliente.create({
@@ -55,6 +55,13 @@ async function fixture(tx: Tx, over: { sinObjetivos?: boolean } = {}) {
       beneficiarios_meta: 50,
     },
   })
+  if (!over.sinConfirmar) {
+    // T13 (S7): the baseline waits for the Gestor's confirmation; the default fixture is confirmed.
+    await tx.proyecto.update({
+      where: { id: proyecto.id },
+      data: { programacion_confirmada_at: new Date(), programacion_confirmada_por_id: usuario.id },
+    })
+  }
   const rubro = await tx.rubro.create({ data: { codigo: `B-${suffix.slice(0, 8)}`, nombre: `${MARKER}-rubro` } })
   const linea = await tx.lineaPresupuestal.create({
     data: { proyecto_id: proyecto.id, rubro_id: rubro.id, monto_proyectado_cop: 100 },
@@ -193,6 +200,18 @@ describe("aprobarLineaBase (live DB)", () => {
     expect(resultado.estado).toBe("BORRADOR")
   })
 
+  it("refuses the approval while the Gestor has not confirmed the programming (T13, S7)", async () => {
+    const resultado = await runAndRollback(async (tx) => {
+      const { usuario, proyecto } = await fixture(tx, { sinConfirmar: true })
+      const respuesta = await aborto(aprobarLineaBase(tx, { proyectoId: proyecto.id, usuarioId: usuario.id }))
+      return { respuesta, versiones: await tx.versionProyecto.count({ where: { proyecto_id: proyecto.id } }) }
+    })
+    expect(resultado.respuesta.status).toBe(409)
+    const json = await resultado.respuesta.json()
+    expect(json.precondiciones.map((p: { codigo: string }) => p.codigo)).toEqual(["PROGRAMACION_SIN_CONFIRMAR"])
+    expect(resultado.versiones).toBe(0)
+  })
+
   it("closes every structure/budget writer after the approval: the lock answers 409", async () => {
     const respuesta = await runAndRollback(async (tx) => {
       const { usuario, proyecto } = await fixture(tx)
@@ -274,5 +293,58 @@ describe("project row lock (live DB, two connections)", () => {
   it("an approval in flight makes a structure writer wait, and the writer proceeds once it is released", async () => {
     const r = await carrera((tx, ids) => aprobarLineaBase(tx, { proyectoId: ids.proyectoId, usuarioId: ids.usuarioId }))
     expect(r).toEqual({ bloqueado: true, termino: true })
+  })
+})
+
+describe("confirmarProgramacion / limpiarConfirmacion (T13, S7, live DB)", () => {
+  const PERIODOS = ["2026-10", "2026-11"]
+
+  it("refuses to confirm while a line has a value pending to program, naming the line, and writes nothing", async () => {
+    // «No se puede confirmar si alguna línea tiene un valor pendiente por programar.»
+    const resultado = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, linea } = await fixture(tx, { sinConfirmar: true })
+      await tx.programacionPeriodo.updateMany({ where: { linea_id: linea.id, periodo: "2026-11" }, data: { valor: 40 } })
+      const respuesta = await aborto(confirmarProgramacion(tx, { proyectoId: proyecto.id, usuarioId: usuario.id, periodos: PERIODOS }))
+      const despues = await tx.proyecto.findUniqueOrThrow({ where: { id: proyecto.id } })
+      return { respuesta, confirmada: despues.programacion_confirmada_at }
+    })
+    expect(resultado.respuesta.status).toBe(409)
+    const json = await resultado.respuesta.json()
+    expect(json.error).toBe("No se puede confirmar la programación: hay líneas con valor pendiente por programar.")
+    expect(json.pendientes).toEqual([{ linea: expect.stringContaining("-rubro"), control: "-10.00" }])
+    expect(resultado.confirmada).toBeNull()
+  })
+
+  it("confirms a fully programmed project: records who and when, with one audit row", async () => {
+    const resultado = await runAndRollback(async (tx) => {
+      const { usuario, proyecto } = await fixture(tx, { sinConfirmar: true })
+      const vista = await confirmarProgramacion(tx, { proyectoId: proyecto.id, usuarioId: usuario.id, periodos: PERIODOS })
+      const despues = await tx.proyecto.findUniqueOrThrow({ where: { id: proyecto.id } })
+      const auditoria = await tx.auditoriaCambio.findMany({
+        where: { proyecto_id: proyecto.id, campo: "programacion_confirmada_at" },
+      })
+      return { vista, despues, auditoria, usuarioId: usuario.id }
+    })
+    expect(resultado.despues.programacion_confirmada_at).not.toBeNull()
+    expect(resultado.despues.programacion_confirmada_por_id).toBe(resultado.usuarioId)
+    expect(resultado.vista.programacion_confirmada?.por_id).toBe(resultado.usuarioId)
+    expect(resultado.auditoria).toHaveLength(1)
+    expect(resultado.auditoria[0]!.valor_anterior).toBeNull()
+  })
+
+  it("a later budget or programming write clears the confirmation, audited; with none it does nothing", async () => {
+    const resultado = await runAndRollback(async (tx) => {
+      const { usuario, proyecto } = await fixture(tx)
+      await limpiarConfirmacion(tx, { proyectoId: proyecto.id, usuarioId: usuario.id })
+      await limpiarConfirmacion(tx, { proyectoId: proyecto.id, usuarioId: usuario.id })
+      const despues = await tx.proyecto.findUniqueOrThrow({ where: { id: proyecto.id } })
+      const auditoria = await tx.auditoriaCambio.count({
+        where: { proyecto_id: proyecto.id, campo: "programacion_confirmada_at" },
+      })
+      return { despues, auditoria }
+    })
+    expect(resultado.despues.programacion_confirmada_at).toBeNull()
+    expect(resultado.despues.programacion_confirmada_por_id).toBeNull()
+    expect(resultado.auditoria).toBe(1)
   })
 })

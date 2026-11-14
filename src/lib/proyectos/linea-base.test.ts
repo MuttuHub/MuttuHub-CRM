@@ -17,6 +17,7 @@ function valida(): EntradaLineaBase {
     entregables: [{ codigo: "1.1-E1", actividadCodigo: "1.1" }],
     lineas: [{ rubroId: "r1", nombre: "Personal", asignado: c("300"), activo: true }],
     programacion: periodos.map((periodo) => ({ rubroId: "r1", periodo, valor: c("150") })),
+    programacionConfirmada: true,
   }
 }
 
@@ -97,6 +98,7 @@ describe("precondicionesLineaBase", () => {
       entregables: [],
       lineas: [],
       programacion: [],
+      programacionConfirmada: false,
     }
     expect(codigos(entrada)).toEqual([
       "SIN_VALOR_TOTAL",
@@ -104,6 +106,20 @@ describe("precondicionesLineaBase", () => {
       "META_BENEFICIARIOS_INVALIDA",
       "SIN_OBJETIVOS",
       "PROGRAMACION_PENDIENTE",
+      "PROGRAMACION_SIN_CONFIRMAR",
+    ])
+  })
+
+  it("requires the Gestor's confirmation of the programming (T13, S7)", () => {
+    // «El Gestor confirma la programación cuando “Falta por programar” queda en $0 en todas las líneas. Después el
+    // Gerente aprueba la línea base, como hoy.»
+    expect(codigos(valida())).toEqual([])
+    const fallas = precondicionesLineaBase({ ...valida(), programacionConfirmada: false })
+    expect(fallas).toEqual([
+      {
+        codigo: "PROGRAMACION_SIN_CONFIRMAR",
+        mensaje: "La programación no está confirmada. El Gestor la confirma cuando «Falta por programar» queda en $0 en todas las líneas.",
+      },
     ])
   })
 })

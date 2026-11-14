@@ -72,7 +72,16 @@ function grabadora({ lineas = [] as LineaExistente[], gastos = 0 } = {}) {
           if (metodo === "count") return nombre === "gasto" ? gastos : 0;
           if (metodo === "updateMany") return { count: 2 };
           if (metodo === "findUniqueOrThrow") {
-            return { fecha_inicio: null, fecha_fin: null, valor_total: null, beneficiarios_meta: null, oportunidad: null, lineas: [], municipios: [] };
+            return {
+              fecha_inicio: null,
+              fecha_fin: null,
+              valor_total: null,
+              beneficiarios_meta: null,
+              oportunidad: null,
+              lineas: [],
+              municipios: [],
+              programacion_confirmada_at: null,
+            };
           }
           if (metodo === "findMany") {
             const rubros = (args as { where?: { codigo?: { in?: string[] } } }).where?.codigo?.in ?? [];
@@ -131,6 +140,8 @@ describe("importarPlantilla", () => {
       // T13 S1: the proposal step reads the final lines and their cells.
       "lineaPresupuestal.findMany",
       "programacionPeriodo.findMany",
+      // T13 (S7): whether there is a confirmation to reopen (none here, so nothing is written).
+      "proyecto.findUniqueOrThrow",
       "auditoriaCambio.createMany",
     ]);
     // S4: the template carries no programming. Cells come only from the T13 proposal over the lines the import

@@ -121,6 +121,7 @@ type PrecondicionCodigo =
   | "SUMA_DISTINTA_VALOR_TOTAL"
   | "CONTROL_PROGRAMACION"
   | "PROGRAMACION_PENDIENTE"
+  | "PROGRAMACION_SIN_CONFIRMAR"
   | "RUBRO_SUSPENDIDO_CON_ASIGNADO"
   | "PERIODO_FUERA_DE_RANGO"
   // S8 baseline structure items (REQ-VER-01), composed in `linea-base.ts`.

@@ -23,6 +23,7 @@ import { logChanges, diffFields, type CambioInput } from "@/lib/api/audit-cambio
 import {
   RespuestaAbortada,
   decimalFromCents,
+  limpiarConfirmacion,
   lockProyectoBorrador,
   PROYECTO_NO_EXISTE,
 } from "@/lib/api/presupuesto";
@@ -713,6 +714,9 @@ export async function importarPlantilla(
       cambios.push({ ...programacionBase, entidad_id: creada.id, campo: celda.periodo, valor_anterior: null, valor_nuevo: fromCents(celda.valor) });
     }
   }
+
+  // 5c. T13 (S7): the import rewrote the budget, so the Gestor confirms the programming again (in this lote).
+  await limpiarConfirmacion(tx, { proyectoId: id, usuarioId, loteId, accion: "IMPORTAR" });
 
   // 6. One summary row, then the whole lote in one insert.
   const resumen = resumenDePlan(plan);

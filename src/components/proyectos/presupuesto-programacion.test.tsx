@@ -54,6 +54,16 @@ const PROGRAMMING = {
     { rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "59500000.00", programado: "0.00", control: "-59500000.00" },
   ],
   programacion_pendiente: true,
+  programacion_confirmada: null,
+}
+
+// T13 (S7): every line fully programmed and saved, so the Gestor can confirm.
+const COMPLETA = {
+  ...PROGRAMMING,
+  filas: [{ linea_id: "l1", rubro_id: "r1", periodo: "2026-10", valor: "59500000.00" }],
+  control_por_linea: [{ ...PROGRAMMING.control_por_linea[0], programado: "59500000.00", control: "0.00" }],
+  control_por_rubro: [{ ...PROGRAMMING.control_por_rubro[0], programado: "59500000.00", control: "0.00" }],
+  programacion_pendiente: false,
 }
 
 // T11 S8: Formación on two activities is programmed as two rows.
@@ -73,6 +83,9 @@ describe("PresupuestoProgramacion", () => {
   function setup({ canEdit = true, data = PROGRAMMING }: { canEdit?: boolean; data?: unknown } = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
+      if (url.endsWith("/programming/confirm")) {
+        return Promise.resolve(jsonResponse({ ...(data as object), programacion_confirmada: { at: "2026-11-14T15:00:00.000Z", por_id: "u1" } }))
+      }
       if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(data))
       return Promise.resolve(jsonResponse({}))
     })
@@ -152,7 +165,7 @@ describe("PresupuestoProgramacion", () => {
     await user.tab()
     const fila = within(await screen.findByTestId("programacion-grid")).getAllByTestId("programacion-fila")[0]
     expect(fila).toHaveTextContent("-$ 500.000")
-    expect(screen.getByText(/Falta por programar/, { selector: "p" })).toHaveTextContent(/deberá ser \$ 0/)
+    expect(screen.getByText(/Falta por programar/, { selector: "p" })).toHaveTextContent(/quede en \$ 0 en todas las líneas/)
     expect(screen.queryByText(/Σ/)).not.toBeInTheDocument()
   })
 
@@ -190,6 +203,40 @@ describe("PresupuestoProgramacion", () => {
     )
     const enviado = JSON.parse(String((put[1] as RequestInit).body)).filas.find((f: { periodo: string }) => f.periodo === "2026-11")
     expect(enviado.valor).toBe(Number(submitted).toFixed(2))
+  })
+
+  it("T13 (S7): confirms only a fully programmed, saved programming, and then shows it confirmed", async () => {
+    const user = userEvent.setup()
+    setup({ data: COMPLETA })
+
+    const confirmar = await screen.findByRole("button", { name: "Confirmar programación" })
+    expect(confirmar).toBeEnabled()
+
+    // An unsaved edit disables it: what is confirmed is what is saved.
+    const celda = screen.getByLabelText("Programado R01 oct 2026")
+    await user.clear(celda)
+    await user.type(celda, "59000000")
+    expect(confirmar).toBeDisabled()
+    await user.clear(celda)
+    await user.type(celda, "59500000")
+    expect(confirmar).toBeEnabled()
+
+    await user.click(confirmar)
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/programming/confirm") && (init as RequestInit)?.method === "POST")).toBe(true),
+    )
+  })
+
+  it("T13 (S7): cannot confirm while a line has a value pending to program", async () => {
+    setup()
+    expect(await screen.findByRole("button", { name: "Confirmar programación" })).toBeDisabled()
+    expect(screen.getByText(/Confirma la programación cuando «Falta por programar» quede en \$ 0 en todas las líneas/)).toBeInTheDocument()
+  })
+
+  it("T13 (S7): shows a confirmed programming, without the confirm button", async () => {
+    setup({ data: { ...COMPLETA, programacion_confirmada: { at: "2026-11-14T15:00:00.000Z", por_id: "u1" } } })
+    expect(await screen.findByText("Programación confirmada")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Confirmar programación" })).not.toBeInTheDocument()
   })
 
   it("shows formatted amounts read-only when the user cannot edit", async () => {

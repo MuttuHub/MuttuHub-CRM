@@ -541,8 +541,18 @@ describe("template import (live DB)", () => {
           { proyecto_id: ctx.proyecto.id, linea_id: ajustada.id, periodo: "2026-11", valor: new Prisma.Decimal("12800000") },
         ],
       });
+      // T13 (S7): the Gestor had confirmed the programming; a re-import reopens it.
+      await tx.proyecto.update({
+        where: { id: ctx.proyecto.id },
+        data: { programacion_confirmada_at: new Date(), programacion_confirmada_por_id: ctx.gerente.id },
+      });
       const segundo = await POST(...peticion(ctx.proyecto.id, valido));
       expect(segundo.status).toBe(200);
+      const loteSegundo = (await segundo.json()).lote_id as string;
+      const reapertura = await tx.auditoriaCambio.findMany({
+        where: { lote_id: loteSegundo, campo: "programacion_confirmada_at" },
+      });
+      expect(reapertura.map((a) => [a.accion, a.valor_nuevo])).toEqual([["IMPORTAR", null]]);
 
       const filas = await snapshot(tx, ctx.proyecto.id);
       const vivos = <T extends { deleted_at: Date | null }>(f: T[]) => f.filter((x) => x.deleted_at === null).length;
@@ -564,6 +574,8 @@ describe("template import (live DB)", () => {
       expect(celdasDe(ajustada.id)).toEqual([["2026-11", "12800000"]]);
       expect(celdasDe(primera.id)).toEqual([["2026-10", "45000000"]]);
       expect(filas.celdas).toHaveLength(9);
+      expect(filas.project.programacion_confirmada_at).toBeNull();
+      expect(filas.project.programacion_confirmada_por_id).toBeNull();
       expect(filas.lineas).toHaveLength(8);
       expect(filas.lineasCat).toHaveLength(2);
       expect(filas.munis).toHaveLength(2);
