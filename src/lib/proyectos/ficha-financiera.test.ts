@@ -171,4 +171,30 @@ describe("precondicionesPresupuesto", () => {
     input.programacion = []
     expect(precondicionesPresupuesto(input).map((f) => f.codigo)).toContain("PROGRAMACION_PENDIENTE")
   })
+
+  it("controls each line against its own cells when a rubro has two lines (T11, S8)", () => {
+    const input = {
+      valorTotal: toCents("20"),
+      lineas: [
+        { lineaId: "l1", actividadCodigo: "1.1", rubroId: "f", nombre: "Formación", asignado: toCents("15"), activo: true },
+        { lineaId: "l2", actividadCodigo: "1.2", rubroId: "f", nombre: "Formación", asignado: toCents("5"), activo: true },
+      ],
+      programacion: [
+        { lineaId: "l1", rubroId: "f", periodo: "2026-10", valor: toCents("15") },
+        { lineaId: "l2", rubroId: "f", periodo: "2026-11", valor: toCents("5") },
+      ],
+      periodosProyecto: F_F1_PERIODOS,
+    }
+    expect(precondicionesPresupuesto(input)).toEqual([])
+
+    input.programacion[1] = { lineaId: "l2", rubroId: "f", periodo: "2026-11", valor: toCents("4") }
+    const fallas = precondicionesPresupuesto(input)
+    expect(fallas).toEqual([
+      {
+        codigo: "CONTROL_PROGRAMACION",
+        rubroId: "f",
+        mensaje: "La programación del rubro Formación en la actividad 1.2 no coincide con lo asignado; control -$ 1.",
+      },
+    ])
+  })
 })

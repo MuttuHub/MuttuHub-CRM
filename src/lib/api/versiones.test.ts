@@ -132,7 +132,7 @@ describe("loadLiveProyecto — presupuesto vivo (T10)", () => {
       }) as never,
       "pry-1",
     )
-    expect(entrada.programacion).toEqual([{ rubroId: "r12", periodo: "2026-09", valor: BigInt(100000050) }])
+    expect(entrada.programacion).toEqual([{ lineaId: "l1", rubroId: "r12", periodo: "2026-09", valor: BigInt(100000050) }])
     expect(entrada.lineas[0]?.asignado).toBe(BigInt(100000050))
   })
 })
