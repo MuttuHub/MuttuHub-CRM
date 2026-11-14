@@ -13,7 +13,13 @@ import { describe, expect, it } from "vitest"
 
 import { db } from "@/lib/db"
 import { RespuestaAbortada } from "@/lib/api/errors"
-import { confirmarProgramacion, limpiarConfirmacion, lockProyecto, lockProyectoBorrador } from "@/lib/api/presupuesto"
+import {
+  borrarPresupuestoDeActividad,
+  confirmarProgramacion,
+  limpiarConfirmacion,
+  lockProyecto,
+  lockProyectoBorrador,
+} from "@/lib/api/presupuesto"
 import { aprobarLineaBase } from "@/lib/api/versiones"
 
 const TX_OPTIONS = { timeout: 30_000, maxWait: 10_000 }
@@ -346,5 +352,98 @@ describe("confirmarProgramacion / limpiarConfirmacion (T13, S7, live DB)", () =>
     expect(resultado.despues.programacion_confirmada_at).toBeNull()
     expect(resultado.despues.programacion_confirmada_por_id).toBeNull()
     expect(resultado.auditoria).toBe(1)
+  })
+})
+
+describe("borrarPresupuestoDeActividad (T13 S8, live DB)", () => {
+  // «si tiene un presupuesto asignado se borra junto con la actividad, le toca hacerlo de cero»
+  async function conLineaDeActividad(tx: Tx) {
+    const f = await fixture(tx)
+    const actividad = await tx.actividad.findFirstOrThrow({ where: { proyecto_id: f.proyecto.id, codigo: "1.1" } })
+    const rubro = await tx.rubro.create({ data: { codigo: `BA-${randomUUID().slice(0, 8)}`, nombre: `${MARKER}-act` } })
+    const lineaAct = await tx.lineaPresupuestal.create({
+      data: { proyecto_id: f.proyecto.id, actividad_id: actividad.id, rubro_id: rubro.id, monto_proyectado_cop: 40 },
+    })
+    await tx.programacionPeriodo.create({
+      data: { proyecto_id: f.proyecto.id, linea_id: lineaAct.id, periodo: "2026-10", valor: 40 },
+    })
+    await tx.proyecto.update({ where: { id: f.proyecto.id }, data: { valor_total: 140 } })
+    return { ...f, actividad, lineaAct }
+  }
+
+  it("deletes the activity's lines with their programming, recomputes valor_total and reopens the programming", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, linea, actividad, lineaAct } = await conLineaDeActividad(tx)
+      await borrarPresupuestoDeActividad(tx, { proyectoId: proyecto.id, actividadId: actividad.id, usuarioId: usuario.id })
+      return {
+        lineas: await tx.lineaPresupuestal.findMany({ where: { proyecto_id: proyecto.id }, select: { id: true } }),
+        celdasAct: await tx.programacionPeriodo.count({ where: { linea_id: lineaAct.id } }),
+        celdasOtra: await tx.programacionPeriodo.count({ where: { linea_id: linea.id } }),
+        proyecto: await tx.proyecto.findUniqueOrThrow({ where: { id: proyecto.id } }),
+        auditoria: await tx.auditoriaCambio.findMany({ where: { proyecto_id: proyecto.id }, orderBy: { campo: "asc" } }),
+        lineaId: linea.id,
+        lineaActId: lineaAct.id,
+      }
+    })
+    expect(r.lineas.map((l) => l.id)).toEqual([r.lineaId])
+    expect(r.celdasAct).toBe(0)
+    expect(r.celdasOtra).toBe(2)
+    expect(r.proyecto.valor_total?.toString()).toBe("100")
+    expect(r.proyecto.programacion_confirmada_at).toBeNull()
+    expect(r.auditoria.map((a) => [a.entidad, a.campo, a.valor_anterior, a.valor_nuevo])).toEqual([
+      ["presupuesto", "asignado", "40.00", "0.00"],
+      ["proyecto", "programacion_confirmada_at", expect.any(String), null],
+      ["proyecto", "valor_total", "140.00", "100.00"],
+    ])
+    expect(r.auditoria.find((a) => a.entidad === "presupuesto")?.entidad_id).toBe(r.lineaActId)
+  })
+
+  it("does nothing for an activity without budget lines", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const { usuario, proyecto } = await fixture(tx)
+      const actividad = await tx.actividad.findFirstOrThrow({ where: { proyecto_id: proyecto.id, codigo: "1.1" } })
+      await borrarPresupuestoDeActividad(tx, { proyectoId: proyecto.id, actividadId: actividad.id, usuarioId: usuario.id })
+      return {
+        proyecto: await tx.proyecto.findUniqueOrThrow({ where: { id: proyecto.id } }),
+        auditoria: await tx.auditoriaCambio.count({ where: { proyecto_id: proyecto.id } }),
+      }
+    })
+    expect(r.proyecto.programacion_confirmada_at).not.toBeNull()
+    expect(r.auditoria).toBe(0)
+  })
+
+  it("refuses with 409 when a line of the activity already has expenses (T11 A3), and changes nothing", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, actividad, lineaAct } = await conLineaDeActividad(tx)
+      await tx.gasto.create({
+        data: {
+          proyecto_id: proyecto.id,
+          linea_id: lineaAct.id,
+          fecha_documento: new Date("2026-10-15"),
+          periodo: "2026-10",
+          tipo_soporte: "FACTURA_PROVEEDOR",
+          tercero_nombre: "Proveedor SAS",
+          tercero_tipo_id: "NIT",
+          tercero_numero_id: "900.123.456-7",
+          tercero_id_norm: "900123456",
+          numero_documento: "FE-0123",
+          numero_documento_norm: "FE0123",
+          descripcion: "Tiquetes",
+          subtotal_cop: 10,
+          iva_cop: 0,
+          monto_cop: 10,
+          registrado_por_id: usuario.id,
+        },
+      })
+      const respuesta = await aborto(
+        borrarPresupuestoDeActividad(tx, { proyectoId: proyecto.id, actividadId: actividad.id, usuarioId: usuario.id }),
+      )
+      return { respuesta, lineas: await tx.lineaPresupuestal.count({ where: { proyecto_id: proyecto.id } }) }
+    })
+    expect(r.respuesta.status).toBe(409)
+    expect((await r.respuesta.json()).error).toBe(
+      "No puedes eliminar una actividad cuyo presupuesto ya tiene gastos registrados.",
+    )
+    expect(r.lineas).toBe(2)
   })
 })

@@ -10,7 +10,6 @@
 // (S2: «se calculan sumando las líneas; no se digitan»), and the opportunity difference follows it.
 
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { apiError } from "@/lib/api/errors";
@@ -25,11 +24,11 @@ import {
   gatePresupuestoRead,
   gatePresupuestoWrite,
   loadBudgetView,
+  fijarValorTotal,
   limpiarConfirmacion,
   lockProyectoBorrador,
   parseMonto,
 } from "@/lib/api/presupuesto";
-import { diferenciaValor } from "@/lib/proyectos/proyecto-general";
 import { fromCents, sumCents, toCents } from "@/lib/proyectos/money";
 
 export const dynamic = "force-dynamic";
@@ -183,31 +182,14 @@ export const PUT = withApiErrorHandling(
         }
 
         // S2: valor_total is the sum of the lines, never typed.
-        const anterior = locked.valor_total === null ? null : toCents(locked.valor_total);
-        if (anterior !== suma) {
-          const diferencia = gate.value.oportunidad
-            ? diferenciaValor(fromCents(suma), gate.value.oportunidad.valor_estimado_cop)
-            : null;
-          await tx.proyecto.update({
-            where: { id },
-            data: {
-              valor_total: decimalFromCents(suma),
-              ...(gate.value.oportunidad
-                ? { diferencia_valor_oportunidad: diferencia === null ? null : new Prisma.Decimal(diferencia) }
-                : {}),
-            },
-          });
-          cambios.push({
-            usuario_id: auth.usuario.id,
-            accion: "EDITAR",
-            entidad: "proyecto",
-            entidad_id: id,
-            proyecto_id: id,
-            campo: "valor_total",
-            valor_anterior: anterior === null ? null : fromCents(anterior),
-            valor_nuevo: fromCents(suma),
-          });
-        }
+        const valorTotal = await fijarValorTotal(tx, {
+          proyectoId: id,
+          usuarioId: auth.usuario.id,
+          anterior: locked.valor_total === null ? null : toCents(locked.valor_total),
+          suma,
+          oportunidad: gate.value.oportunidad,
+        });
+        if (valorTotal) cambios.push(valorTotal);
 
         if (cambios.length > 0) {
           await logChanges(tx, cambios);

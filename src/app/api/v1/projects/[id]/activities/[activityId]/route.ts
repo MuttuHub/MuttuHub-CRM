@@ -42,7 +42,7 @@ import {
   checkSemanasEnProyecto,
   checkTipoObjetivo,
 } from "../route";
-import { lockProyectoBorrador } from "@/lib/api/presupuesto";
+import { RespuestaAbortada, borrarPresupuestoDeActividad, lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -197,27 +197,33 @@ export const DELETE = withApiErrorHandling(
       return conflict("No puedes eliminar una actividad que tiene beneficiarios registrados. Anula sus registros primero.");
     }
 
-    const row = await db.$transaction(async (tx) => {
-      await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
-      const updated = await tx.actividad.update({
-        where: { id: activityId },
-        data: { deleted_at: new Date() },
+    try {
+      const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
+        // T13 S8: «si tiene un presupuesto asignado se borra junto con la actividad, le toca hacerlo de cero».
+        await borrarPresupuestoDeActividad(tx, { proyectoId: id, actividadId: activityId, usuarioId: auth.usuario.id });
+        const updated = await tx.actividad.update({
+          where: { id: activityId },
+          data: { deleted_at: new Date() },
+        });
+        await logChanges(tx, [
+          {
+            usuario_id: auth.usuario.id,
+            accion: "EDITAR",
+            entidad: "actividad",
+            entidad_id: activityId,
+            proyecto_id: id,
+            campo: "deleted_at",
+            valor_anterior: null,
+            valor_nuevo: updated.deleted_at,
+          },
+        ]);
+        return updated;
       });
-      await logChanges(tx, [
-        {
-          usuario_id: auth.usuario.id,
-          accion: "EDITAR",
-          entidad: "actividad",
-          entidad_id: activityId,
-          proyecto_id: id,
-          campo: "deleted_at",
-          valor_anterior: null,
-          valor_nuevo: updated.deleted_at,
-        },
-      ]);
-      return updated;
-    });
-
-    return NextResponse.json({ actividad: toActividadV2View(row, gate.value) });
+      return NextResponse.json({ actividad: toActividadV2View(row, gate.value) });
+    } catch (error) {
+      if (error instanceof RespuestaAbortada) return error.response;
+      throw error;
+    }
   },
 );

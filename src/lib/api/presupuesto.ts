@@ -10,7 +10,8 @@ import { apiError, RespuestaAbortada } from "@/lib/api/errors";
 import { canEditProjectData } from "@/lib/permissions";
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";
-import { logChanges } from "@/lib/api/audit-cambios";
+import { logChanges, type CambioInput } from "@/lib/api/audit-cambios";
+import { diferenciaValor } from "@/lib/proyectos/proyecto-general";
 import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 
 const PRESUPUESTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
@@ -490,4 +491,99 @@ export async function limpiarConfirmacion(
       ...(input.loteId ? { lote_id: input.loteId } : {}),
     },
   ]);
+}
+
+/**
+ * T11 S2: valor_total is the sum of the budget lines, never typed. Writes it (and the difference against the
+ * opportunity's estimate, when the project has one) only when it changed, and returns the audit row to add to the
+ * caller's lote; null when unchanged. Shared by every writer that changes the set of lines.
+ */
+export async function fijarValorTotal(
+  tx: Prisma.TransactionClient,
+  input: {
+    proyectoId: string;
+    usuarioId: string;
+    anterior: Cents | null;
+    suma: Cents;
+    oportunidad: { valor_estimado_cop: Prisma.Decimal | null } | null;
+  },
+): Promise<CambioInput | null> {
+  if (input.anterior === input.suma) return null;
+  const diferencia = input.oportunidad
+    ? diferenciaValor(fromCents(input.suma), input.oportunidad.valor_estimado_cop)
+    : null;
+  await tx.proyecto.update({
+    where: { id: input.proyectoId },
+    data: {
+      valor_total: decimalFromCents(input.suma),
+      ...(input.oportunidad
+        ? { diferencia_valor_oportunidad: diferencia === null ? null : new Prisma.Decimal(diferencia) }
+        : {}),
+    },
+  });
+  return {
+    usuario_id: input.usuarioId,
+    accion: "EDITAR",
+    entidad: "proyecto",
+    entidad_id: input.proyectoId,
+    proyecto_id: input.proyectoId,
+    campo: "valor_total",
+    valor_anterior: input.anterior === null ? null : fromCents(input.anterior),
+    valor_nuevo: fromCents(input.suma),
+  };
+}
+
+/** T13 S8: what deleting an activity answers when its budget already has expenses (T11 A3). */
+const ACTIVIDAD_CON_GASTOS_MESSAGE = "No puedes eliminar una actividad cuyo presupuesto ya tiene gastos registrados.";
+
+/**
+ * T13 S8: «si tiene un presupuesto asignado se borra junto con la actividad, le toca hacerlo de cero». Runs in the
+ * caller's transaction, after its BORRADOR lock: deletes the activity's budget lines with their programming (cells
+ * first), audited like the budget PUT (EDITAR down to $0), recomputes valor_total and reopens the programming.
+ * 409 and nothing written when a line already has expenses. An activity without lines changes nothing.
+ */
+export async function borrarPresupuestoDeActividad(
+  tx: Prisma.TransactionClient,
+  input: { proyectoId: string; actividadId: string; usuarioId: string },
+): Promise<void> {
+  const lineas = await tx.lineaPresupuestal.findMany({
+    where: { proyecto_id: input.proyectoId, actividad_id: input.actividadId },
+    select: { id: true, monto_proyectado_cop: true },
+  });
+  if (lineas.length === 0) return;
+  const ids = lineas.map((linea) => linea.id);
+  if ((await tx.gasto.count({ where: { proyecto_id: input.proyectoId, linea_id: { in: ids } } })) > 0) {
+    throw new RespuestaAbortada(apiError(ACTIVIDAD_CON_GASTOS_MESSAGE, 409, "CONFLICT"));
+  }
+
+  await tx.programacionPeriodo.deleteMany({ where: { proyecto_id: input.proyectoId, linea_id: { in: ids } } });
+  await tx.lineaPresupuestal.deleteMany({ where: { proyecto_id: input.proyectoId, id: { in: ids } } });
+  const cambios: CambioInput[] = lineas.map((linea) => ({
+    usuario_id: input.usuarioId,
+    accion: "EDITAR",
+    entidad: "presupuesto",
+    entidad_id: linea.id,
+    proyecto_id: input.proyectoId,
+    campo: "asignado",
+    valor_anterior: fromCents(toCents(linea.monto_proyectado_cop)),
+    valor_nuevo: fromCents(BigInt(0)),
+  }));
+
+  const [proyecto, restantes] = await Promise.all([
+    tx.proyecto.findUniqueOrThrow({
+      where: { id: input.proyectoId },
+      select: { valor_total: true, oportunidad: { select: { valor_estimado_cop: true } } },
+    }),
+    tx.lineaPresupuestal.findMany({ where: { proyecto_id: input.proyectoId }, select: { monto_proyectado_cop: true } }),
+  ]);
+  const valorTotal = await fijarValorTotal(tx, {
+    proyectoId: input.proyectoId,
+    usuarioId: input.usuarioId,
+    anterior: proyecto.valor_total === null ? null : toCents(proyecto.valor_total),
+    suma: sumCents(restantes.map((linea) => toCents(linea.monto_proyectado_cop))),
+    oportunidad: proyecto.oportunidad,
+  });
+  if (valorTotal) cambios.push(valorTotal);
+  await logChanges(tx, cambios);
+  await limpiarConfirmacion(tx, { proyectoId: input.proyectoId, usuarioId: input.usuarioId });
 }

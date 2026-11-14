@@ -130,11 +130,14 @@ export function AddButton({ label, onClick }: { label: string; onClick: () => vo
 export function RowActions({
   nombre,
   deleting,
+  aviso,
   onEdit,
   onDelete,
 }: {
   nombre: string;
   deleting: boolean;
+  /** Lo que además se pierde al borrar (T13 S8: el presupuesto de una actividad). */
+  aviso?: string;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -162,7 +165,9 @@ export function RowActions({
             <DialogTitle>
               ¿Eliminar {nombre}?
             </DialogTitle>
-            <DialogDescription>Se quita de la estructura del proyecto.</DialogDescription>
+            <DialogDescription>
+              Se quita de la estructura del proyecto.{aviso ? ` ${aviso}` : ""}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setConfirmando(false)}>

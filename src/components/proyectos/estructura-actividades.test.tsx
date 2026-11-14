@@ -142,6 +142,17 @@ describe("EstructuraActividades (T12 S6)", () => {
     vi.unstubAllGlobals()
   })
 
+  it("T13 S8: warns, before deleting, that the activity's budget is deleted with it", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Eliminar actividad ACT-1" }))
+    const dialogo = await screen.findByRole("dialog")
+    expect(dialogo).toHaveTextContent(
+      "Si tiene presupuesto asignado, se borra con su programación y hay que volver a cargarlo.",
+    )
+  })
+
   it("lists a transversal under «Gestión del proyecto», never under an objective", async () => {
     setup({ objetivoId: null, actividades: [NORMAL, TRANSVERSAL] })
 
