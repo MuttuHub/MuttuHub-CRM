@@ -63,6 +63,9 @@ async function borrador(tx: Tx) {
       fecha_inicio: new Date("2030-01-07T00:00:00.000Z"),
       fecha_fin: new Date("2030-02-28T00:00:00.000Z"),
       beneficiarios_meta: 50,
+      // T13 (S7): the baseline waits for the Gestor's confirmation of the programming.
+      programacion_confirmada_at: new Date(),
+      programacion_confirmada_por_id: usuario.id,
     },
   })
   const rubroA = await tx.rubro.create({ data: { codigo: `MA-${corto}`, nombre: `${MARKER}-A` } })

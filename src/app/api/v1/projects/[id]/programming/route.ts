@@ -22,6 +22,7 @@ import {
   decimalFromCents,
   gatePresupuestoRead,
   gatePresupuestoWrite,
+  limpiarConfirmacion,
   loadProgrammingView,
   lockProyectoBorrador,
   parseMonto,
@@ -173,7 +174,11 @@ export const PUT = withApiErrorHandling(
           });
         }
 
-        if (cambios.length > 0) await logChanges(tx, cambios);
+        if (cambios.length > 0) {
+          await logChanges(tx, cambios);
+          // T13 (S7): a changed programming is no longer the one the Gestor confirmed.
+          await limpiarConfirmacion(tx, { proyectoId: id, usuarioId: auth.usuario.id });
+        }
         return loadProgrammingView(tx, id, "BORRADOR", periodos);
       });
 

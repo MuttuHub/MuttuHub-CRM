@@ -40,7 +40,13 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
   const [proyecto, lineas, celdas, objetivos, actividades, entregables, indicadores] = await Promise.all([
     client.proyecto.findUniqueOrThrow({
       where: { id: proyectoId },
-      select: { valor_total: true, fecha_inicio: true, fecha_fin: true, beneficiarios_meta: true },
+      select: {
+        valor_total: true,
+        fecha_inicio: true,
+        fecha_fin: true,
+        beneficiarios_meta: true,
+        programacion_confirmada_at: true,
+      },
     }),
     client.lineaPresupuestal.findMany({
       where: { proyecto_id: proyectoId },
@@ -108,6 +114,7 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
       periodo: c.periodo,
       valor: toCents(c.valor),
     })),
+    programacionConfirmada: proyecto.programacion_confirmada_at !== null,
   };
 
   if (proyecto.valor_total === null || fechaInicio === null || fechaFin === null) {

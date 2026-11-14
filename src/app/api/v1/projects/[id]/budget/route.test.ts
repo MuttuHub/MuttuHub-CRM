@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   gastoCount: vi.fn(),
   celdaDeleteMany: vi.fn(),
   proyectoUpdate: vi.fn(),
+  proyectoFindUnique: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
@@ -34,7 +35,7 @@ vi.mock("@/lib/db", () => {
     actividad: { findMany: mocks.actividadFindMany },
     gasto: { count: mocks.gastoCount },
     programacionPeriodo: { deleteMany: mocks.celdaDeleteMany },
-    proyecto: { update: mocks.proyectoUpdate },
+    proyecto: { update: mocks.proyectoUpdate, findUniqueOrThrow: mocks.proyectoFindUnique },
     $queryRaw: mocks.queryRaw,
   };
   return {
@@ -117,6 +118,7 @@ const item = (actividad: Act | null, rubro_id: string, valor: string | number): 
 beforeEach(() => {
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
+  mocks.proyectoFindUnique.mockResolvedValue({ programacion_confirmada_at: null });
   mocks.rubroFindMany.mockResolvedValue(rubros);
   mocks.lineaFindMany.mockResolvedValue([]);
   mocks.queryRaw.mockResolvedValue([{ estado: "BORRADOR", valor_total: "100.00" }]);
@@ -371,6 +373,23 @@ describe("PUT budget: writes", () => {
     const res = await PUT(put(cuerpo(item(null, "r1", "60"))), ctx);
     expect(res.status).toBe(200);
     expect(mocks.lineaUpdate.mock.calls[0][0].where).toEqual({ id: "l-r1" });
+  });
+
+  it("T13 (S7): a budget change reopens a confirmed programming, cleared and audited", async () => {
+    mocks.proyectoFindUnique.mockResolvedValue({ programacion_confirmada_at: new Date("2026-11-14T15:00:00.000Z") });
+    mocks.lineaFindMany.mockResolvedValue([linea("r3", "100", "l-11-r3", act11)]);
+    mocks.queryRaw.mockResolvedValue([{ estado: "BORRADOR", valor_total: "100.00" }]);
+
+    expect((await PUT(put(cuerpo(item(act11, "r3", "120"))), ctx)).status).toBe(200);
+
+    expect(mocks.proyectoUpdate).toHaveBeenCalledWith({
+      where: { id: "pry-1" },
+      data: { programacion_confirmada_at: null, programacion_confirmada_por_id: null },
+    });
+    const auditorias = vi.mocked(logChanges).mock.calls.flatMap((c) => c[1]);
+    expect(auditorias.find((a) => a.campo === "programacion_confirmada_at")).toMatchObject({
+      entidad: "proyecto", valor_anterior: "2026-11-14T15:00:00.000Z", valor_nuevo: null,
+    });
   });
 
   it("allows reassigning an existing suspended line", async () => {

@@ -371,11 +371,11 @@ describe("ProjectPresupuesto", () => {
     expect(screen.getByTestId("presupuesto")).not.toHaveTextContent(/Σ|Control/)
   })
 
-  it("flags pending programming and shows what is left to program as informational", async () => {
+  it("flags pending programming and says it is confirmed once nothing is left to program (T13)", async () => {
     setup({ programming: { ...PROGRAMMING, filas: [], programacion_pendiente: true } })
 
     expect(await screen.findByText("Programación pendiente")).toBeInTheDocument()
-    expect(screen.getByText(/informativo/i)).toBeInTheDocument()
+    expect(screen.getByText(/Confirma la programación cuando «Falta por programar» quede en \$ 0/)).toBeInTheDocument()
   })
 
   it("submits programming cells above $0 as strings, with the typed thousands separators", async () => {

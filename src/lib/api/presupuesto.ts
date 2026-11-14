@@ -5,11 +5,12 @@
 // -> body (400). The BORRADOR check is repeated under a row lock inside the write
 // transaction, so a baseline approval racing with an edit cannot slip a change in.
 
-import { Prisma, type Usuario } from "@prisma/client";
+import { Prisma, type AccionAuditoria, type Usuario } from "@prisma/client";
 import { apiError, RespuestaAbortada } from "@/lib/api/errors";
 import { canEditProjectData } from "@/lib/permissions";
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";
+import { logChanges } from "@/lib/api/audit-cambios";
 import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 
 const PRESUPUESTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
@@ -315,6 +316,8 @@ export type ProgrammingView = {
   control_por_rubro: ControlFila[];
   /** Derived (ADR-06): no cell above $0. The stored column is never written. */
   programacion_pendiente: boolean;
+  /** T13 (S7): when and who confirmed the programming; null until the Gestor confirms (or after a later edit). */
+  programacion_confirmada: { at: string; por_id: string | null } | null;
 };
 
 type ProgramacionLinea = LineaRow & {
@@ -327,6 +330,7 @@ function buildProgrammingView(input: {
   periodos: string[];
   lineas: readonly ProgramacionLinea[];
   celdas: readonly CeldaRow[];
+  confirmacion: { at: Date | null; por_id: string | null };
 }): ProgrammingView {
   const porRubro = (a: ProgramacionLinea, b: ProgramacionLinea) =>
     compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro });
@@ -367,10 +371,12 @@ function buildProgrammingView(input: {
     control_por_linea,
     control_por_rubro,
     programacion_pendiente: !celdas.some((c) => toCents(c.valor) > zero),
+    programacion_confirmada:
+      input.confirmacion.at === null ? null : { at: input.confirmacion.at.toISOString(), por_id: input.confirmacion.por_id },
   };
 }
 
-type ProgrammingReader = Pick<Prisma.TransactionClient, "lineaPresupuestal" | "programacionPeriodo">;
+type ProgrammingReader = Pick<Prisma.TransactionClient, "proyecto" | "lineaPresupuestal" | "programacionPeriodo">;
 
 export async function loadProgrammingView(
   client: ProgrammingReader,
@@ -378,7 +384,11 @@ export async function loadProgrammingView(
   estado: string,
   periodos: string[],
 ): Promise<ProgrammingView> {
-  const [lineas, celdas] = await Promise.all([
+  const [proyecto, lineas, celdas] = await Promise.all([
+    client.proyecto.findUniqueOrThrow({
+      where: { id: proyectoId },
+      select: { programacion_confirmada_at: true, programacion_confirmada_por_id: true },
+    }),
     client.lineaPresupuestal.findMany({
       where: { proyecto_id: proyectoId },
       select: {
@@ -394,5 +404,90 @@ export async function loadProgrammingView(
       select: { id: true, linea_id: true, periodo: true, valor: true },
     }),
   ]);
-  return buildProgrammingView({ estado, periodos, lineas, celdas });
+  return buildProgrammingView({
+    estado,
+    periodos,
+    lineas,
+    celdas,
+    confirmacion: { at: proyecto.programacion_confirmada_at, por_id: proyecto.programacion_confirmada_por_id },
+  });
+}
+
+/** T13 (S7): what the confirmation answers when a line is not fully programmed. */
+const PROGRAMACION_SIN_TERMINAR_MESSAGE =
+  "No se puede confirmar la programación: hay líneas con valor pendiente por programar.";
+
+/**
+ * T13 (S7): «El Gestor confirma la programación cuando “Falta por programar” queda en $0 en todas las líneas.»
+ * Runs in the caller's transaction under the BORRADOR lock. Every line must have its control at $0 and some cell
+ * above $0; otherwise 409 with the lines that are not (`pendientes`). Records when and who, with one audit row.
+ */
+export async function confirmarProgramacion(
+  tx: Prisma.TransactionClient,
+  input: { proyectoId: string; usuarioId: string; periodos: string[] },
+): Promise<ProgrammingView> {
+  await lockProyectoBorrador(tx, input.proyectoId);
+  const vista = await loadProgrammingView(tx, input.proyectoId, "BORRADOR", input.periodos);
+  const cero = BigInt(0);
+  const pendientes = vista.control_por_linea
+    .filter((linea) => toCents(linea.control) !== cero)
+    .map((linea) => ({
+      linea: linea.actividad ? `${linea.actividad.codigo} · ${linea.nombre}` : linea.nombre,
+      control: linea.control,
+    }));
+  if (pendientes.length > 0 || vista.programacion_pendiente) {
+    throw new RespuestaAbortada(
+      apiError(PROGRAMACION_SIN_TERMINAR_MESSAGE, 409, "CONFLICT", { pendientes }),
+    );
+  }
+  const ahora = new Date();
+  await tx.proyecto.update({
+    where: { id: input.proyectoId },
+    data: { programacion_confirmada_at: ahora, programacion_confirmada_por_id: input.usuarioId },
+  });
+  await logChanges(tx, [
+    {
+      usuario_id: input.usuarioId,
+      accion: "EDITAR",
+      entidad: "proyecto",
+      entidad_id: input.proyectoId,
+      proyecto_id: input.proyectoId,
+      campo: "programacion_confirmada_at",
+      valor_anterior: vista.programacion_confirmada?.at ?? null,
+      valor_nuevo: ahora.toISOString(),
+    },
+  ]);
+  return loadProgrammingView(tx, input.proyectoId, "BORRADOR", input.periodos);
+}
+
+/**
+ * T13 (S7): a budget or programming write in BORRADOR reopens the programming, so the Gestor confirms it again.
+ * Audited only when there was a confirmation to clear.
+ */
+export async function limpiarConfirmacion(
+  tx: Prisma.TransactionClient,
+  input: { proyectoId: string; usuarioId: string; loteId?: string; accion?: AccionAuditoria },
+): Promise<void> {
+  const proyecto = await tx.proyecto.findUniqueOrThrow({
+    where: { id: input.proyectoId },
+    select: { programacion_confirmada_at: true },
+  });
+  if (proyecto.programacion_confirmada_at === null) return;
+  await tx.proyecto.update({
+    where: { id: input.proyectoId },
+    data: { programacion_confirmada_at: null, programacion_confirmada_por_id: null },
+  });
+  await logChanges(tx, [
+    {
+      usuario_id: input.usuarioId,
+      accion: input.accion ?? "EDITAR",
+      entidad: "proyecto",
+      entidad_id: input.proyectoId,
+      proyecto_id: input.proyectoId,
+      campo: "programacion_confirmada_at",
+      valor_anterior: proyecto.programacion_confirmada_at.toISOString(),
+      valor_nuevo: null,
+      ...(input.loteId ? { lote_id: input.loteId } : {}),
+    },
+  ]);
 }

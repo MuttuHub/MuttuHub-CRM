@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   celdaCreate: vi.fn(),
   celdaUpdate: vi.fn(),
   celdaDelete: vi.fn(),
+  proyectoFindUnique: vi.fn(),
+  proyectoUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
@@ -28,11 +30,12 @@ vi.mock("@/lib/db", () => {
       delete: mocks.celdaDelete,
     },
     $queryRaw: mocks.queryRaw,
+    // T13: the view reads the confirmation; a write clears it.
+    proyecto: { findFirst: vi.fn(), findUniqueOrThrow: mocks.proyectoFindUnique, update: mocks.proyectoUpdate },
   };
   return {
     db: {
       ...models,
-      proyecto: { findFirst: vi.fn() },
       $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(models)),
     },
   };
@@ -111,6 +114,7 @@ function put(body: unknown): Request {
 
 beforeEach(() => {
   authAs(gerencia);
+  mocks.proyectoFindUnique.mockResolvedValue({ programacion_confirmada_at: null, programacion_confirmada_por_id: null });
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
   mocks.queryRaw.mockResolvedValue([{ estado: "BORRADOR", valor_total: "100.00" }]);
   mocks.lineaFindMany.mockResolvedValue([lineaR01, lineaR12]);
@@ -332,6 +336,25 @@ describe("PUT programming: writes", () => {
     expect(mocks.celdaCreate).not.toHaveBeenCalled();
     expect(mocks.celdaDelete).not.toHaveBeenCalled();
     expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("T13 (S7): a change reopens a confirmed programming (cleared and audited); no change keeps it", async () => {
+    const confirmada = { programacion_confirmada_at: new Date("2026-11-14T15:00:00.000Z"), programacion_confirmada_por_id: "coord-1" };
+    mocks.proyectoFindUnique.mockResolvedValue(confirmada);
+    mocks.celdaFindMany.mockResolvedValue([celda("c1", "l1", "2026-10", "60")]);
+
+    expect((await PUT(put({ filas: [{ linea_id: "l1", periodo: "2026-10", valor: "60" }] }), ctx)).status).toBe(200);
+    expect(mocks.proyectoUpdate).not.toHaveBeenCalled();
+
+    expect((await PUT(put({ filas: [{ linea_id: "l1", periodo: "2026-10", valor: "70" }] }), ctx)).status).toBe(200);
+    expect(mocks.proyectoUpdate).toHaveBeenCalledWith({
+      where: { id: "pry-1" },
+      data: { programacion_confirmada_at: null, programacion_confirmada_por_id: null },
+    });
+    const auditorias = vi.mocked(logChanges).mock.calls.flatMap((c) => c[1]);
+    expect(auditorias.find((a) => a.campo === "programacion_confirmada_at")).toMatchObject({
+      entidad: "proyecto", valor_anterior: "2026-11-14T15:00:00.000Z", valor_nuevo: null,
+    });
   });
 
   it("accepts a control different from zero (informational in BORRADOR) and reports it", async () => {

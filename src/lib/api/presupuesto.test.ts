@@ -54,6 +54,8 @@ const clientePresupuesto = (rubros: Rubro[], lineas: Linea[]) => ({
 
 /** Cliente mínimo de `loadProgrammingView`: las líneas con su rubro y las celdas del proyecto. */
 const clienteProgramacion = (lineas: LineaConRubro[], celdas: Celda[]) => ({
+  // T13: the view also says whether the programming is confirmed.
+  proyecto: { findUniqueOrThrow: async () => ({ programacion_confirmada_at: null, programacion_confirmada_por_id: null }) },
   lineaPresupuestal: { findMany: async () => lineas },
   programacionPeriodo: { findMany: async () => celdas },
 })

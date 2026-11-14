@@ -1,6 +1,7 @@
 // Programación mensual (P) de la sección "Presupuesto" (S5 U5): una columna por
 // mes del proyecto y una fila por línea del presupuesto (actividad + rubro, T11 S8). "Falta por programar" (A − celdas) es
-// informativo en borrador; la línea base lo exigirá en $ 0.
+// informativo mientras se edita; T13 (S7): el Gestor confirma la programación cuando queda en $ 0 en todas las líneas, y
+// la línea base exige esa confirmación.
 
 "use client";
 
@@ -14,7 +15,13 @@ import { MONTO_INVALIDO, formatMontoInput, montoToInput, parseMontoInput } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProjectProgramming, useUpdateProgramming, type ProjectListRow, type ProjectProgramming } from "@/hooks/projects";
+import {
+  useConfirmProgramming,
+  useProjectProgramming,
+  useUpdateProgramming,
+  type ProjectListRow,
+  type ProjectProgramming,
+} from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -97,6 +104,7 @@ function ProgramacionGrid({
   );
   const [localError, setLocalError] = useState<string | null>(null);
   const guardar = useUpdateProgramming(proyectoId);
+  const confirmar = useConfirmProgramming(proyectoId);
   const ZERO = toCents("0");
 
   if (data.control_por_linea.length === 0) {
@@ -114,6 +122,18 @@ function ProgramacionGrid({
     }, ZERO);
   const pendiente = !data.control_por_linea.some((c) => sumaFila(c.linea_id) > ZERO);
 
+  // T13 (S7): what is confirmed is what is saved, so an unsaved edit or a line still pending blocks the button.
+  const guardado = (lineaId: string, periodo: string) =>
+    toCents(data.filas.find((f) => f.linea_id === lineaId && f.periodo === periodo)?.valor ?? "0");
+  const sinGuardar = data.control_por_linea.some((c) =>
+    data.periodos.some((periodo) => {
+      const valor = valorCelda(c.linea_id, periodo);
+      return valor === null || toCents(valor) !== guardado(c.linea_id, periodo);
+    }),
+  );
+  const completa = !data.programacion_pendiente && data.control_por_linea.every((c) => toCents(c.control) === ZERO);
+  const confirmada = data.programacion_confirmada !== null;
+
   function submit() {
     const filas: { linea_id: string; periodo: string; valor: string }[] = [];
     for (const c of data.control_por_linea) {
@@ -130,11 +150,15 @@ function ProgramacionGrid({
     guardar.mutate({ filas });
   }
 
-  const error = localError ?? (guardar.isError ? errorMessage(guardar.error, "No pudimos guardar la programación.") : null);
+  const error =
+    localError ??
+    (guardar.isError ? errorMessage(guardar.error, "No pudimos guardar la programación.") : null) ??
+    (confirmar.isError ? errorMessage(confirmar.error, "No pudimos confirmar la programación.") : null);
 
   return (
     <div className="mt-2 flex flex-col gap-2.5">
       {pendiente && <ToneBadge tone="alerta" label="Programación pendiente" className="self-start" />}
+      {confirmada && <ToneBadge tone="exito" label="Programación confirmada" className="self-start" />}
 
       <div className="overflow-x-auto rounded-inner border border-border bg-panel">
         <Table data-testid="programacion-grid" className="w-full text-[12.5px]">
@@ -189,7 +213,8 @@ function ProgramacionGrid({
 
       <p className="text-[12px] text-ink-500">
         Falta por programar es lo asignado a la línea que aún no está repartido en meses (negativo si se programó de más).
-        En borrador es informativo; deberá ser $ 0 para aprobar la línea base.
+        Confirma la programación cuando «Falta por programar» quede en $ 0 en todas las líneas; después se aprueba la línea
+        base. Cualquier cambio posterior pide confirmarla otra vez.
       </p>
       {fueraDeRango > 0 && (
         <p className="text-[12.5px] text-ink-600">
@@ -199,11 +224,23 @@ function ProgramacionGrid({
       )}
 
       {canEdit && (
-        <div>
+        <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" disabled={guardar.isPending} onClick={submit}>
             {guardar.isPending && <LoaderCircle className="size-4 animate-spin" />}
             Guardar programación
           </Button>
+          {!confirmada && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!completa || sinGuardar || confirmar.isPending}
+              onClick={() => confirmar.mutate()}
+            >
+              {confirmar.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              Confirmar programación
+            </Button>
+          )}
         </div>
       )}
       <InlineError message={error} />

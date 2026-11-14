@@ -23,12 +23,14 @@ import { logChanges, diffFields, type CambioInput } from "@/lib/api/audit-cambio
 import {
   RespuestaAbortada,
   decimalFromCents,
+  limpiarConfirmacion,
   lockProyectoBorrador,
   PROYECTO_NO_EXISTE,
 } from "@/lib/api/presupuesto";
 import { diffLineas, diffMunicipios } from "@/lib/api/projects";
 import { diferenciaValor, isoDate } from "@/lib/proyectos/proyecto-general";
-import { fromCents, toCents } from "@/lib/proyectos/money";
+import { fromCents, sumCents, toCents } from "@/lib/proyectos/money";
+import { programacionDelPlan } from "@/lib/proyectos/programacion-propuesta";
 import type { PlantillaInput } from "@/lib/proyectos/plantilla/generate";
 import type { PlanImportacion } from "@/lib/proyectos/plantilla/mapear";
 import type { ContextoValidacion } from "@/lib/proyectos/plantilla/validate";
@@ -85,7 +87,8 @@ export function resumenDePlan(plan: PlanImportacion): ResumenImportacion {
     entregables: plan.entregables.length,
     indicadores: plan.indicadores.length,
     rubros: plan.presupuesto.filter((linea) => linea.cents > cero).length,
-    celdas_programacion: 0,
+    // T13 S1: the cells the system proposes (a re-import keeps a line whose programming already sums it).
+    celdas_programacion: [...programacionDelPlan(plan).values()].reduce((total, celdas) => total + celdas.length, 0),
   };
 }
 
@@ -674,6 +677,46 @@ export async function importarPlantilla(
       });
     }
   }
+
+  // 5b. T13 S1: «Al importar, el sistema propone la programación mensual de cada línea». A line whose cells
+  //     already sum its value keeps them (the Gestor adjusted it on the web between imports); any other line
+  //     gets the proposal, its old cells audited down to $0 like in the programming PUT.
+  const propuesta = programacionDelPlan(plan);
+  const codigoDeRubro = new Map([...rubroIds].map(([codigo, rubroId]) => [rubroId, codigo]));
+  const [lineasFinales, celdasActuales] = await Promise.all([
+    tx.lineaPresupuestal.findMany({
+      where: { proyecto_id: id },
+      select: { id: true, rubro_id: true, monto_proyectado_cop: true, actividad: { select: { codigo: true } } },
+    }),
+    tx.programacionPeriodo.findMany({ where: { proyecto_id: id }, select: { id: true, linea_id: true, periodo: true, valor: true } }),
+  ]);
+  const programacionBase = { ...base, entidad: "programacion" } as const;
+  for (const linea of lineasFinales) {
+    const propias = celdasActuales.filter((celda) => celda.linea_id === linea.id);
+    if (sumCents(propias.map((celda) => toCents(celda.valor))) === toCents(linea.monto_proyectado_cop)) continue;
+    const celdas = linea.actividad ? propuesta.get(`${linea.actividad.codigo}|${codigoDeRubro.get(linea.rubro_id)}`) : undefined;
+    if (!celdas) continue;
+    await tx.programacionPeriodo.deleteMany({ where: { proyecto_id: id, linea_id: linea.id } });
+    for (const celda of propias) {
+      cambios.push({
+        ...programacionBase,
+        entidad_id: celda.id,
+        campo: celda.periodo,
+        valor_anterior: fromCents(toCents(celda.valor)),
+        valor_nuevo: fromCents(cero),
+      });
+    }
+    for (const celda of celdas) {
+      const creada = await tx.programacionPeriodo.create({
+        data: { proyecto_id: id, linea_id: linea.id, periodo: celda.periodo, valor: decimalFromCents(celda.valor) },
+        select: { id: true },
+      });
+      cambios.push({ ...programacionBase, entidad_id: creada.id, campo: celda.periodo, valor_anterior: null, valor_nuevo: fromCents(celda.valor) });
+    }
+  }
+
+  // 5c. T13 (S7): the import rewrote the budget, so the Gestor confirms the programming again (in this lote).
+  await limpiarConfirmacion(tx, { proyectoId: id, usuarioId, loteId, accion: "IMPORTAR" });
 
   // 6. One summary row, then the whole lote in one insert.
   const resumen = resumenDePlan(plan);

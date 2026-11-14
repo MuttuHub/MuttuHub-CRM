@@ -1525,6 +1525,8 @@ export type ProjectProgramming = {
   /** Las líneas de cada rubro sumadas. */
   control_por_rubro: ProjectProgrammingControl[];
   programacion_pendiente: boolean;
+  /** T13 (S7): cuándo y quién confirmó la programación; nula hasta confirmar o después de un cambio. */
+  programacion_confirmada: { at: string; por_id: string | null } | null;
 };
 
 type ProjectProgrammingControl = {
@@ -1587,6 +1589,15 @@ export function useUpdateProgramming(
   const refresh = useRefreshPresupuesto(projectId);
   return useMutation({
     mutationFn: (input) => apiPut<ProjectProgramming>(`/api/v1/projects/${projectId}/programming`, input),
+    onSuccess: refresh,
+  });
+}
+
+/** T13 (S7): el Gestor confirma la programación cuando «Falta por programar» queda en $ 0 en todas las líneas. */
+export function useConfirmProgramming(projectId: string): UseMutationResult<ProjectProgramming, Error, void> {
+  const refresh = useRefreshPresupuesto(projectId);
+  return useMutation({
+    mutationFn: () => apiPost<ProjectProgramming>(`/api/v1/projects/${projectId}/programming/confirm`, {}),
     onSuccess: refresh,
   });
 }

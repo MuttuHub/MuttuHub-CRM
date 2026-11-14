@@ -51,7 +51,7 @@ import {
   superaAsignado,
 } from "../src/lib/api/gastos"
 import { cargarContexto, importarPlantilla, resumenDePlan } from "../src/lib/api/plantilla-import"
-import { decimalFromCents } from "../src/lib/api/presupuesto"
+import { confirmarProgramacion, decimalFromCents } from "../src/lib/api/presupuesto"
 import { nextProjectCode } from "../src/lib/api/project-code"
 import { PROJECT_SELECT_V2, addProyectoMiembros, normalizeProjectDate } from "../src/lib/api/projects"
 import { validarSoporte, type SoporteDatos } from "../src/lib/api/soportes"
@@ -69,7 +69,7 @@ import { generarPlantilla, type PlantillaInput } from "../src/lib/proyectos/plan
 import { construirPlan } from "../src/lib/proyectos/plantilla/mapear"
 import { parsePlantilla } from "../src/lib/proyectos/plantilla/parse"
 import { validarPlantilla } from "../src/lib/proyectos/plantilla/validate"
-import { periodOf, todayInBogota, weekStart } from "../src/lib/proyectos/weeks"
+import { periodOf, projectPeriods, todayInBogota, weekStart } from "../src/lib/proyectos/weeks"
 import { elegirLineas, elegirMunicipios, entradaDemo } from "./import-plantilla-demo"
 
 // ---------------------------------------------------------------------------
@@ -961,6 +961,16 @@ export async function applySeed(client: SeedClient, data: SeedData, hoy: string)
   // member without being any activity's named responsable — the case that hid the old
   // responsable-only gate on "Registrar avance" (now any project member may register).
   const resumenB = await importarCedeTextil(client, b, actores.admin, actores.colaboradorEmail)
+  // T13 (S7): the Gestor (the project's coordinador) confirms the programming before the Gerente approves.
+  await client.$transaction(async (tx) => {
+    const { fecha_inicio, fecha_fin } = await tx.proyecto.findUniqueOrThrow({
+      where: { id: b.id },
+      select: { fecha_inicio: true, fecha_fin: true },
+    })
+    if (!fecha_inicio || !fecha_fin) throw new Error(`${b.codigo} has no dates to program.`)
+    const periodos = projectPeriods(fecha_inicio.toISOString().slice(0, 10), fecha_fin.toISOString().slice(0, 10))
+    await confirmarProgramacion(tx, { proyectoId: b.id, usuarioId: actores.coordinador, periodos })
+  }, TX_OPTIONS)
   const baseline = await client.$transaction((tx) => aprobarLineaBase(tx, { proyectoId: b.id, usuarioId: actores.admin }), TX_OPTIONS)
   lines.push(`  ${b.codigo} ${data.nombreB}: ${resumenB}; baseline approved (v${baseline.version.numero}, ${baseline.proyecto.estado})`)
 

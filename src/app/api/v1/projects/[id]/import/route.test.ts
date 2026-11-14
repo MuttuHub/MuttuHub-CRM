@@ -255,7 +255,7 @@ describe("POST /projects/:id/import — dry run", () => {
     expect(await response.json()).toEqual({
       importado: false,
       valido: true,
-      resumen: { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 0 },
+      resumen: { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 10 },
       reemplaza: { objetivos: 2, actividades: 3, entregables: 4, indicadores: 1 },
       advertencias: [],
     });
