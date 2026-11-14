@@ -200,6 +200,27 @@ describe("calcularCurva: vigente golden", () => {
   });
 });
 
+describe("calcularCurva: T12 (S6) actividad transversal", () => {
+  // 17 weeks, its own deliverable and an avance inside the corte month: none of it is technical.
+  const transversal = { ...act("t1", 1, 17, 17), tipo: "TRANSVERSAL", objetivo: null }
+
+  it("reads the activity type and leaves the whole technical series untouched when the project gains a transversal", async () => {
+    const sinTransversal = await calcularCurva(input())
+
+    vi.mocked(db.actividad.findMany).mockResolvedValue([...actividades, transversal] as never)
+    vi.mocked(db.avanceEntregable.findMany).mockResolvedValue([...avances, av("tv1", "t1-e1", "2026-11-10", 80)] as never)
+    vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue(conMedio([...avances.map((a) => a.id), "tv1"]) as never)
+    const conTransversal = await calcularCurva(input())
+
+    if (!sinTransversal.ok || !conTransversal.ok) throw new Error("expected ok")
+    // S6: a project with a Transversal has the same technical progress as without it, month by month.
+    expect(conTransversal.value.periodos).toEqual(sinTransversal.value.periodos)
+    expect(db.actividad.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ select: expect.objectContaining({ tipo: true }) }),
+    )
+  })
+})
+
 describe("calcularCurva: corte and dates", () => {
   it("clamps the corte to the project range", async () => {
     vi.setSystemTime(new Date("2025-01-01T15:00:00.000Z"));

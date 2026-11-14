@@ -368,3 +368,33 @@ describe("kpisNoMedible", () => {
     })
   })
 })
+
+describe("cumplimientoCronograma con transversales (T12, S6)", () => {
+  it("una transversal vencida no entra en el denominador del cumplimiento del cronograma", () => {
+    const normal = { fin: "2026-02-28", avance_al_fin: 1, avance: 1 }
+    const transversal = { fin: "2026-02-28", avance_al_fin: 0, avance: 0, tipo: "TRANSVERSAL" }
+
+    expect(cumplimientoCronograma([normal, transversal], CORTE, 0.9)).toMatchObject({
+      vencidas: 1,
+      a_tiempo: 1,
+      atrasadas: 0,
+      valor: 100,
+    })
+  })
+})
+
+describe("kpisProyecto con transversales (T12, S6)", () => {
+  it("el cronograma del KPI no cuenta una transversal vencida y sin avance", () => {
+    const aTiempo = actividad({ id: "A1" })
+    // Vencida, sin entregables y sin reportes: si `kpisProyecto` dejara de propagar el tipo,
+    // el cronograma contaría una vencida más y el valor caería de 100 % a 50 %.
+    const transversal = actividad({ id: "G1", fin: "2026-03-01", entregables: [], tipo: "TRANSVERSAL" })
+
+    expect(kpisProyecto(proyecto({ actividades: [aTiempo, transversal] })).cronograma).toMatchObject({
+      vencidas: 1,
+      a_tiempo: 1,
+      atrasadas: 0,
+      valor: 100,
+    })
+  })
+})

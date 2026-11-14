@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { EmptyBlock, InlineError } from "@/components/proyectos/ui";
+import { esGestionDelProyecto } from "@/components/proyectos/project-display";
 import {
   useProjectActivities,
   useProjectMembers,
@@ -19,6 +20,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { COLUMNAS_TABLERO, columnaTablero, type ColumnaTablero } from "@/lib/proyectos/estado-actividad";
+import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
 import { weekEnd } from "@/lib/proyectos/weeks";
 
 const LOAD_ERROR = "No pudimos cargar el tablero de actividades. Inténtalo de nuevo.";
@@ -109,11 +111,17 @@ export function ActividadesTablero({
       corte,
       tope: tecnico.data.tope_en_curso,
     });
+    const codigoDeObjetivo =
+      actividad.objetivo_id === null ? undefined : codigoObjetivo.get(actividad.objetivo_id);
     columnas.get(columna)!.push({
       id: actividad.id,
       codigo: actividad.codigo,
       nombre: actividad.nombre,
-      objetivo: codigoObjetivo.get(actividad.objetivo_id) ?? tecnica?.objetivo_codigo ?? "",
+      // T12 (S6): una transversal no tiene objetivo ni código de objetivo, así que se rotula con su
+      // grupo; nunca queda con la etiqueta vacía.
+      objetivo: esGestionDelProyecto(actividad)
+        ? GRUPO_GESTION
+        : (codigoDeObjetivo ?? tecnica?.objetivo_codigo ?? ""),
       responsable: actividad.responsable_id ? (nombreMiembro.get(actividad.responsable_id) ?? null) : null,
       real: progreso,
       plan: tecnica?.programado ?? null,

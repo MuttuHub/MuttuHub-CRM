@@ -10,7 +10,7 @@ import {
   type ActividadTecnicaResultado,
   type ReporteActividadInput,
 } from "@/lib/proyectos/avance";
-import { diasAlCorte, duracionDias, pesoActividad, resumenObjetivos, type ObjetivoResumen } from "@/lib/proyectos/actividad";
+import { diasAlCorte, duracionDias, pesoActividad, resumenObjetivos, type ObjetivoResumen, type TipoActividad } from "@/lib/proyectos/actividad";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { colorTecnicoV2, type ColorSemaforo, type ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
 import type { SnapshotV1 } from "@/lib/proyectos/versiones";
@@ -73,6 +73,8 @@ export async function loadTecnicoStatus(input: {
         id: true,
         codigo: true,
         nombre: true,
+        // T12 (S6): without it every row would read as Normal and a transversal would count.
+        tipo: true,
         semana_inicio: true,
         semana_fin: true,
         objetivo: { select: { codigo: true } },
@@ -133,6 +135,7 @@ export async function loadTecnicoStatus(input: {
       peso: actividad.peso,
       progreso: actividad.progreso,
       programado: actividad.programado,
+      tipo: actividad.tipo,
     })),
     umbrales,
   );
@@ -148,6 +151,8 @@ export type ActividadFuente = {
   semana_inicio: number;
   semana_fin: number;
   peso: number;
+  /** T12 (S6): Normal or Transversal; absent means Normal (older fixtures and frozen versions). */
+  tipo?: TipoActividad | null;
   entregables: { id: string; codigo: string; cantidad_meta: { toString(): string } }[];
 };
 
@@ -169,6 +174,7 @@ export function mapearActividadesFuente(
     semana_inicio: number;
     semana_fin: number;
     objetivo: { codigo: string } | null;
+    tipo?: TipoActividad | null;
     entregables: { id: string; codigo: string; cantidad_meta: { toString(): string } }[];
   }[],
 ): ActividadFuente[] {
@@ -176,8 +182,9 @@ export function mapearActividadesFuente(
     id: actividad.id,
     codigo: actividad.codigo,
     nombre: actividad.nombre,
-    // The relation is required in the schema; a test fixture may omit it.
+    // The relation is required for a Normal activity and null for a transversal; a test fixture may omit it.
     objetivo_codigo: actividad.objetivo?.codigo ?? "",
+    tipo: actividad.tipo ?? "NORMAL",
     semana_inicio: actividad.semana_inicio,
     semana_fin: actividad.semana_fin,
     peso: pesoActividad(actividad),
@@ -264,6 +271,7 @@ export function entradaTecnica(
       id: actividad.id,
       codigo: actividad.codigo,
       peso: actividad.peso,
+      tipo: actividad.tipo,
       inicio: fechas.inicio,
       fin: fechas.fin,
       entregables: actividad.entregables.map((entregable) => ({
@@ -284,9 +292,11 @@ export function entradaTecnica(
 /** The frozen structure in the shape of the live query: ids come from the live rows with the same code. */
 export function desdeSnapshot(
   estructura: Pick<SnapshotV1, "actividades" | "entregables">,
-  vivas: readonly { id: string; codigo: string; entregables: readonly { id: string; codigo: string }[] }[],
+  vivas: readonly { id: string; codigo: string; tipo?: TipoActividad | null; entregables: readonly { id: string; codigo: string }[] }[],
 ): ActividadFuente[] {
   const idActividad = new Map(vivas.map((a) => [a.codigo, a.id]));
+  // El tipo no está congelado en la versión: lo toma de la fila viva del mismo código.
+  const tipoActividad = new Map(vivas.map((a) => [a.codigo, a.tipo ?? "NORMAL"] as const));
   const idEntregable = new Map(vivas.flatMap((a) => a.entregables.map((e) => [e.codigo, e.id] as const)));
   return [...estructura.actividades]
     .sort((a, b) => a.semana_inicio - b.semana_inicio || (a.codigo < b.codigo ? -1 : a.codigo > b.codigo ? 1 : 0))
@@ -295,6 +305,7 @@ export function desdeSnapshot(
       codigo: a.codigo,
       nombre: a.nombre,
       objetivo_codigo: a.objetivo_codigo,
+      tipo: tipoActividad.get(a.codigo) ?? "NORMAL",
       semana_inicio: a.semana_inicio,
       semana_fin: a.semana_fin,
       peso: Number(a.peso),

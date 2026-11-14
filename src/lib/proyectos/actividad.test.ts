@@ -5,6 +5,7 @@ import {
   diasAlCorte,
   duracionDias,
   pesoActividad,
+  GRUPO_GESTION,
   resumenObjetivos,
   toActividadV2View,
   validarSemanas,
@@ -19,6 +20,7 @@ const fila = {
   id: "act-1",
   proyecto_id: "pry-1",
   objetivo_id: "obj-1",
+  tipo: "NORMAL" as const,
   codigo: "1.4",
   nombre: "Taller de costura",
   semana_inicio: F_W1.actividad14.semanaInicio,
@@ -150,5 +152,32 @@ describe("toActividadV2View", () => {
       proyecto,
     )
     expect(view.fuera_de_duracion).toBe(true)
+  })
+})
+
+describe("resumenObjetivos con actividades Transversales (T12, S6)", () => {
+  const umbrales = { umbral1: 10, umbral2: 20 }
+
+  it("agrupa las transversales en «Gestión del proyecto», aparte de los objetivos", () => {
+    const out = resumenObjetivos(
+      [
+        { objetivo_codigo: "OE1", peso: 4, progreso: 1, programado: 1 },
+        { objetivo_codigo: "", peso: 17, progreso: 0, programado: 0, tipo: "TRANSVERSAL" },
+      ],
+      umbrales,
+    )
+
+    expect(out.map((grupo) => grupo.codigo)).toEqual(["OE1", GRUPO_GESTION])
+    // El peso de la transversal no diluye el objetivo: OE1 sigue al 100 %.
+    expect(out[0]).toMatchObject({ programado: 1, ejecutado: 1, desviacion_pp: 0 })
+    expect(out[1].codigo).toBe("Gestión del proyecto")
+  })
+
+  it("no deja un grupo fantasma de objetivo vacío (ninguna actividad transversal sin agrupar)", () => {
+    const out = resumenObjetivos(
+      [{ objetivo_codigo: "", peso: 17, progreso: 0, programado: 0, tipo: "TRANSVERSAL" }],
+      umbrales,
+    )
+    expect(out.map((grupo) => grupo.codigo)).toEqual([GRUPO_GESTION])
   })
 })

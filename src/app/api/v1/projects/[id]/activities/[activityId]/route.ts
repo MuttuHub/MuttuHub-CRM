@@ -10,6 +10,12 @@
 // Deleting is `deleted_at`, audited as `EDITAR actividad.deleted_at`, and refused
 // with 409 CONFLICT while the activity still has live deliverables or
 // non-voided beneficiary records.
+//
+// S6 (EV-02): `tipo` is editable, and the type/objective pair stays coherent in
+// the SAME write — switching to TRANSVERSAL clears `objetivo_id`, and switching
+// back to NORMAL needs an objective in the same patch or it is a 400. Neither
+// half is ever written alone, so the `actividades_tipo_objetivo_check` CHECK
+// never has to reject a half-applied switch.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -28,12 +34,13 @@ import {
   parseEstructuraBody,
   ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
-import { toActividadV2View } from "@/lib/proyectos/actividad";
+import { toActividadV2View, type TipoActividad } from "@/lib/proyectos/actividad";
 import {
   ACTIVIDAD_CREATE_SCHEMA,
   ACTIVIDAD_DUPLICATE_MESSAGE,
   ACTIVIDAD_INDEX,
   checkSemanasEnProyecto,
+  checkTipoObjetivo,
 } from "../route";
 import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
@@ -43,6 +50,7 @@ type RouteContext = { params: Promise<{ id: string; activityId: string }> };
 
 const AUDITED_ACTIVIDAD_FIELDS = [
   "objetivo_id",
+  "tipo",
   "codigo",
   "nombre",
   "semana_inicio",
@@ -84,11 +92,24 @@ export const PATCH = withApiErrorHandling(
     const semanaFin = input.semana_fin ?? existente.semana_fin;
     const cambiaSemanas = input.semana_inicio !== undefined || input.semana_fin !== undefined;
 
+    // S6: the merged type/objective pair must be coherent before writing. Switching to TRANSVERSAL
+    // clears the objective, so the default objective of that switch is null while any objective the
+    // body does carry still contradicts the type and is a 400.
+    const tipo = input.tipo ?? existente.tipo;
+    const objetivoId =
+      input.objetivo_id !== undefined
+        ? input.objetivo_id
+        : tipo === "TRANSVERSAL"
+          ? null
+          : existente.objetivo_id;
+    const incoherente = checkTipoObjetivo(tipo, objetivoId);
+    if (!incoherente.ok) return apiError(incoherente.message, 400, "VALIDATION_ERROR");
+
     if (cambiaSemanas) {
       const fueraDeRango = checkSemanasEnProyecto(gate.value, semanaInicio, semanaFin);
       if (fueraDeRango) return fueraDeRango;
     }
-    if (input.objetivo_id !== undefined) {
+    if (input.objetivo_id !== undefined && input.objetivo_id !== null) {
       const objetivoAjeno = await checkObjetivoDelProyecto(id, input.objetivo_id);
       if (objetivoAjeno) return objetivoAjeno;
     }
@@ -98,14 +119,19 @@ export const PATCH = withApiErrorHandling(
     }
 
     const data: {
-      objetivo_id?: string;
+      objetivo_id?: string | null;
+      tipo?: TipoActividad;
       codigo?: string;
       nombre?: string;
       semana_inicio?: number;
       semana_fin?: number;
       responsable_id?: string | null;
     } = {};
-    if (input.objetivo_id !== undefined) data.objetivo_id = input.objetivo_id;
+    // S6: the two halves travel together — a TRANSVERSAL write always nulls the objective, and a
+    // NORMAL write only sets one the body actually carries (the existing one stays otherwise).
+    if (input.tipo === "TRANSVERSAL") data.objetivo_id = null;
+    else if (input.objetivo_id !== undefined) data.objetivo_id = input.objetivo_id;
+    if (input.tipo !== undefined) data.tipo = input.tipo;
     if (input.codigo !== undefined) data.codigo = input.codigo;
     if (input.nombre !== undefined) data.nombre = input.nombre;
     if (input.semana_inicio !== undefined) data.semana_inicio = input.semana_inicio;

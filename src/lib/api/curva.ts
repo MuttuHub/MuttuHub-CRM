@@ -92,6 +92,8 @@ export async function calcularCurva(
         id: true,
         codigo: true,
         nombre: true,
+        // T12 (S6): the technical plan of each period filters transversals by this column.
+        tipo: true,
         semana_inicio: true,
         semana_fin: true,
         objetivo: { select: { codigo: true } },

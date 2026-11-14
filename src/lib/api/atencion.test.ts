@@ -161,6 +161,35 @@ describe("cargarAtencion", () => {
     })
   })
 
+  describe("T12 (S6): actividad transversal", () => {
+    // Ended on 2026-02-01 without a deliverable avance or a report: as a Normal activity it is
+    // overdue, and a transversal never is (it is not schedule progress).
+    const transversal = {
+      id: "t1",
+      codigo: "T-01",
+      nombre: "Coordinación del proyecto",
+      semana_inicio: 1,
+      semana_fin: 4,
+      tipo: "TRANSVERSAL",
+      entregables: [],
+    }
+    const atrasadas = async () => {
+      const result = await cargar()
+      return result.ok ? result.value.items.filter((item) => item.tipo === "actividad_atrasada") : []
+    }
+
+    it("reads the activity type and lists the same activity as overdue only when it is Normal", async () => {
+      vi.mocked(db.actividad.findMany).mockResolvedValue([{ ...transversal, tipo: "NORMAL" }] as never)
+      expect(await atrasadas()).toHaveLength(1)
+
+      vi.mocked(db.actividad.findMany).mockResolvedValue([transversal] as never)
+      expect(await atrasadas()).toEqual([])
+      expect(db.actividad.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ tipo: true }) }),
+      )
+    })
+  })
+
   it("flags an indicator below its goal and an observed expense", async () => {
     vi.mocked(db.indicador.findMany).mockResolvedValue([
       {

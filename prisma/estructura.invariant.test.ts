@@ -166,12 +166,24 @@ describe("Actividad invariants (live DB)", () => {
     expect(live).toBe(1)
   })
 
-  it("makes a cross-project objective impossible (composite foreign key)", async () => {
+  it("makes a cross-project objective impossible (the trigger keeps what the composite key used to)", async () => {
     const error = await captureError(async (tx) => {
       const { datos, objetivoOtro } = await actividadFixture(tx)
       await tx.actividad.create({ data: { ...datos, objetivo_id: objetivoOtro.id } })
     })
-    expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+    // T12: la FK compuesta (objetivo_id, proyecto_id) no puede ser opcional en Prisma, así que el
+    // candado pasó a un trigger. Lo que se fija acá es la invariante, no el código de error viejo.
+    expect(driverMessage(error)).toContain("no pertenece al proyecto")
+  })
+
+  it("refuses an objective that does not exist (the trigger fires before the foreign key)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, objetivo_id: randomUUID() } })
+    })
+    // El trigger corre BEFORE INSERT y su NOT EXISTS cubre también el id inexistente, por eso gana al
+    // P2003 de la FK; la FK queda como segunda línea de defensa si alguien quitara el trigger.
+    expect(driverMessage(error)).toContain("no pertenece al proyecto")
   })
 
   it("rejects a responsable that does not exist", async () => {
@@ -180,6 +192,30 @@ describe("Actividad invariants (live DB)", () => {
       await tx.actividad.create({ data: { ...datos, responsable_id: randomUUID() } })
     })
     expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+  })
+
+  it("refuses a Transversal that carries an objective (actividades_tipo_objetivo_check)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, tipo: "TRANSVERSAL" } })
+    })
+    expect(driverMessage(error)).toContain("actividades_tipo_objetivo_check")
+  })
+
+  it("refuses a Normal without an objective (actividades_tipo_objetivo_check)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, tipo: "NORMAL", objetivo_id: null } })
+    })
+    expect(driverMessage(error)).toContain("actividades_tipo_objetivo_check")
+  })
+
+  it("accepts a Transversal with no objective (S6: «en las transversales el objetivo va vacío»)", async () => {
+    const actividad = await runAndRollback(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      return tx.actividad.create({ data: { ...datos, tipo: "TRANSVERSAL", objetivo_id: null } })
+    })
+    expect(actividad).toMatchObject({ tipo: "TRANSVERSAL", objetivo_id: null })
   })
 
   it("accepts a valid activity with the default manual flag off", async () => {

@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { AvisoSoloConsulta, InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { formatFechaCalendario, esGestionDelProyecto } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
@@ -38,6 +38,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { formatMillones } from "@/lib/format/millones";
+import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
 import { toCents } from "@/lib/proyectos/money";
 import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -462,7 +463,8 @@ function FiltroVacio({ filtro, onVerTodas }: { filtro: Filtro; onVerTodas: () =>
 
 /**
  * Las actividades en una lista plana o, en la pestaña Actividades, agrupadas bajo su objetivo («Objetivo 1.
- * …»). A goal with no visible activity (filtered out) is not shown.
+ * …»). T12 (S6): las transversales van a un grupo propio, «Gestión del proyecto», aparte de los objetivos,
+ * y nunca bajo un objetivo vacío. Un goal with no visible activity (filtered out) is not shown.
  */
 function ListaActividades({
   actividades,
@@ -479,12 +481,22 @@ function ListaActividades({
   vacio: ReactNode;
 }) {
   if (actividades.length === 0) return <>{vacio}</>;
+  const gestion = actividades.filter(esGestionDelProyecto);
+  // `fila` no pinta una actividad sin estado técnico (una transversal no lo tiene): su grupo solo se
+  // abre si al menos una fila se ve, en vez de dejar un encabezado con la lista vacía.
+  const filasGestion = gestion.map(fila);
   const grupos = [...objetivos]
     .sort((a, b) => a.orden - b.orden)
-    .map((objetivo) => ({ objetivo, filas: actividades.filter((a) => a.objetivo_id === objetivo.id) }))
+    .map((objetivo) => ({
+      objetivo,
+      filas: actividades.filter((a) => !esGestionDelProyecto(a) && a.objetivo_id === objetivo.id),
+    }))
     .filter((grupo) => grupo.filas.length > 0);
   // Sin objetivos legibles (cargando o con error) la lista no se pierde: cae a la versión plana.
-  if (!agrupar || grupos.reduce((n, grupo) => n + grupo.filas.length, 0) !== actividades.length) {
+  if (
+    !agrupar ||
+    grupos.reduce((n, grupo) => n + grupo.filas.length, 0) + gestion.length !== actividades.length
+  ) {
     return <ul className="mt-3 flex min-w-0 flex-col gap-2.5">{actividades.map(fila)}</ul>;
   }
   return (
@@ -497,6 +509,14 @@ function ListaActividades({
           <ul className="mt-2 flex min-w-0 flex-col gap-2.5">{filas.map(fila)}</ul>
         </section>
       ))}
+      {filasGestion.some((filaGestion) => filaGestion !== null) && (
+        <section data-testid="ejecucion-gestion" className="min-w-0">
+          <h4 className="text-[13px] break-words text-ink-700">
+            <span className="font-semibold text-ink-900">{GRUPO_GESTION}</span>
+          </h4>
+          <ul className="mt-2 flex min-w-0 flex-col gap-2.5">{filasGestion}</ul>
+        </section>
+      )}
     </div>
   );
 }

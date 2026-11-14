@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { etiquetaCampoAuditoria, etiquetaEntidadAuditoria, formatDiferenciaPp } from "./project-display"
+import { esGestionDelProyecto, etiquetaCampoAuditoria, etiquetaEntidadAuditoria, formatDiferenciaPp } from "./project-display"
 
 describe("formatDiferenciaPp", () => {
   it("shows real - plan with its sign from the plan - real deviation of the API", () => {
@@ -12,6 +12,21 @@ describe("formatDiferenciaPp", () => {
     expect(formatDiferenciaPp(0)).toBe("0 puntos")
     expect(formatDiferenciaPp(0.04)).toBe("0 puntos")
     expect(formatDiferenciaPp(-0.04)).toBe("0 puntos")
+  })
+})
+
+describe("esGestionDelProyecto (T12 S6)", () => {
+  it("sends a Transversal to «Gestión del proyecto»", () => {
+    expect(esGestionDelProyecto({ tipo: "TRANSVERSAL" })).toBe(true)
+  })
+
+  it("keeps a Normal activity in its objective", () => {
+    expect(esGestionDelProyecto({ tipo: "NORMAL" })).toBe(false)
+  })
+
+  it("treats an activity without tipo as Normal, like the API default", () => {
+    expect(esGestionDelProyecto({})).toBe(false)
+    expect(esGestionDelProyecto({ tipo: null })).toBe(false)
   })
 })
 

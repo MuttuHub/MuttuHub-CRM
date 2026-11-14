@@ -296,7 +296,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
       objetivos,
       actividades: actividades.map((actividad) => ({
         codigo: actividad.codigo,
-        objetivoCodigo: actividad.objetivo.codigo,
+        objetivoCodigo: actividad.objetivo?.codigo ?? "",
         nombre: actividad.nombre,
         semanaInicio: actividad.semana_inicio,
         semanaFin: actividad.semana_fin,

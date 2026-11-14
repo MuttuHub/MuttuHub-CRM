@@ -486,3 +486,63 @@ describe("regression: hasReports=false computes byte-for-byte like before AJ-01 
     expect(nuevo.actividades.map((a) => ({ progreso: a.progreso, estado: a.estado }))).toEqual(viejo)
   })
 })
+
+describe("actividades Transversales (T12, S6): no entran en el avance técnico", () => {
+  const normal = {
+    id: "a1",
+    codigo: "1.1",
+    peso: 4,
+    inicio: "2026-01-05",
+    fin: "2026-02-01",
+    entregables: [],
+    reportes: [{ fecha: "2026-01-20", porcentaje: 50 }],
+  }
+  // La del criterio del PO: 17 semanas, sin objetivo, sin entregables y sin reportes.
+  const transversal = {
+    id: "t1",
+    codigo: "G1",
+    peso: 17,
+    inicio: "2026-01-05",
+    fin: "2026-05-03",
+    entregables: [],
+    tipo: "TRANSVERSAL" as const,
+  }
+
+  it("un proyecto con una transversal de 17 semanas tiene el mismo avance técnico que sin ella", () => {
+    const corte = "2026-01-12"
+    const sin = calcularTecnico({ corte, requiereMedio: false, tope: 1, actividades: [normal] })
+    const con = calcularTecnico({ corte, requiereMedio: false, tope: 1, actividades: [normal, transversal] })
+
+    expect(con.avance_real).toBe(sin.avance_real)
+    expect(con.avance_programado).toBe(sin.avance_programado)
+    expect(con.desviacion_pp).toBe(sin.desviacion_pp)
+    // Si contara, la transversal de 17 semanas desplomaría el programado de 28,6 % a 10,9 %.
+    expect(sin.avance_programado).toBeCloseTo(0.2857, 4)
+  })
+
+  it("la transversal sigue siendo una actividad del proyecto: aparece con su peso y su estado", () => {
+    const con = calcularTecnico({
+      corte: "2026-01-12",
+      requiereMedio: false,
+      tope: 1,
+      actividades: [normal, transversal],
+    })
+
+    expect(con.actividades.map((a) => a.codigo)).toEqual(["1.1", "G1"])
+    expect(con.actividades[1]).toMatchObject({ peso: 17, progreso: 0, estado: "EN_CURSO" })
+  })
+
+  it("avanceReal y avanceProgramado ignoran la transversal aunque sea la de más peso", () => {
+    expect(avanceReal([{ peso: 4, progreso: 0.5 }, { peso: 17, progreso: 0, tipo: "TRANSVERSAL" }])).toBeCloseTo(0.5)
+    expect(
+      avanceProgramado(
+        [
+          { peso: 4, inicio: "2026-01-05", fin: "2026-02-01" },
+          { peso: 17, inicio: "2026-01-05", fin: "2026-05-03", tipo: "TRANSVERSAL" },
+        ],
+        "2026-01-12",
+        1,
+      ),
+    ).toBeCloseTo(0.2857, 4)
+  })
+})

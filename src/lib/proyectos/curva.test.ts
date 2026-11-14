@@ -205,3 +205,21 @@ describe("construirCurva", () => {
     expect(filas[0].financiero.ejecutado).toBe(10)
   })
 })
+
+describe("curva S técnica con actividades Transversales (T12, S6)", () => {
+  const actividades = [
+    { peso: 4, inicio: "2026-09-28", fin: "2026-11-15" },
+    { peso: 2, inicio: "2026-10-26", fin: "2026-11-08" },
+  ]
+  const transversal = { peso: 17, inicio: "2026-09-01", fin: "2026-12-28", tipo: "TRANSVERSAL" }
+  const periodos = ["2026-09", "2026-10", "2026-11", "2026-12"]
+
+  it("la transversal de 17 semanas no mueve ningún punto de la curva planeada", () => {
+    expect(tecnicoPlaneado([...actividades, transversal], periodos, 1)).toEqual(
+      tecnicoPlaneado(actividades, periodos, 1),
+    )
+    expect(tecnicoPlaneado([...actividades, transversal], periodos, 0.9)).toEqual(
+      tecnicoPlaneado(actividades, periodos, 0.9),
+    )
+  })
+})
