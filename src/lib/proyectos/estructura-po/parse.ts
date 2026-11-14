@@ -13,7 +13,7 @@
  * IND-{nn} in order of appearance, indicators sheet first. The quantity is
  * never read out of the entregable text (T1).
  *
- * Pure and Node-only (`exceljs`, same boundary as `../presupuesto-po/parse.ts`).
+ * Pure and Node-only (`exceljs`, same boundary as `../excel-celdas.ts`).
  * Never throws on bad input: every problem comes back in `errores`.
  */
 import ExcelJS from "exceljs"
@@ -21,7 +21,7 @@ import { toCents } from "../money"
 import { validarSemanas } from "../actividad"
 import { MAX_ERRORES, MAX_FILAS_HOJA } from "../plantilla/columns"
 import { MONTO_MAXIMO_CENTS, decimalDeCelda, enteroDeCelda, redondear2 } from "../plantilla/validate"
-import { ARCHIVO_ILEGIBLE, leerCelda, normalizarTexto, vacio } from "../presupuesto-po/parse"
+import { ARCHIVO_ILEGIBLE, leerCelda, normalizarTexto, vacio } from "../excel-celdas"
 
 export { ARCHIVO_ILEGIBLE }
 

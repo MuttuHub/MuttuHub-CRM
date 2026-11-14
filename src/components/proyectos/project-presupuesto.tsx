@@ -15,7 +15,6 @@ import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { MontoInput, PresupuestoProgramacion } from "@/components/proyectos/presupuesto-programacion";
-import { PresupuestoImportDialog } from "@/components/proyectos/presupuesto-import-dialog";
 import { Button } from "@/components/ui/button";
 import { HelpHint } from "@/components/ui/help-hint";
 import { AYUDA_DISPONIBLE } from "@/components/proyectos/ficha/finanzas/gastos-comun";
@@ -360,7 +359,6 @@ function PresupuestoEditor({
             {guardar.isPending && <LoaderCircle className="size-4 animate-spin" />}
             Guardar presupuesto
           </Button>
-          <PresupuestoImportDialog proyectoId={proyectoId} />
         </div>
       )}
       <InlineError message={errorPut} />

@@ -428,11 +428,12 @@ describe("ProjectPresupuesto", () => {
       expect(screen.queryByRole("button", { name: "Importar presupuesto" })).not.toBeInTheDocument()
     })
 
-    it("offer «Importar presupuesto» to a manager while the project is in BORRADOR", async () => {
+    it("no longer offer «Importar presupuesto»: the simple PO import was retired (T11.5)", async () => {
       setup()
 
       await screen.findByTestId("presupuesto-tabla")
-      expect(screen.getByRole("button", { name: "Importar presupuesto" })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Guardar presupuesto" })).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Importar presupuesto" })).not.toBeInTheDocument()
     })
   })
 })
