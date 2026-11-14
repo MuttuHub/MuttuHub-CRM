@@ -45,11 +45,11 @@ src/components/proyectos/project-presupuesto`, `npx tsc --noEmit` (after `npx pr
 | ID | Specs | What | Route | Status | Commit |
 |---|---|---|---|---|---|
 | T11.1 | S1 S2 S5 S6 A1 A3 A4 | Budget API by line: GET exposes `lineas[]` (activity, rubro, value) next to `rubros[]`; PUT writes lines; valor_total = Σ lines | inline | done | `b74835e` |
-| T11.2 | S8 | Programming API by `linea_id`: write and read cells per line, not per rubro | inline | done | `16d0415` |
-| T11.3 | S3 S4 S5 S7 A2 | Template: Presupuesto sheet (Código de actividad, Rubro, Valor), drop sheet 8, V-11 by combination, activity exists; import writes lines with activity | delegated (writer, parallel with T11.6, disjoint surfaces) | done | `66f8b14` |
+| T11.2 | S8 | Programming API by `linea_id`: write and read cells per line, not per rubro | inline | done | `16d0415` `e99b563` |
+| T11.3 | S3 S4 S5 S7 A2 | Template: Presupuesto sheet (Código de actividad, Rubro, Valor), drop sheet 8, V-11 by combination, activity exists; import writes lines with activity | delegated (writer, parallel with T11.6, disjoint surfaces) | done | `dd0a385` `22e4e3b` |
 | T11.4 | S1 S6 S8 | Budget screen by activity, and programming screen by line | inline | done (inside T11.1, T11.2) | `b74835e` `16d0415` |
-| T11.6 | S2 | `valor_total` = Σ lines everywhere: drop it from creation, opportunity conversion and PATCH (contract change, risk 3) | delegated (writer, parallel with T11.3, disjoint surfaces) | done | `6cb5176` |
-| T11.5 | A5 | Retire the simple PO budget import (route, lib, dialog, hook, OpenAPI) | inline | done | `6d0fd0e` |
+| T11.6 | S2 | `valor_total` = Σ lines everywhere: drop it from creation, opportunity conversion and PATCH (contract change, risk 3) | delegated (writer, parallel with T11.3, disjoint surfaces) | done | `96fc438` |
+| T11.5 | A5 | Retire the simple PO budget import (route, lib, dialog, hook, OpenAPI) | inline | done | `7640ae6` |
 
 Forecast: ~900–1200 authored lines → above 400; chain strategy asked before the second commit.
 
@@ -94,3 +94,16 @@ Forecast: ~900–1200 authored lines → above 400; chain strategy asked before 
   Open (outside T11): `estructura-po-import.ts` re-creates activities and would leave budget lines on soft-deleted
   activities; sheet 2 «Valor total» is still typed in the template (ignored by the import, W-02 warns); seeded
   `valor_total` in `scripts/seed-projects-demo.ts` is not Σ lines; T14 leftovers in L8.
+- **L12** (2026-11-14) Independent verifier over `0e0de6a..ed26e42`: every S# met except **S8** — blocker B1, the baseline
+  control (`precondicionesPresupuesto`, fed by `versiones.ts`) compared each line against all cells of its rubro, so a
+  rubro on two activities could never pass `CONTROL_PROGRAMACION`. Fixed in slice 2 (`e99b563`, RED test first): the
+  control matches cells by `linea_id` and names the activity. The post-approval check in `modificaciones.ts` keeps the
+  per-rubro fallback: T13. Live-DB invariants (scratch DB `muttu-t10-db`, port 55432) ran for the first time:
+  `plantilla-import` had two test defects from T11.3 (`deleted_at ?? "…"` failed on a live activity; the >40 audit
+  threshold assumed programming rows S4 removed), fixed in slice 3 (`22e4e3b`, audit pinned per entity). `estructura`
+  fails P2039 vs P2003 on this chain; T12 rewrites that test and passes (21/21) after its migration, applied cleanly.
+  Slices 3–5 rebased onto the fix: 3 `dd0a385` `22e4e3b`, 4 `96fc438`, 5 `7640ae6` + this doc. Verifier advisories:
+  deleting an activity leaves its budget lines live (they still count in valor_total, and the downloaded template
+  fails V-06); a pre-T11 typed valor_total stays until the next budget save; sheet 2 «Valor total» still required.
+  Seam check on the tip: tsc and knip clean; full unit suite 4934/4939 — the 5 failures (`scripts/migrate-v2/_guard`,
+  `src/test/guard-utils`, files T11 does not touch) pass alone on the tip (25/25) and on main: load flakiness in WSL.
