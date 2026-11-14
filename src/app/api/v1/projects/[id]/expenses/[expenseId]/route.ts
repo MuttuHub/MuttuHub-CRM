@@ -120,7 +120,14 @@ export const PATCH = withApiErrorHandling(
     const valor = montos.total;
 
     const rubroActual = actual.linea.rubro.id;
-    const resuelta = await resolverLinea(id, input.rubro_id ?? rubroActual);
+    // S9/T14.1: a correction that keeps the rubro keeps the expense on its own line, even when that rubro is
+    // budgeted in several activities; only a rubro change re-resolves the line by rubro.
+    const rubroDestino = input.rubro_id ?? rubroActual;
+    const resuelta = await resolverLinea(
+      id,
+      rubroDestino,
+      rubroDestino === rubroActual ? actual.linea_id : undefined,
+    );
     if (!resuelta.ok) return resuelta.response;
     const linea = resuelta.value;
 

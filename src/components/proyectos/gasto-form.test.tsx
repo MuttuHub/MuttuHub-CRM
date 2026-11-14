@@ -1,11 +1,18 @@
 // S6 U6: formulario de registro de gasto. Las queries/mutaciones son reales; solo `fetch`.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ProjectBudgetRubro, ProjectExpense, ProjectListRow } from "@/hooks/projects"
+import type {
+  ProjectActivity,
+  ProjectBudgetLinea,
+  ProjectBudgetRubro,
+  ProjectExpense,
+  ProjectListRow,
+  ProjectObjective,
+} from "@/hooks/projects"
 import { GastoForm } from "./gasto-form"
 
 function createWrapper() {
@@ -30,6 +37,67 @@ const PROYECTO = {
 const RUBROS: ProjectBudgetRubro[] = [
   { rubro_id: "r12", codigo: "R12", nombre: "Transporte", activo: true, linea_id: "l12", asignado: "24000000.00", heredado_pendiente: false },
   { rubro_id: "r01", codigo: "R01", nombre: "Personal", activo: true, linea_id: "l01", asignado: "59500000.00", heredado_pendiente: false },
+]
+
+/** Un rubro con monto asignado, sin línea concreta: el presupuesto lo suma entre varias actividades. */
+const RUBRO_EN_DOS_ACTIVIDADES: ProjectBudgetRubro = {
+  rubro_id: "r12",
+  codigo: "R12",
+  nombre: "Transporte",
+  activo: true,
+  linea_id: null,
+  asignado: "15000000.00",
+  heredado_pendiente: false,
+}
+
+/** S9/T14.1: la línea es actividad + rubro + valor; R12 está presupuestado en DOS actividades. */
+const LINEAS: ProjectBudgetLinea[] = [
+  { linea_id: "l-a1-r12", actividad_id: "a1", actividad_codigo: "1.1", actividad_nombre: "Talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "10000000.00" },
+  { linea_id: "l-a2-r12", actividad_id: "a2", actividad_codigo: "2.1", actividad_nombre: "Ferias", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "5000000.00" },
+  { linea_id: "l-a3-r01", actividad_id: "a3", actividad_codigo: "2.2", actividad_nombre: "Jornadas", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Personal", valor: "8000000.00" },
+]
+
+function actividad(id: string, codigo: string, nombre: string, objetivoId: string | null): ProjectActivity {
+  return {
+    id,
+    proyecto_id: "p1",
+    objetivo_id: objetivoId,
+    tipo: objetivoId === null ? "TRANSVERSAL" : "NORMAL",
+    codigo,
+    nombre,
+    semana_inicio: 1,
+    semana_fin: 2,
+    fecha_inicio: "2026-10-05",
+    fecha_fin: "2026-10-16",
+    peso: 2,
+    responsable_id: null,
+    fuera_de_duracion: false,
+    created_at: "2026-10-01T12:00:00.000Z",
+    updated_at: "2026-10-01T12:00:00.000Z",
+  }
+}
+
+function objetivo(id: string, codigo: string, descripcion: string, orden: number): ProjectObjective {
+  return {
+    id,
+    proyecto_id: "p1",
+    codigo,
+    descripcion,
+    orden,
+    created_at: "2026-10-01T12:00:00.000Z",
+    updated_at: "2026-10-01T12:00:00.000Z",
+  }
+}
+
+const ACTIVIDADES: ProjectActivity[] = [
+  actividad("a1", "1.1", "Talleres", "o1"),
+  actividad("a2", "2.1", "Ferias", "o2"),
+  actividad("a3", "2.2", "Jornadas", "o2"),
+]
+
+const OBJETIVOS: ProjectObjective[] = [
+  objetivo("o1", "1", "Fortalecer capacidades", 1),
+  objetivo("o2", "2", "Ampliar cobertura", 2),
 ]
 
 const GASTO: ProjectExpense = {
@@ -70,9 +138,21 @@ describe("GastoForm", () => {
   const fetchMock = vi.fn()
   const onDone = vi.fn()
 
-  function setup(respuesta: unknown = { gasto: { id: "g1" }, alertas: [] }, duplicados: unknown = { alertas: [] }) {
+  type Opciones = {
+    lineas?: ProjectBudgetLinea[]
+    actividades?: ProjectActivity[]
+    objetivos?: ProjectObjective[]
+  }
+
+  function setup(
+    respuesta: unknown = { gasto: { id: "g1" }, alertas: [] },
+    duplicados: unknown = { alertas: [] },
+    { lineas = [], actividades = ACTIVIDADES, objetivos = OBJETIVOS }: Opciones = {},
+  ) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
+      if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades }))
+      if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos }))
       if (url.includes("/expenses/duplicates?")) return Promise.resolve(jsonResponse(duplicados))
       if (url.endsWith("/expenses/sign")) {
         // One distinct storage_path per file name, so a test can tell the supports apart by their upload.
@@ -85,15 +165,31 @@ describe("GastoForm", () => {
       if (url.endsWith("/expenses") && init?.method === "POST") return Promise.resolve(jsonResponse(respuesta, 201))
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} onDone={onDone} />, { wrapper: createWrapper() })
+    return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} lineas={lineas} onDone={onDone} />, {
+      wrapper: createWrapper(),
+    })
+  }
+
+  /** Las opciones de un select, sin la de «Elige …». */
+  function opcionesDe(etiqueta: string): string[] {
+    return within(screen.getByLabelText(etiqueta))
+      .getAllByRole("option")
+      .map((opcion) => opcion.textContent ?? "")
+      .filter((texto) => !texto.startsWith("Elige"))
+  }
+
+  /** Elige en `campo` la opción que se lee `texto`: el mismo nombre que ve la persona. */
+  async function elegir(user: ReturnType<typeof userEvent.setup>, campo: string, texto: string) {
+    const select = screen.getByLabelText(campo)
+    await user.selectOptions(select, within(select).getByRole("option", { name: texto }))
   }
 
   /** The non-amount fields, so a test can decide which amounts to type before or after them. */
   async function llenarCamposDeGasto(
     user: ReturnType<typeof userEvent.setup>,
-    { identificacion = true, documento = true } = {},
+    { identificacion = true, documento = true, rubro = "r12" } = {},
   ) {
-    await user.selectOptions(screen.getByLabelText("Rubro"), "r12")
+    await user.selectOptions(screen.getByLabelText("Rubro"), rubro)
     await user.clear(screen.getByLabelText("Fecha del documento"))
     await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-15")
     await user.type(screen.getByLabelText("Tercero"), "Proveedor SAS")
@@ -471,7 +567,8 @@ describe("GastoForm", () => {
 
     await user.type(screen.getByLabelText("Número de documento"), "FE-0123")
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    // S9/T14.1: el formulario lee actividades y objetivos para la cascada; lo que no se consulta es el duplicado.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses/duplicates"))).toBe(false)
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 
@@ -735,5 +832,158 @@ describe("GastoForm", () => {
     await user.type(screen.getByLabelText("Nombre del enlace"), "Factura")
     await user.click(screen.getByRole("button", { name: "Registrar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Solo puedes registrar gastos en rubros con valor asignado.")
+  })
+
+  // S9 / T14.1: Objetivo (o «Gestión del proyecto») -> Actividad -> Rubro. El objetivo solo filtra; el gasto
+  // se guarda contra la línea exacta de la actividad y el rubro elegidos.
+  describe("gasto por objetivo, actividad y rubro (S9)", () => {
+    /** Completar todo lo que no es la cascada, con un enlace como soporte. */
+    async function llenarTodo(user: ReturnType<typeof userEvent.setup>, rubro = "r12") {
+      await llenarCamposDeGasto(user, { rubro })
+      await user.type(screen.getByLabelText("Subtotal"), "1.500.000,50")
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    }
+
+    it("al elegir el objetivo 2, la lista de actividades muestra solo las del objetivo 2 (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup(undefined, undefined, { lineas: LINEAS })
+
+      await waitFor(() =>
+        expect(opcionesDe("Objetivo")).toEqual([
+          "Objetivo 1 · Fortalecer capacidades",
+          "Objetivo 2 · Ampliar cobertura",
+        ]),
+      )
+      // El objetivo va primero: sin objetivo no hay actividades que ofrecer.
+      expect(opcionesDe("Actividad")).toEqual([])
+
+      await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+      expect(opcionesDe("Actividad")).toEqual(["2.1 · Ferias", "2.2 · Jornadas"])
+
+      await elegir(user, "Objetivo", "Objetivo 1 · Fortalecer capacidades")
+      expect(opcionesDe("Actividad")).toEqual(["1.1 · Talleres"])
+    })
+
+    it("la actividad elegida deja en Rubro solo los rubros presupuestados en ella (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup(undefined, undefined, { lineas: LINEAS })
+
+      await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+      await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+      await elegir(user, "Actividad", "2.1 · Ferias")
+      expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte"])
+
+      await elegir(user, "Actividad", "2.2 · Jornadas")
+      expect(opcionesDe("Rubro")).toEqual(["R01 · Personal"])
+    })
+
+    it.each([
+      ["Objetivo 1 · Fortalecer capacidades", "1.1 · Talleres", "l-a1-r12"],
+      ["Objetivo 2 · Ampliar cobertura", "2.1 · Ferias", "l-a2-r12"],
+    ])(
+      "un rubro presupuestado en dos actividades se ofrece en las dos y guarda su línea: %s › %s",
+      async (etiquetaObjetivo, etiquetaActividad, lineaId) => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+        await elegir(user, "Objetivo", etiquetaObjetivo)
+        await elegir(user, "Actividad", etiquetaActividad)
+        // R12 tiene dos líneas (una por actividad) y ninguna se oculta.
+        expect(opcionesDe("Rubro")).toContain("R12 · Transporte")
+
+        await llenarTodo(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody()).toMatchObject({ rubro_id: "r12", linea_id: lineaId })
+        // El objetivo no se guarda: se deduce de la actividad, y la actividad de la línea.
+        expect(postedBody()).not.toHaveProperty("objetivo_id")
+        expect(postedBody()).not.toHaveProperty("actividad_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      },
+    )
+
+    it("no guarda nada hasta elegir objetivo, actividad y rubro, en ese orden (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup(undefined, undefined, { lineas: LINEAS })
+      await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige el objetivo.")
+
+      await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige la actividad.")
+
+      await elegir(user, "Actividad", "2.1 · Ferias")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige el rubro.")
+      expect(postedBody()).toBeNull()
+    })
+
+    it("agrupa en «Gestión del proyecto» la actividad transversal, sin objetivo (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      const lineas: ProjectBudgetLinea[] = [
+        { linea_id: "l-g1-r01", actividad_id: "g1", actividad_codigo: "T.1", actividad_nombre: "Coordinación", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Personal", valor: "4000000.00" },
+      ]
+      setup(undefined, undefined, {
+        lineas,
+        actividades: [actividad("g1", "T.1", "Coordinación", null)],
+      })
+
+      await waitFor(() => expect(opcionesDe("Objetivo")).toEqual(["Gestión del proyecto"]))
+      await waitFor(() => expect(opcionesDe("Actividad")).toEqual(["T.1 · Coordinación"]))
+      expect(opcionesDe("Rubro")).toEqual(["R01 · Personal"])
+
+      await llenarTodo(user, "r01")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody()).toMatchObject({ rubro_id: "r01", linea_id: "l-g1-r01" })
+    })
+
+    it("sin líneas del presupuesto mantiene el formulario por rubro de siempre (compatibilidad)", () => {
+      setup()
+      expect(screen.queryByLabelText("Objetivo")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Actividad")).not.toBeInTheDocument()
+      expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte", "R01 · Personal"])
+    })
+
+    it("ofrece en la corrección un rubro con dos líneas y guarda con su rubro (S9, compatibilidad del PATCH)", async () => {
+      const user = userEvent.setup({ delay: null })
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES }))
+        if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+        if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+          return Promise.resolve(jsonResponse({ gasto: GASTO, alertas: [] }))
+        return Promise.resolve(jsonResponse({}))
+      })
+      render(
+        <GastoForm
+          proyecto={PROYECTO}
+          rubros={[RUBRO_EN_DOS_ACTIVIDADES]}
+          lineas={[LINEAS[0]!, LINEAS[1]!]}
+          gasto={GASTO}
+          onDone={onDone}
+        />,
+        { wrapper: createWrapper() },
+      )
+
+      expect(screen.getByRole("form", { name: "Corregir gasto" })).toBeInTheDocument()
+      expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte"])
+      expect(screen.getByLabelText("Rubro")).toHaveValue("r12")
+
+      await user.clear(screen.getByLabelText("Descripción"))
+      await user.type(screen.getByLabelText("Descripción"), "Tiquetes corregidos")
+      await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patchBody()).not.toBeNull())
+      expect(patchBody()).toMatchObject({ rubro_id: "r12", descripcion: "Tiquetes corregidos" })
+      expect(postedBody()).toBeNull()
+      await waitFor(() => expect(onDone).toHaveBeenCalled())
+    })
   })
 })

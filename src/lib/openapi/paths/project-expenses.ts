@@ -144,7 +144,10 @@ registry.registerPath({
     "ejecutado total del rubro supera lo asignado; su mensaje es «Solicita un traslado al Gerente» y avisa a Gerencia), " +
     "`SOBREGASTO_PROGRAMADO` (aviso: el ejecutado acumulado hasta el periodo supera lo programado hasta ese mismo periodo; " +
     "no se repite cuando aplica el crítico) y `DUPLICADO` " +
-    "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto).",
+    "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto)." +
+    " S9: `linea_id` (opcional) fija la línea exacta del presupuesto —la actividad y el rubro que el formulario elige en ese " +
+    "orden, con el objetivo solo como filtro—; tiene que ser una línea de ese rubro en el proyecto y si no lo es responde 400 " +
+    "«La línea elegida no corresponde al rubro de este proyecto.». Sin `linea_id` se usa la línea del rubro, como antes.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,
@@ -254,7 +257,8 @@ registry.registerPath({
     "Audita un registro EDITAR por campo cambiado (incluidos `subtotal`, `iva`, `valor` y `periodo`); el número de " +
     "identificación solo se audita enmascarado. `subtotal` e `iva` se envían juntos o por separado (el que falta conserva el " +
     "guardado) y el Total siempre es su suma. Si cambia `fecha_documento` sin `periodo`, el periodo vuelve al mes de la nueva " +
-    "fecha (400 si ese mes no es del proyecto).",
+    "fecha (400 si ese mes no es del proyecto). S9: si el rubro no cambia, el gasto conserva la línea que ya tenía; solo un " +
+    "cambio de rubro vuelve a resolver la línea.",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: GASTO_PATCH_SCHEMA } } } },
   responses: {

@@ -2,8 +2,10 @@
 // POST — register an expense against the budget line of a rubro, with 1..5 supports.
 //
 // Register: ADMINISTRADOR/GERENCIA or an active-member COORDINADOR on an EN_EJECUCION project
-// (404 -> 403 -> 409 -> 400). The rubro must have an assigned amount above zero; the period must be
-// a month of the project (default: the month of the document date); the estado is always REGISTRADO.
+// (404 -> 403 -> 409 -> 400). The body may name the exact line (`linea_id`, the activity + rubro the form
+// chose, S9/T14.1) or only the rubro (older callers); the rubro must have an assigned amount above zero and a
+// `linea_id` has to be one of that rubro's lines in the project. The period must be a month of the project
+// (default: the month of the document date); the estado is always REGISTRADO.
 // Supports follow the confirm-mode flow (sign -> direct upload -> confirm) and are created in the same
 // transaction as the expense. Alerts never block: SOBREGASTO (critical, over the assigned amount, with
 // the «Solicita un traslado al Gerente» message and the Gerencia notification), SOBREGASTO_PROGRAMADO
@@ -90,7 +92,7 @@ export const POST = withApiErrorHandling(
 
     const montos = parseMontosGasto(input.subtotal, input.iva);
     if (!montos.ok) return montos.response;
-    const linea = await resolverLinea(id, input.rubro_id);
+    const linea = await resolverLinea(id, input.rubro_id, input.linea_id);
     if (!linea.ok) return linea.response;
     const periodo = resolverPeriodo(proyecto, input.fecha_documento, input.periodo);
     if (!periodo.ok) return periodo.response;

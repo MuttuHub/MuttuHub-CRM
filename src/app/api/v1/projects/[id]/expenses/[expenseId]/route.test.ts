@@ -437,6 +437,31 @@ describe("PATCH expenses/:expenseId", () => {
     expect(updatedData().linea_id).toBe("lin-9");
   });
 
+  // S9 / T14.1: the expense keeps the exact line it already has when the correction does not change the
+  // rubro (the form always re-sends it), even when that rubro is budgeted in more than one activity.
+  it("keeps the expense on its own line when the correction re-sends the same rubro", async () => {
+    vi.mocked(db.lineaPresupuestal.findFirst).mockImplementation((async ({ where }: { where: { id?: string } }) =>
+      where.id === "lin-1"
+        ? {
+            id: "lin-1",
+            monto_proyectado_cop: new Prisma.Decimal("24000000"),
+            rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+          }
+        : {
+            id: "lin-otra",
+            monto_proyectado_cop: new Prisma.Decimal("1000000"),
+            rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+          }) as never);
+
+    const res = await PATCH(patch({ rubro_id: "rub-1", descripcion: "Tiquetes corregidos" }), ctx);
+
+    expect(res.status).toBe(200);
+    expect(db.lineaPresupuestal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "lin-1", proyecto_id: "pry-1", rubro_id: "rub-1" } }),
+    );
+    expect(updatedData().linea_id).toBe("lin-1");
+  });
+
   it("validates the periodo, the subtotal, the IVA and an empty body", async () => {
     expect((await PATCH(patch({ periodo: "2027-05" }), ctx)).status).toBe(400);
     expect((await PATCH(patch({ subtotal: "0" }), ctx)).status).toBe(400);

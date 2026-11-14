@@ -79,6 +79,14 @@ describe("expense body schemas", () => {
     expect(GASTO_CREATE_SCHEMA.safeParse({ ...base, subtotal: "100" }).success).toBe(false);
   });
 
+  // S9 / T14.1: the form sends the exact line (actividad + rubro); it stays optional so a caller that only
+  // knows the rubro keeps working.
+  it("create takes the optional linea_id of the exact budget line (S9)", () => {
+    expect(GASTO_CREATE_SCHEMA.safeParse({ ...base, subtotal: "100", iva: "0", linea_id: "lin-1" }).success).toBe(true);
+    expect(GASTO_CREATE_SCHEMA.safeParse({ ...base, subtotal: "100", iva: "0" }).success).toBe(true);
+    expect(GASTO_CREATE_SCHEMA.safeParse({ ...base, subtotal: "100", iva: "0", linea_id: "" }).success).toBe(false);
+  });
+
   it("patch takes subtotal and iva and no longer takes valor", () => {
     expect(GASTO_PATCH_SCHEMA.safeParse({ iva: "0" }).success).toBe(true);
     expect(GASTO_PATCH_SCHEMA.safeParse({ valor: "1" }).success).toBe(false);

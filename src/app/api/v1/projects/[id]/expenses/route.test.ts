@@ -51,6 +51,7 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 import { canViewFinancialSupports } from "@/lib/permissions";
 import { GET, POST } from "./route";
+import { LINEA_NO_DEL_RUBRO_MESSAGE } from "@/lib/api/gastos";
 
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
 const coordinador = { id: "coord-1", rol: "COORDINADOR" } as Usuario;
@@ -354,6 +355,47 @@ describe("POST expenses: registration", () => {
       }),
     );
     expect((await POST(post(valido), ctx)).status).toBe(409);
+  });
+});
+
+// S9 / T14.1: el gasto se guarda contra la línea exacta (actividad + rubro) que el formulario elige; un cuerpo
+// con solo `rubro_id` (los llamadores anteriores) sigue funcionando.
+describe("POST expenses: the exact budget line (S9)", () => {
+  it("saves the expense against the linea_id the form sends, pinned to the project and the rubro", async () => {
+    vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValue({ ...linea("5000000"), id: "lin-2" } as never);
+    const res = await POST(post({ ...valido, linea_id: "lin-2" }), ctx);
+
+    expect(res.status).toBe(201);
+    expect(db.lineaPresupuestal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "lin-2", proyecto_id: "pry-1", rubro_id: "rub-1" } }),
+    );
+    expect(createdData().linea_id).toBe("lin-2");
+  });
+
+  it("rejects a linea_id that is not a line of the project and the rubro, and writes nothing", async () => {
+    vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValue(null as never);
+    const res = await POST(post({ ...valido, linea_id: "lin-ajena" }), ctx);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: LINEA_NO_DEL_RUBRO_MESSAGE });
+    expect(json.error).toBe("La línea elegida no corresponde al rubro de este proyecto.");
+    expect(db.lineaPresupuestal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "lin-ajena", proyecto_id: "pry-1", rubro_id: "rub-1" } }),
+    );
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(logChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps accepting a body with only rubro_id (existing callers) and resolves that rubro's line", async () => {
+    const res = await POST(post(valido), ctx);
+
+    expect(res.status).toBe(201);
+    expect(db.lineaPresupuestal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { proyecto_id: "pry-1", rubro_id: "rub-1" } }),
+    );
+    expect(createdData().linea_id).toBe("lin-1");
   });
 });
 

@@ -45,6 +45,8 @@ const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
 export const MAX_SOPORTES = 5;
 export const MAX_SOPORTES_MESSAGE = `Puedes adjuntar máximo ${MAX_SOPORTES} soportes.`;
 export const RUBRO_SIN_ASIGNADO_MESSAGE = "Solo puedes registrar gastos en rubros con valor asignado.";
+/** S9/T14.1: the line the form chose must be one of that rubro's lines in the project. */
+export const LINEA_NO_DEL_RUBRO_MESSAGE = "La línea elegida no corresponde al rubro de este proyecto.";
 export const PERIODO_FUERA_MESSAGE = "El periodo debe corresponder a un mes del proyecto.";
 const PROYECTO_SIN_FECHAS_MESSAGE = "El proyecto no tiene fechas definidas.";
 export const GASTO_VALIDADO_MESSAGE = "Un gasto validado no se puede editar.";
@@ -109,6 +111,11 @@ const GASTO_FIELDS = {
 export const GASTO_CREATE_SCHEMA = z
   .object({
     rubro_id: GASTO_FIELDS.rubro_id,
+    /**
+     * S9/T14.1: the exact budget line (activity + rubro) the form chose. Optional, so a caller that only
+     * knows the rubro keeps working; when it arrives it must be one of that rubro's lines in the project.
+     */
+    linea_id: z.string().min(1, LINEA_NO_DEL_RUBRO_MESSAGE).optional(),
     fecha_documento: GASTO_FIELDS.fecha_documento,
     periodo: GASTO_FIELDS.periodo.optional(),
     tipo_soporte: GASTO_FIELDS.tipo_soporte,
@@ -234,16 +241,31 @@ export function tieneAsignado(monto: { toString(): string }): boolean {
   return toCents(monto) > BigInt(0);
 }
 
-/** The budget line of a rubro in the project; the rubro needs an assigned amount above zero. */
+/**
+ * The budget line of a rubro in the project; the rubro needs an assigned amount above zero.
+ *
+ * S9/T14.1: with `lineaId` the line has to be one of that rubro's lines in this project — never an arbitrary
+ * one — and anything else is a 400. Without it (an older caller that only knows the rubro) the rubro's line is
+ * resolved as before.
+ */
 export async function resolverLinea(
   proyectoId: string,
   rubroId: string,
+  lineaId?: string,
 ): Promise<{ ok: true; value: LineaGasto } | { ok: false; response: Response }> {
   const linea = await db.lineaPresupuestal.findFirst({
-    where: { proyecto_id: proyectoId, rubro_id: rubroId },
+    where: lineaId
+      ? { id: lineaId, proyecto_id: proyectoId, rubro_id: rubroId }
+      : { proyecto_id: proyectoId, rubro_id: rubroId },
     select: { id: true, monto_proyectado_cop: true, rubro: { select: { id: true, codigo: true, nombre: true } } },
   });
-  if (!linea || !tieneAsignado(linea.monto_proyectado_cop)) {
+  if (!linea) {
+    return {
+      ok: false,
+      response: apiError(lineaId ? LINEA_NO_DEL_RUBRO_MESSAGE : RUBRO_SIN_ASIGNADO_MESSAGE, 400, "VALIDATION_ERROR"),
+    };
+  }
+  if (!tieneAsignado(linea.monto_proyectado_cop)) {
     return { ok: false, response: apiError(RUBRO_SIN_ASIGNADO_MESSAGE, 400, "VALIDATION_ERROR") };
   }
   return { ok: true, value: { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro } };

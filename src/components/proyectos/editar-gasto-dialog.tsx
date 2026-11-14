@@ -12,18 +12,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { GastoForm } from "@/components/proyectos/gasto-form";
-import type { ProjectBudgetRubro, ProjectExpense, ProjectListRow } from "@/hooks/projects";
+import type { ProjectBudgetLinea, ProjectBudgetRubro, ProjectExpense, ProjectListRow } from "@/hooks/projects";
 
 export function EditarGastoDialog({
   proyecto,
   gasto,
   rubros,
+  lineas,
   open,
   onOpenChange,
 }: {
   proyecto: ProjectListRow;
   gasto: ProjectExpense;
   rubros: ProjectBudgetRubro[];
+  /** S9/T14.1: las líneas del presupuesto, para que el formulario ofrezca el mismo rubro con dos líneas. */
+  lineas?: ProjectBudgetLinea[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -39,7 +42,15 @@ export function EditarGastoDialog({
           </DialogDescription>
         </DialogHeader>
         {/* Montado solo mientras está abierto: cada apertura parte de los valores actuales de la fila. */}
-        {open && <GastoForm proyecto={proyecto} rubros={rubros} gasto={gasto} onDone={() => onOpenChange(false)} />}
+        {open && (
+          <GastoForm
+            proyecto={proyecto}
+            rubros={rubros}
+            lineas={lineas}
+            gasto={gasto}
+            onDone={() => onOpenChange(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

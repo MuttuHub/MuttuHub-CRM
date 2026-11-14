@@ -1756,6 +1756,11 @@ export type ExpenseDuplicateQuery = {
 
 export type ProjectExpenseInput = {
   rubro_id: string;
+  /**
+   * S9/T14.1: la línea exacta del presupuesto (actividad + rubro) que el formulario elige en ese orden. Opcional:
+   * sin ella el servidor usa la línea del rubro, como antes.
+   */
+  linea_id?: string;
   fecha_documento: string;
   /** Mes del proyecto AAAA-MM; el formulario lo rellena con el mes de la fecha del documento. */
   periodo: string;
@@ -1782,7 +1787,7 @@ export type ProjectExpenseInput = {
  * `motivo` solo es obligatorio cuando el Gestor corrige el gasto de otra persona, y el servidor lo audita como
  * `motivo_correccion`.
  */
-export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "tercero_numero_id"> & {
+export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "tercero_numero_id" | "linea_id"> & {
   /** Se omite cuando la API no envió la identificación (RNF-03), para no borrarla sin querer. */
   tercero_numero_id?: string | null;
   /** Obligatorio solo cuando el Gestor corrige el gasto de otra persona; lo decide y lo audita el servidor. */

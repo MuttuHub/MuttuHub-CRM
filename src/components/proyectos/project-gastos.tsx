@@ -134,6 +134,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
               <GastoForm
                 proyecto={proyecto}
                 rubros={budgetQuery.data?.rubros ?? []}
+                lineas={budgetQuery.data?.lineas ?? []}
                 onDone={() => setRegistrando(false)}
               />
             </CaptureSurface>
@@ -159,6 +160,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
               proyecto={proyecto}
               gasto={corrigiendo}
               rubros={budgetQuery.data?.rubros ?? []}
+              lineas={budgetQuery.data?.lineas ?? []}
               open
               onOpenChange={(abierto) => {
                 if (!abierto) setCorrigiendo(null);

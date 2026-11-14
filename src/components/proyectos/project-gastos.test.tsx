@@ -117,12 +117,14 @@ type Setup = {
   proyecto?: Partial<ProjectListRow>
   gastos?: ReturnType<typeof gasto>[]
   conSoportes?: boolean
+  /** S9/T14.1: líneas, actividades y objetivos del presupuesto (por defecto, un presupuesto sin líneas). */
+  s9?: { lineas: unknown[]; actividades: unknown[]; objetivos: unknown[] }
 }
 
 describe("ProjectGastos", () => {
   const fetchMock = vi.fn()
 
-  function setup({ rol = "GERENCIA", usuarioId = "yo", miembro = false, proyecto = {}, gastos = [] }: Setup = {}) {
+  function setup({ rol = "GERENCIA", usuarioId = "yo", miembro = false, proyecto = {}, gastos = [], s9 }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
       const method = init?.method ?? "GET"
@@ -132,7 +134,9 @@ describe("ProjectGastos", () => {
           jsonResponse({ miembros: miembro ? [{ id: "m1", usuario: { id: usuarioId, nombre: "Yo", rol }, agregado_por_id: "x", created_at: "2026-10-07T13:00:00.000Z", removed_at: null }] : [] }),
         )
       }
-      if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(BUDGET))
+      if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: s9?.actividades ?? [] }))
+      if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: s9?.objetivos ?? [] }))
+      if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(s9 ? { ...BUDGET, lineas: s9.lineas } : BUDGET))
       if (url.endsWith("/expenses") && method === "GET") return Promise.resolve(jsonResponse(respuesta(gastos)))
       return Promise.resolve(jsonResponse({}))
     })
@@ -170,6 +174,47 @@ describe("ProjectGastos", () => {
   })
 
   describe("register control", () => {
+    // S9 / T14.1: las líneas del presupuesto llegan al formulario; el objetivo filtra y el rubro sale de la
+    // actividad elegida.
+    it("passes the budget lines to the form: choose objetivo, then actividad, then rubro (S9)", async () => {
+      const user = userEvent.setup()
+      setup({
+        rol: "GERENCIA",
+        s9: {
+          lineas: [
+            { linea_id: "l-a1-r12", actividad_id: "a1", actividad_codigo: "1.1", actividad_nombre: "Talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "10000000.00" },
+            { linea_id: "l-a2-r12", actividad_id: "a2", actividad_codigo: "2.1", actividad_nombre: "Ferias", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "5000000.00" },
+          ],
+          actividades: [
+            { id: "a1", proyecto_id: "p1", objetivo_id: "o1", tipo: "NORMAL", codigo: "1.1", nombre: "Talleres" },
+            { id: "a2", proyecto_id: "p1", objetivo_id: "o2", tipo: "NORMAL", codigo: "2.1", nombre: "Ferias" },
+          ],
+          objetivos: [
+            { id: "o1", proyecto_id: "p1", codigo: "1", descripcion: "Fortalecer capacidades", orden: 1 },
+            { id: "o2", proyecto_id: "p1", codigo: "2", descripcion: "Ampliar cobertura", orden: 2 },
+          ],
+        },
+      })
+
+      await user.click(await screen.findByRole("button", { name: "Registrar gasto" }))
+      const form = screen.getByRole("form", { name: "Registrar gasto" })
+      const objetivo = within(form).getByLabelText("Objetivo")
+      await waitFor(() =>
+        expect(within(objetivo).getAllByRole("option").map((option) => option.textContent)).toContain(
+          "Objetivo 2 · Ampliar cobertura",
+        ),
+      )
+
+      await user.selectOptions(objetivo, "o2")
+      const actividad = within(form).getByLabelText("Actividad")
+      expect([...actividad.querySelectorAll("option")].map((option) => option.textContent)).toEqual(["Elige una actividad", "2.1 · Ferias"])
+      await user.selectOptions(actividad, "a2")
+      expect([...within(form).getByLabelText("Rubro").querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+        "Elige un rubro",
+        "R12 · Transporte",
+      ])
+    })
+
     it("is shown to a manager on an EN_EJECUCION project", async () => {
       setup({ rol: "GERENCIA" })
       expect(await screen.findByRole("button", { name: "Registrar gasto" })).toBeInTheDocument()

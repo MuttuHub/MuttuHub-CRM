@@ -55,7 +55,7 @@ function Formulario({ proyecto, onCerrar }: { proyecto: ProjectListRow; onCerrar
   return (
     <>
       {error}
-      <GastoForm proyecto={proyecto} rubros={budgetQuery.data.rubros} onDone={onCerrar} />
+      <GastoForm proyecto={proyecto} rubros={budgetQuery.data.rubros} lineas={budgetQuery.data.lineas ?? []} onDone={onCerrar} />
     </>
   );
 }
