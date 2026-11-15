@@ -336,7 +336,8 @@ export type ImportarArgs = {
   loteId: string;
 };
 
-const clave = (codigo: string) => codigo.trim().toLowerCase();
+/** How a structure code is matched (trimmed, case-insensitive); the keys of `crearEstructura`'s id maps. */
+export const clave = (codigo: string) => codigo.trim().toLowerCase();
 
 function diaUtc(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);

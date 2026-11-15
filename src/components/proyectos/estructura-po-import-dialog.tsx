@@ -1,7 +1,8 @@
 // Importar la estructura desde el Excel de la PO (B3): elegir archivo -> validar
 // (no escribe) -> vista previa con los códigos que genera el sistema y lo que se
 // reemplaza -> confirmar. Si el archivo tiene errores, se listan por hoja, fila y
-// columna y no se guarda nada. El presupuesto no cambia (decisión D-A).
+// columna y no se guarda nada. El presupuesto se conserva (decisión D-A); el de una actividad que el archivo
+// ya no trae se borra con ella (T13 S8).
 // Visibilidad solo de comodidad: la autoridad es la API (403 a otros roles, 409
 // fuera de BORRADOR).
 
@@ -94,7 +95,8 @@ function VistaPrevia({ preview }: { preview: StructureImportPreview }) {
           data-testid="estructura-po-reemplaza"
           className="rounded-12 border border-alerta/30 bg-alerta-bg px-3 py-2 text-[12.5px] text-ink-800"
         >
-          Reemplaza la estructura actual ({conteo(reemplaza)}). El presupuesto no cambia.
+          Reemplaza la estructura actual ({conteo(reemplaza)}). El presupuesto se conserva, salvo el de las actividades
+          que ya no estén en el archivo: ese se borra y hay que volver a cargarlo.
         </p>
       )}
       <div className="max-h-[45dvh] overflow-auto rounded-inner border border-border bg-panel">

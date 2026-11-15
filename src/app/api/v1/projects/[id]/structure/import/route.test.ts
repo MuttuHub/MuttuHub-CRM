@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   updateMany: vi.fn(),
   createMany: { objetivo: vi.fn(), actividad: vi.fn(), entregable: vi.fn(), indicador: vi.fn() },
   presupuesto: vi.fn(),
+  presupuestoLeer: vi.fn(async () => []),
   proyectoUpdate: vi.fn(),
 }));
 
@@ -39,7 +40,13 @@ vi.mock("@/lib/db", () => {
     actividad: estructura("actividad"),
     entregable: estructura("entregable"),
     indicador: estructura("indicador"),
-    lineaPresupuestal: { findMany: mocks.presupuesto, create: mocks.presupuesto, update: mocks.presupuesto },
+    // T13 S6: the import reads the budget lines to move them to the new activities; with none, it writes nothing.
+    lineaPresupuestal: {
+      findMany: mocks.presupuestoLeer,
+      create: mocks.presupuesto,
+      update: mocks.presupuesto,
+      deleteMany: mocks.presupuesto,
+    },
     programacionPeriodo: { findMany: mocks.presupuesto, createMany: mocks.presupuesto, deleteMany: mocks.presupuesto },
     proyecto: { update: mocks.proyectoUpdate },
   };

@@ -56,7 +56,7 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | done | `6089552` |
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
-| T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | pending | |
+| T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | done | `278074c` |
 | T13.8 | S7 | Template «Tipo» column | inline | pending | |
 | T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
 
