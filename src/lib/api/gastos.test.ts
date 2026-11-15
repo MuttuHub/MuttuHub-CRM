@@ -543,4 +543,38 @@ describe("cargarSobregastos (importación)", () => {
       expect.objectContaining({ where: expect.objectContaining({ repartos: { none: {} } }) }),
     );
   });
+
+  // S9: «La anulación se aplica a la factura completa.» La factura distribuida es UN gasto: al anularla, sus dos
+  // filas dejan de contar en sus dos líneas. La lectura de las filas va filtrada por el estado de la factura.
+  it("anular la factura completa quita sus dos filas del ejecutado (S9)", async () => {
+    const factura = { estado: "ANULADO" as "ANULADO" | "REGISTRADO" };
+    const filasDeLaFactura = [
+      { linea_id: "lin-12", valor: new Prisma.Decimal("350000"), gasto: { periodo: "2026-10" } },
+      { linea_id: "lin-13", valor: new Prisma.Decimal("650000"), gasto: { periodo: "2026-10" } },
+    ];
+    const filas = vi.fn(async ({ where }: { where: { gasto: { estado: { in: string[] } } } }) =>
+      // El doble devuelve las filas de la factura solo mientras su estado cuenta como ejecutado.
+      where.gasto.estado.in.includes(factura.estado) ? filasDeLaFactura : [],
+    );
+    const tx = {
+      gasto: { groupBy: vi.fn().mockResolvedValue([]) },
+      programacionPeriodo: { groupBy: vi.fn().mockResolvedValue([]) },
+      gastoReparto: { findMany: filas },
+    };
+
+    factura.estado = "REGISTRADO";
+    const viva = await cargarSobregastos(tx as never, [{ id: "lin-12" }, { id: "lin-13" }]);
+    expect(viva.critico({ id: "lin-12", asignado: toCents("1") }, toCents("0"))).toBe(true);
+    expect(viva.critico({ id: "lin-13", asignado: toCents("1") }, toCents("0"))).toBe(true);
+
+    factura.estado = "ANULADO";
+    const anulada = await cargarSobregastos(tx as never, [{ id: "lin-12" }, { id: "lin-13" }]);
+    expect(anulada.critico({ id: "lin-12", asignado: toCents("1") }, toCents("0"))).toBe(false);
+    expect(anulada.critico({ id: "lin-13", asignado: toCents("1") }, toCents("0"))).toBe(false);
+    expect(filas).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ gasto: { estado: { in: ["REGISTRADO", "VALIDADO"] } } }),
+      }),
+    );
+  });
 });

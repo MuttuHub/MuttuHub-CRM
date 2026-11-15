@@ -447,8 +447,11 @@ function whereEjecutado(filtro: FiltroEjecutado): Prisma.GastoWhereInput {
  * S9/T14.2-B2: the executed money of a line as the overspend alert must read it — its distribution rows, plus the
  * total of every gasto without rows on its own header line. It is the same fallback as the executed seam
  * (`loadGastosEjecutados`, src/lib/api/financiera.ts): a line that only receives money through a later row of a
- * split invoice counts there, and a legacy row (the Excel import, the seeds) keeps counting its total on the line
- * of its header. Before this, the alert under-reported the executed of every distributed invoice.
+ * split invoice counts there, and a legacy row keeps counting its total on the line of its header. Before this,
+ * the alert under-reported the executed of every distributed invoice.
+ *
+ * S9/T14.3: the Excel import writes its distribution rows like every other writer, so the rows without a
+ * distribution are down to the seeds and to the rows written before T14.2-B1 backfilled them.
  */
 async function ejecutadoDeLinea(
   tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto">,
@@ -654,6 +657,10 @@ export async function cargarSobregastos(
  * RF-21: a live expense (REGISTRADO or VALIDADO) of ANY project with the same normalized
  * identification and document number. It never blocks. The project code (and the expense id)
  * are revealed only when the actor may read that project.
+ *
+ * S9: the key is the whole invoice — one `Gasto` with its distribution rows — never one of its rows, so a
+ * distributed invoice is reported once. The `id: { not }` below is `esDuplicado`'s `factura_id` distinction
+ * expressed in SQL: the invoice never duplicates itself.
  */
 export async function buscarDuplicados(
   usuario: Usuario,

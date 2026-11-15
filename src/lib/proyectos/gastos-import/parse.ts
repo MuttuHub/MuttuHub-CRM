@@ -1,9 +1,13 @@
 /**
- * Reads the expenses workbook (one row per expense, B8) into rows that follow the SAME rules as the
+ * Reads the expenses workbook (one row per distribution line, B8) into rows that follow the SAME rules as the
  * single-expense form: `GASTO_FILA_SCHEMA` (required texts and limits), `evaluarMontosGasto` (Subtotal > 0,
- * IVA >= 0 and may be 0, max two decimals; the Total is Subtotal + IVA, an optional «Total» column must
- * agree with it), a rubro with an assigned value and `evaluarPeriodo` (a month of the project). The
- * file carries no support: those come separately (S2).
+ * IVA >= 0 and may be 0, max two decimals), a rubro with an assigned value and `evaluarPeriodo` (a month of the
+ * project). The file carries no support: those come separately (S2).
+ *
+ * S9/T14.3: the sheet also names the «Código de actividad» of each row, so the pair activity + rubro pins ONE
+ * budget line of the project, and the rows of one document — same normalized third-party id and document number —
+ * are read as ONE distributed invoice, never as duplicates: their amounts must add up to the «Total» the document
+ * states. An invoice with any bad row, or whose rows do not add up, is rejected as a whole.
  *
  * Pure and Node-only (`exceljs`, same boundary as `../excel-celdas.ts`, whose cell and rubro
  * helpers it reuses). The caller passes everything the rules need (`ContextoImportGastos`), so there
@@ -14,13 +18,14 @@ import ExcelJS from "exceljs"
 import {
   GASTO_FILA_SCHEMA,
   IVA_NEGATIVO_MESSAGE,
+  REPARTO_SUMA_MESSAGE,
   RUBRO_SIN_ASIGNADO_MESSAGE,
   clavesNormalizadas,
   evaluarPeriodo,
   evaluarMontosGasto,
   type GastoProyecto,
 } from "@/lib/api/gastos"
-import { formatCOP, fromCents, type Cents } from "../money"
+import { formatCOP, fromCents, sumCents, type Cents } from "../money"
 import {
   ARCHIVO_ILEGIBLE,
   indiceCatalogo,
@@ -41,12 +46,23 @@ const FILAS_BUSQUEDA_ENCABEZADO = 10
 /** Columns scanned in each row. */
 const MAX_COLUMNAS = 20
 
-export const DUPLICADO_EN_ARCHIVO_MESSAGE = "Duplicado dentro del archivo"
+/** S9: a distribution of several rows has to state the total of its document on the first row. */
+export const SIN_TOTAL_DISTRIBUCION_MESSAGE = "«Total»: escribe el total de la factura que reparten sus filas."
+/** S9: one document has one date, one period and one support type, whatever its distribution. */
+export const FACTURA_NO_COINCIDE_MESSAGE =
+  "Las filas de una misma factura deben coincidir en la fecha, el periodo y el tipo de soporte."
+/** S9: half an invoice is never written: one bad row takes the whole document with it. */
+export const facturaIncompleta = (fila: number) =>
+  `La fila ${fila} de esta factura tiene un error: corrige la factura completa.`
 /** The pre-AJ-04 template had a single «Valor (COP)» column: it is never read as Subtotal with IVA 0. */
 export const PLANTILLA_ANTERIOR_MESSAGE = "Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA."
 export const SIN_FILAS_GASTOS = "El archivo no tiene filas con datos: agrega al menos un gasto debajo de los encabezados."
 
-/** Headers of the template, in order. Required: Rubro, Fecha, Tipo de soporte, Tercero, Número de documento, Descripción, Subtotal and IVA. */
+/**
+ * Headers of the template, in order. Required: Rubro, Fecha, Tipo de soporte, Tercero, Número de documento,
+ * Descripción, Subtotal and IVA. «Código de actividad» (S9/T14.3) goes last and is optional as a header, so a
+ * file written with the previous template still imports exactly as before.
+ */
 export const ENCABEZADOS_GASTOS = [
   "Rubro",
   "Fecha del documento",
@@ -61,6 +77,7 @@ export const ENCABEZADOS_GASTOS = [
   "Total",
   "Periodo",
   "Enlace del soporte",
+  "Código de actividad",
 ] as const
 
 type Campo =
@@ -78,6 +95,8 @@ type Campo =
   | "periodo"
   /** AJ-06 (S2, S3), optional: one or more links, separated by `;`, each http(s)://. */
   | "enlaces"
+  /** S9/T14.3, optional: the código (or the name) of the activity the row belongs to. */
+  | "actividad"
   /** Header only: the old single amount column, which makes the file an old template. */
   | "valorAnterior"
 
@@ -97,6 +116,7 @@ const ALIAS: Record<Campo, readonly string[]> = {
   valorAnterior: ["valor cop", "valor", "monto"],
   periodo: ["periodo"],
   enlaces: ["enlace del soporte", "enlace de soporte", "enlaces del soporte", "enlaces"],
+  actividad: ["codigo de actividad", "codigo actividad", "codigo de la actividad", "actividad"],
 }
 
 const ETIQUETA: Record<Campo, string> = {
@@ -114,6 +134,7 @@ const ETIQUETA: Record<Campo, string> = {
   valorAnterior: "Valor (COP)",
   periodo: "Periodo",
   enlaces: "Enlace del soporte",
+  actividad: "Código de actividad",
 }
 
 const OBLIGATORIOS: readonly Campo[] = ["rubro", "fecha", "tipoSoporte", "tercero", "numeroDocumento", "descripcion", "subtotal", "iva"]
@@ -144,13 +165,32 @@ export type ContextoImportGastos = {
   proyecto: Pick<GastoProyecto, "fecha_inicio" | "fecha_fin">
   /** Rubros a name in the file may match (the caller passes the active catalog plus the project's own). */
   rubros: readonly RubroCatalogo[]
-  /** Rubro ids whose budget line in this project has an assigned value above zero. */
-  rubrosConAsignado: ReadonlySet<string>
+  /**
+   * S9/T14.3: the budget lines of the project, one per activity + rubro. A row that names its activity pins the
+   * line of that pair; a row without an activity resolves through its rubro alone, as the file did before.
+   */
+  lineas: readonly LineaPresupuestoImport[]
+}
+
+/** S9/T14.3: one budget line of the project, with the activity it belongs to. */
+export type LineaPresupuestoImport = {
+  id: string
+  rubro_id: string
+  /** Código of the activity of the line; null on a legacy line («Sin actividad», D4). */
+  actividad_codigo: string | null
+  /** Name of the activity: accepted in the column where its código goes. */
+  actividad_nombre: string | null
+  /** The line takes expenses only while its assigned amount is above zero. */
+  asignado: boolean
 }
 
 /** What one valid row writes: the fields of a single expense, the amount in exact cents. */
-export type DatosGastoImport = {
+type DatosGastoImport = {
   rubro_id: string
+  /** S9/T14.3: the budget line (activity + rubro) the row resolves to; it is its distribution row. */
+  linea_id: string
+  /** The «Total» as written: the total of the document this row belongs to, or null when the cell is empty. */
+  total_documento: Cents | null
   fecha_documento: string
   periodo: string
   tipo_soporte: "FACTURA_PROVEEDOR" | "CUENTA_COBRO_PERSONA_NATURAL" | "OTRO"
@@ -161,10 +201,40 @@ export type DatosGastoImport = {
   descripcion: string
   subtotal: Cents
   iva: Cents
-  /** The Total (Subtotal + IVA): the executed amount. */
+  /** The Total of THIS row (Subtotal + IVA): its share of the invoice. */
   cents: Cents
   /** AJ-06 (S2, S3): the valid http(s) links read from «Enlace del soporte», empty when the cell is blank. */
   enlaces: string[]
+}
+
+/** One document of the file: a single-row invoice, or one distributed across several rows (S9/T14.3). */
+export type DatosFacturaImport = {
+  fecha_documento: string
+  periodo: string
+  tipo_soporte: "FACTURA_PROVEEDOR" | "CUENTA_COBRO_PERSONA_NATURAL" | "OTRO"
+  tercero_nombre: string
+  tercero_tipo_id: "NIT" | "CC" | "CE" | null
+  tercero_numero_id: string | null
+  numero_documento: string
+  descripcion: string
+  /** Sum of the subtotals of its rows. */
+  subtotal: Cents
+  /** Sum of the IVA of its rows. */
+  iva: Cents
+  /** The total of the invoice (subtotal + IVA): the sum its rows must add up to. */
+  cents: Cents
+  /** The distribution: one row per Excel row, in file order; the first one is the line of the header. */
+  repartos: readonly { linea_id: string; valor: Cents }[]
+  /** The support links of every row, once each, in file order. */
+  enlaces: string[]
+}
+
+export type FacturaGastoImport = {
+  /** Excel rows of the document, in file order; the first one carries the identity of the header. */
+  filas: number[]
+  /** Null when the invoice (or one of its rows) is invalid: nothing of it is written. */
+  datos: DatosFacturaImport | null
+  error: string | null
 }
 
 export type FilaGastoImport = {
@@ -173,6 +243,8 @@ export type FilaGastoImport = {
   /** The rubro as written in the file. */
   rubroTexto: string
   rubroId: string | null
+  /** The activity as written in the file (empty when the column is missing or the cell is blank). */
+  actividadTexto: string
   /** Null when the row has an error. */
   datos: DatosGastoImport | null
   error: string | null
@@ -180,13 +252,15 @@ export type FilaGastoImport = {
 
 export type ResultadoGastosImport = {
   filas: FilaGastoImport[]
+  /** S9/T14.3: the documents of the file, one per tercero + número de documento, in file order. */
+  facturas: FacturaGastoImport[]
   /** Errors of the whole file (unreadable, missing headers, no rows, too many rows); `filas` is empty then. */
   erroresArchivo: string[]
   resumen: { validas: number; errores: number }
 }
 
 function resultadoArchivo(error: string): ResultadoGastosImport {
-  return { filas: [], erroresArchivo: [error], resumen: { validas: 0, errores: 0 } }
+  return { filas: [], facturas: [], erroresArchivo: [error], resumen: { validas: 0, errores: 0 } }
 }
 
 type Encabezado = { hoja: ExcelJS.Worksheet; fila: number; columnas: Partial<Record<Campo, number>> }
@@ -259,11 +333,17 @@ type FilaCruda = { fila: number } & Record<Exclude<Campo, "valorAnterior">, Valo
 const enColumna = (campo: Campo, mensaje: string) => `«${ETIQUETA[campo]}»: ${mensaje}`
 const IVA_VACIO_MESSAGE = "Ingresa el IVA (puede ser 0)."
 
-type MontosFila = { ok: true; subtotal: Cents; iva: Cents; total: Cents } | { ok: false; message: string }
+type MontosFila =
+  | { ok: true; subtotal: Cents; iva: Cents; total: Cents; totalDocumento: Cents | null }
+  | { ok: false; message: string }
 
 /**
  * Subtotal and IVA through the same rules as the single expense (`evaluarMontosGasto`); the IVA must be
- * written (an empty cell is an error, 0 is fine) and the optional «Total» must equal Subtotal + IVA.
+ * written (an empty cell is an error, 0 is fine) and the optional «Total» must be a well formed amount.
+ *
+ * S9/T14.3: «Total» is the total of the DOCUMENT, so it is not compared here against Subtotal + IVA of one
+ * row — a distributed invoice states it once, on its first row, and every row must add up to it. That check
+ * is the invoice's (`cerrarFactura`), which keeps the pre-existing rule for a one-row document intact.
  * Every message names its column; the caller reports it with the Excel row.
  */
 function leerMontos(cruda: FilaCruda): MontosFila {
@@ -276,17 +356,13 @@ function leerMontos(cruda: FilaCruda): MontosFila {
   if (!evaluados.ok) {
     return { ok: false, message: enColumna(evaluados.campo === "Subtotal" ? "subtotal" : evaluados.campo === "IVA" ? "iva" : "total", evaluados.message) }
   }
+  let totalDocumento: Cents | null = null
   if (!vacio(cruda.total)) {
     const total = parseMontoCelda(cruda.total)
     if (!total.ok) return { ok: false, message: enColumna("total", total.message) }
-    if (total.cents !== evaluados.total) {
-      return {
-        ok: false,
-        message: enColumna("total", `no coincide con Subtotal + IVA (${formatCOP(evaluados.total)}). Corrígelo o deja la columna vacía.`),
-      }
-    }
+    totalDocumento = total.cents
   }
-  return evaluados
+  return { ...evaluados, totalDocumento }
 }
 
 type EnlacesFila = { ok: true; enlaces: string[] } | { ok: false; message: string }
@@ -314,18 +390,98 @@ function leerEnlaces(valor: ValorCelda): EnlacesFila {
   return { ok: true, enlaces: piezas }
 }
 
+type IndiceLineas = {
+  /** Every line of a rubro, assigned or not. */
+  porRubro: Map<string, LineaPresupuestoImport[]>
+  /** Every line whose activity código or name matches, normalized. */
+  porActividad: Map<string, LineaPresupuestoImport[]>
+}
+
+function acumularLinea(mapa: Map<string, LineaPresupuestoImport[]>, clave: string, linea: LineaPresupuestoImport) {
+  const actuales = mapa.get(clave)
+  if (actuales) actuales.push(linea)
+  else mapa.set(clave, [linea])
+}
+
+function indiceLineas(lineas: readonly LineaPresupuestoImport[]): IndiceLineas {
+  const porRubro = new Map<string, LineaPresupuestoImport[]>()
+  const porActividad = new Map<string, LineaPresupuestoImport[]>()
+  for (const linea of lineas) {
+    acumularLinea(porRubro, linea.rubro_id, linea)
+    if (linea.actividad_codigo) acumularLinea(porActividad, normalizarTexto(linea.actividad_codigo), linea)
+    if (linea.actividad_nombre) acumularLinea(porActividad, normalizarTexto(linea.actividad_nombre), linea)
+  }
+  return { porRubro, porActividad }
+}
+
+type LineaResuelta = { ok: true; linea: LineaPresupuestoImport } | { ok: false; error: string }
+
+/**
+ * S9/T14.3: the line a row writes to. With an activity, the pair activity + rubro pins it; without one, the
+ * rubro alone does — and only while exactly one of its lines has an assigned amount, because guessing between
+ * two activities is how a distribution ends up on the wrong one. The last case asks for the activity out loud.
+ */
+function lineaDeLaFila(rubro: RubroCatalogo, actividadTexto: string, indice: IndiceLineas): LineaResuelta {
+  let candidatas: readonly LineaPresupuestoImport[]
+  if (actividadTexto === "") {
+    candidatas = indice.porRubro.get(rubro.id) ?? []
+  } else {
+    const conocidas = indice.porActividad.get(normalizarTexto(actividadTexto))
+    if (!conocidas) {
+      return { ok: false, error: enColumna("actividad", `no encontramos la actividad «${actividadTexto}» en el proyecto.`) }
+    }
+    candidatas = conocidas.filter((linea) => linea.rubro_id === rubro.id)
+  }
+  const asignadas = candidatas.filter((linea) => linea.asignado)
+  if (asignadas.length === 0) return { ok: false, error: RUBRO_SIN_ASIGNADO_MESSAGE }
+  if (asignadas.length > 1) {
+    return { ok: false, error: enColumna("actividad", "el rubro está en varias actividades: escribe el código de la que corresponde.") }
+  }
+  return { ok: true, linea: asignadas[0] }
+}
+
+/**
+ * The document key of a raw row: the same normalization the API stores and `buscarDuplicados` reads, computed
+ * before the row is validated so a bad row still belongs to its invoice and takes it down with it.
+ * Null when the row cannot carry an identity (no document number, or no third-party identification).
+ */
+function claveDeFactura(cruda: FilaCruda): string | null {
+  const documento = textoDe(cruda.numeroDocumento)
+  if (documento === undefined) return null
+  const claves = clavesNormalizadas({
+    tercero_tipo_id: (mapear(cruda.tipoId, TIPOS_ID) ?? null) as "NIT" | "CC" | "CE" | null,
+    tercero_numero_id: textoDe(cruda.numeroId) ?? null,
+    numero_documento: documento,
+  })
+  if (claves.tercero_id_norm === null) return null
+  return `${claves.tercero_id_norm}|${claves.numero_documento_norm}`
+}
+
+type FilaValidada = Omit<FilaGastoImport, "fila"> & { clave: string | null }
+
 function validarFila(
   cruda: FilaCruda,
   contexto: ContextoImportGastos,
   indice: Map<string, RubroCatalogo>,
-): Omit<FilaGastoImport, "fila"> & { claves?: ReturnType<typeof clavesNormalizadas> } {
+  lineas: IndiceLineas,
+): FilaValidada {
   const rubroTexto = vacio(cruda.rubro) ? "" : String(cruda.rubro).trim()
-  const falla = (error: string, rubroId: string | null = null) => ({ rubroTexto, rubroId, datos: null, error })
+  const actividadTexto = vacio(cruda.actividad) ? "" : String(cruda.actividad).trim()
+  const clave = claveDeFactura(cruda)
+  const falla = (error: string, rubroId: string | null = null) => ({
+    rubroTexto,
+    rubroId,
+    actividadTexto,
+    datos: null,
+    error,
+    clave,
+  })
 
   if (rubroTexto === "") return falla("Falta el nombre del rubro.")
   const rubro = indice.get(normalizarTexto(rubroTexto))
   if (!rubro) return falla(`No encontramos el rubro «${rubroTexto}» en el catálogo.`)
-  if (!contexto.rubrosConAsignado.has(rubro.id)) return falla(RUBRO_SIN_ASIGNADO_MESSAGE, rubro.id)
+  const linea = lineaDeLaFila(rubro, actividadTexto, lineas)
+  if (!linea.ok) return falla(linea.error, rubro.id)
 
   const montos = leerMontos(cruda)
 
@@ -358,10 +514,13 @@ function validarFila(
   return {
     rubroTexto,
     rubroId: rubro.id,
+    actividadTexto,
     error: null,
-    claves: clavesNormalizadas({ ...tercero, numero_documento: data.numero_documento }),
+    clave,
     datos: {
       rubro_id: rubro.id,
+      linea_id: linea.linea.id,
+      total_documento: montos.totalDocumento,
       fecha_documento: data.fecha_documento,
       periodo: periodo.value,
       tipo_soporte: data.tipo_soporte,
@@ -373,6 +532,75 @@ function validarFila(
       iva: montos.iva,
       cents: montos.total,
       enlaces: enlaces.enlaces,
+    },
+  }
+}
+
+/**
+ * S9/T14.3: closes one document of the file. A row error rejects the whole invoice (half a document is worse
+ * than none), its rows must agree on the date, the period and the support type of the single header they will
+ * write, and their amounts must add up to the «Total» the document states. A one-row document keeps the rule it
+ * always had: the optional «Total» equals its Subtotal + IVA.
+ */
+function cerrarFactura(grupo: readonly FilaGastoImport[]): { filas: FilaGastoImport[]; factura: FacturaGastoImport } {
+  const filas = [...grupo]
+  const numeros = filas.map((fila) => fila.fila)
+  const rechazar = (error: string) => {
+    for (let i = 0; i < filas.length; i++) {
+      if (filas[i].error === null) filas[i] = { ...filas[i], datos: null, error }
+    }
+    return { filas, factura: { filas: numeros, datos: null, error } satisfies FacturaGastoImport }
+  }
+
+  const conError = filas.find((fila) => fila.error !== null)
+  if (conError) return rechazar(facturaIncompleta(conError.fila))
+
+  const datos = filas.map((fila) => fila.datos as DatosGastoImport)
+  const primero = datos[0]
+  const mismoDocumento = datos.every(
+    (cada) =>
+      cada.fecha_documento === primero.fecha_documento &&
+      cada.periodo === primero.periodo &&
+      cada.tipo_soporte === primero.tipo_soporte,
+  )
+  if (!mismoDocumento) return rechazar(FACTURA_NO_COINCIDE_MESSAGE)
+
+  const subtotal = sumCents(datos.map((cada) => cada.subtotal))
+  const iva = sumCents(datos.map((cada) => cada.iva))
+  const total = subtotal + iva
+  if (datos.length === 1) {
+    if (primero.total_documento !== null && primero.total_documento !== total) {
+      return rechazar(
+        enColumna("total", `no coincide con Subtotal + IVA (${formatCOP(total)}). Corrígelo o deja la columna vacía.`),
+      )
+    }
+  } else {
+    if (primero.total_documento === null) return rechazar(SIN_TOTAL_DISTRIBUCION_MESSAGE)
+    if (datos.some((cada) => cada.total_documento !== null && cada.total_documento !== total)) {
+      return rechazar(REPARTO_SUMA_MESSAGE)
+    }
+  }
+
+  return {
+    filas,
+    factura: {
+      filas: numeros,
+      error: null,
+      datos: {
+        fecha_documento: primero.fecha_documento,
+        periodo: primero.periodo,
+        tipo_soporte: primero.tipo_soporte,
+        tercero_nombre: primero.tercero_nombre,
+        tercero_tipo_id: primero.tercero_tipo_id,
+        tercero_numero_id: primero.tercero_numero_id,
+        numero_documento: primero.numero_documento,
+        descripcion: primero.descripcion,
+        subtotal,
+        iva,
+        cents: total,
+        repartos: datos.map((cada) => ({ linea_id: cada.linea_id, valor: cada.cents })),
+        enlaces: [...new Set(datos.flatMap((cada) => cada.enlaces))],
+      },
     },
   }
 }
@@ -413,20 +641,28 @@ export async function parseGastosImport(
   if (crudas.length === 0) return resultadoArchivo(SIN_FILAS_GASTOS)
 
   const indice = indiceCatalogo(contexto.rubros)
-  const vistos = new Map<string, number>()
-  const filas = crudas.map((cruda): FilaGastoImport => {
-    const { claves, ...fila } = validarFila(cruda, contexto, indice)
-    if (fila.error === null && claves && claves.tercero_id_norm !== null) {
-      const clave = `${claves.tercero_id_norm}|${claves.numero_documento_norm}`
-      const previa = vistos.get(clave)
-      if (previa !== undefined) {
-        return { ...fila, fila: cruda.fila, datos: null, error: `${DUPLICADO_EN_ARCHIVO_MESSAGE} (ya aparece en la fila ${previa}).` }
-      }
-      vistos.set(clave, cruda.fila)
-    }
-    return { ...fila, fila: cruda.fila }
-  })
+  const lineas = indiceLineas(contexto.lineas)
+  const porDocumento = new Map<string, FilaGastoImport[]>()
+  for (const cruda of crudas) {
+    const { clave, ...fila } = validarFila(cruda, contexto, indice, lineas)
+    const completa: FilaGastoImport = { ...fila, fila: cruda.fila }
+    // A row with no document identity of its own is its own invoice, as it always was.
+    const documento = clave ?? `fila:${cruda.fila}`
+    const actuales = porDocumento.get(documento)
+    if (actuales) actuales.push(completa)
+    else porDocumento.set(documento, [completa])
+  }
+
+  const cerradas = new Map<number, FilaGastoImport>()
+  const facturas: FacturaGastoImport[] = []
+  for (const grupo of porDocumento.values()) {
+    const cerrada = cerrarFactura(grupo)
+    for (const fila of cerrada.filas) cerradas.set(fila.fila, fila)
+    facturas.push(cerrada.factura)
+  }
+  // Rows keep the Excel order whatever the order of the documents of the file.
+  const filas = crudas.map((cruda) => cerradas.get(cruda.fila) as FilaGastoImport)
 
   const validas = filas.filter((f) => f.error === null).length
-  return { filas, erroresArchivo: [], resumen: { validas, errores: filas.length - validas } }
+  return { filas, facturas, erroresArchivo: [], resumen: { validas, errores: filas.length - validas } }
 }

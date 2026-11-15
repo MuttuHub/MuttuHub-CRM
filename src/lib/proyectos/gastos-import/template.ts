@@ -2,6 +2,10 @@
  * The blank expenses template: one sheet with the headers `parse.ts` reads (no example row, so an
  * untouched template reads as "no rows") and a second sheet listing the rubros that take expenses.
  * Pure and Node-only (`exceljs`).
+ *
+ * S9/T14.3: the sheet carries a «Código de actividad» column. It goes LAST so every column of the previous
+ * template keeps its position (and its dropdown, its date format and its number format) — the reader finds
+ * the headers by their text, never by their position.
  */
 import ExcelJS from "exceljs"
 import { ENCABEZADOS_GASTOS, MAX_FILAS_GASTOS } from "./parse"
@@ -9,7 +13,7 @@ import { ENCABEZADOS_GASTOS, MAX_FILAS_GASTOS } from "./parse"
 export const HOJA_PLANTILLA_GASTOS = "Gastos"
 export const HOJA_RUBROS_GASTOS = "Rubros"
 
-const ANCHOS = [28, 20, 32, 28, 22, 24, 22, 40, 18, 16, 18, 12, 50]
+const ANCHOS = [28, 20, 32, 28, 22, 24, 22, 40, 18, 16, 18, 12, 50, 22]
 const TIPOS_SOPORTE = '"Factura de proveedor,Cuenta de cobro persona natural,Otro"'
 const TIPOS_ID = '"NIT,CC,CE"'
 

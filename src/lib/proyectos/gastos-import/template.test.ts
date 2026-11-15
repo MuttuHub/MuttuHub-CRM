@@ -39,6 +39,20 @@ describe("generarPlantillaGastos", () => {
     expect(encabezados).toContain("Enlace del soporte")
   })
 
+  it("adds the «Código de actividad» column at the end and keeps every previous column in its place (S9, T14.3)", async () => {
+    const workbook = await cargar(await generarPlantillaGastos(["Transporte"]))
+    const hoja = workbook.getWorksheet(HOJA_PLANTILLA_GASTOS)!
+    const encabezados = (hoja.getRow(1).values as unknown[]).slice(1)
+    // El orden completo está fijado en parse.test.ts; aquí se fija que nada anterior se movió y que la
+    // columna nueva entra al final, donde el lector la encuentra por texto y no por posición.
+    expect(encabezados[0]).toBe("Rubro")
+    expect(encabezados[encabezados.length - 1]).toBe("Código de actividad")
+    expect(encabezados[encabezados.length - 2]).toBe("Enlace del soporte")
+    expect(["I1", "J1", "K1"].map((c) => hoja.getCell(c).value)).toEqual(["Subtotal", "IVA", "Total"])
+    expect(hoja.getColumn(2).numFmt).toBe("yyyy-mm-dd")
+    expect(hoja.getColumn(encabezados.length).width).toBeGreaterThan(0)
+  })
+
   it("lists the rubros that take expenses in their own sheet", async () => {
     const workbook = await cargar(await generarPlantillaGastos(["Transporte", "Viáticos"]))
     const rubros = workbook.getWorksheet(HOJA_RUBROS_GASTOS)
@@ -50,7 +64,7 @@ describe("generarPlantillaGastos", () => {
     const r = await parseGastosImport(await generarPlantillaGastos(["Transporte"]), {
       proyecto: { fecha_inicio: new Date("2026-10-05"), fecha_fin: new Date("2027-01-29") },
       rubros: [],
-      rubrosConAsignado: new Set(),
+      lineas: [],
     })
     expect(r.erroresArchivo).toEqual([SIN_FILAS_GASTOS])
   })

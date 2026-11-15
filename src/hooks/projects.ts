@@ -2340,6 +2340,8 @@ export type ExpensesImportError = { fila: number | null; rubro: string | null; m
 type ExpensesImportRow = {
   fila: number;
   rubro: string | null;
+  /** S9/T14.3: el código de actividad tal como está escrito en el archivo; nulo si la celda va vacía. */
+  actividad: string | null;
   tercero: string | null;
   numero_documento: string | null;
   /** Decimal como string; nulo si la fila es inválida. */
@@ -2357,7 +2359,9 @@ export type ExpensesImportPreview = {
   filas: ExpensesImportRow[];
 };
 
-/** `POST /expenses/import` aplicado: solo se crearon las filas válidas. */
+/** `POST /expenses/import` aplicado: solo se crearon las filas de las facturas válidas. Las filas de un mismo
+ * tercero y número de documento son UNA factura distribuida, así que `creados` cuenta documentos y cada `gastos[]`
+ * lleva la primera fila de su documento (S9/T14.3). */
 export type ExpensesImportApplied = {
   importado: true;
   creados: number;

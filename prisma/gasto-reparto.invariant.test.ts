@@ -4,15 +4,23 @@
 // its project. Prisma cannot express the CHECK or the cascade, so a mocked client would prove
 // nothing. Every path rolls back.
 //
+// S9/T14.3: the Excel import writes the header and its distribution rows like any other writer, so the
+// strict audit below has no exception left: no gasto of the table lives without its rows.
+//
 // `./require-local-db` must stay the FIRST import.
 import "./require-local-db"
 
 import { randomUUID } from "node:crypto"
 
+import ExcelJS from "exceljs"
 import { Prisma } from "@prisma/client"
 import { describe, expect, it } from "vitest"
 
 import { db } from "@/lib/db"
+import type { LineaGasto } from "@/lib/api/gastos"
+import { ENCABEZADOS_GASTOS, parseGastosImport, type ContextoImportGastos } from "@/lib/proyectos/gastos-import/parse"
+import { aplicarGastosImport } from "@/lib/proyectos/gastos-import/server"
+import { toCents } from "@/lib/proyectos/money"
 
 const TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 }
 
@@ -293,5 +301,86 @@ describe("GastoReparto invariants (live DB)", () => {
     })
     expect(result.quedan).toBe(0)
     expect(result.huerfanas).toBe(0)
+  })
+
+  // S9/T14.3: la auditoría vuelve a ser estricta sobre la tabla ENTERA y sin excepciones. La importación de Excel
+  // ya escribe cabecera y filas, así que ningún escritor deja un gasto sin su reparto.
+  it("audits the whole table with no exception: every gasto has its rows and they add up (S9, T14.3)", async () => {
+    const result = await runAndRollback(async (tx) => violaciones(tx))
+    expect(result).toEqual({ sinReparto: 0, sumaNoCuadra: 0, lineaHuerfana: 0, fueraDelProyecto: 0, huerfanas: 0 })
+  })
+
+  // S9/T14.3: el camino real del importador (parser + escritor) sobre la base viva: la factura de 1.000.000 con
+  // 350.000 en la 1.2 y 650.000 en la 1.3 queda como UN gasto con sus dos filas, y la auditoría sigue en cero.
+  it("writes an invoice imported from Excel as one gasto with its two rows, leaving the audit clean (S9, T14.3)", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, rubro, actividad1, actividad2, linea1, linea2 } = await fixture(tx)
+      const contexto: ContextoImportGastos = {
+        proyecto: { fecha_inicio: new Date("2026-10-01"), fecha_fin: new Date("2026-12-31") },
+        rubros: [{ id: rubro.id, codigo: rubro.codigo, nombre: rubro.nombre }],
+        lineas: [
+          { id: linea1.id, rubro_id: rubro.id, actividad_codigo: actividad1.codigo, actividad_nombre: actividad1.nombre, asignado: true },
+          { id: linea2.id, rubro_id: rubro.id, actividad_codigo: actividad2.codigo, actividad_nombre: actividad2.nombre, asignado: true },
+        ],
+      }
+      const fila = (actividad: string, subtotal: number) => [
+        rubro.nombre,
+        "2026-10-15",
+        "Factura de proveedor",
+        "Proveedor SAS",
+        "NIT",
+        "900.123.456-7",
+        "FE-2000",
+        "Factura distribuida",
+        subtotal,
+        0,
+        1_000_000,
+        null,
+        "https://drive.google.com/soporte",
+        actividad,
+      ]
+      const workbook = new ExcelJS.Workbook()
+      const hoja = workbook.addWorksheet("Gastos")
+      hoja.addRow([...ENCABEZADOS_GASTOS])
+      hoja.addRow(fila(actividad1.codigo, 350_000))
+      hoja.addRow(fila(actividad2.codigo, 650_000))
+      const parseado = await parseGastosImport(Buffer.from(await workbook.xlsx.writeBuffer()), contexto)
+      expect(parseado.erroresArchivo).toEqual([])
+      expect(parseado.filas.map((cada) => cada.error)).toEqual([null, null])
+
+      const lineas = new Map<string, LineaGasto>([
+        [linea1.id, { id: linea1.id, asignado: toCents("10000000"), rubro }],
+        [linea2.id, { id: linea2.id, asignado: toCents("10000000"), rubro }],
+      ])
+      const facturas = parseado.facturas.filter(
+        (cada): cada is typeof cada & { datos: NonNullable<typeof cada.datos> } => cada.datos !== null,
+      )
+      const creados = await aplicarGastosImport(tx, {
+        proyectoId: proyecto.id,
+        usuarioId: usuario.id,
+        facturas,
+        lineas,
+        loteId: randomUUID(),
+      })
+      const gasto = await tx.gasto.findUniqueOrThrow({ where: { id: creados[0].id } })
+      const repartos = await tx.gastoReparto.findMany({ where: { gasto_id: gasto.id }, orderBy: { valor: "asc" } })
+      return {
+        creados: creados.length,
+        monto: gasto.monto_cop.toString(),
+        lineaId: gasto.linea_id,
+        primera: linea1.id,
+        repartos: repartos.map((cada) => [cada.linea_id, cada.valor.toString()]),
+        ...(await violaciones(tx)),
+      }
+    })
+    expect(result.creados).toBe(1)
+    expect(result.monto).toBe("1000000")
+    // La cabecera se queda en la línea de la primera fila del reparto.
+    expect(result.lineaId).toBe(result.primera)
+    expect(result.repartos).toEqual([
+      [expect.any(String), "350000"],
+      [expect.any(String), "650000"],
+    ])
+    expect(result).toMatchObject({ sinReparto: 0, sumaNoCuadra: 0, lineaHuerfana: 0, fueraDelProyecto: 0, huerfanas: 0 })
   })
 })

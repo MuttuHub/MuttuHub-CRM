@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   // S9/T14.2-B2: el lote del importador suma las filas del reparto; estas filas de plantilla se escriben sin
   // reparto (el modelo es de la importación, T14.3), así que la lectura llega vacía y los importes no cambian.
   repartoFindMany: vi.fn(),
+  // S9/T14.3: la importación escribe la cabecera y sus filas del reparto en la misma transacción.
+  repartoCreateMany: vi.fn(),
   proyectoMiembroFindMany: vi.fn(),
   aggregate: vi.fn(),
   create: vi.fn(),
@@ -36,7 +38,7 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
 vi.mock("@/lib/db", () => {
   const tx = {
     gasto: { aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy, create: mocks.create },
-    gastoReparto: { findMany: mocks.repartoFindMany },
+    gastoReparto: { findMany: mocks.repartoFindMany, createMany: mocks.repartoCreateMany },
     soporteProyecto: { create: mocks.soporteCreate },
     programacionPeriodo: { aggregate: mocks.programacionAggregate, groupBy: mocks.programadoGroupBy },
     usuario: { findMany: mocks.usuarioFindMany },
@@ -98,6 +100,7 @@ const fila = (data: Partial<Record<(typeof ENCABEZADOS_GASTOS)[number], Celda>> 
     Total: null,
     Periodo: null,
     "Enlace del soporte": "https://drive.google.com/soporte",
+    "Código de actividad": null,
     ...data,
   };
   return ENCABEZADOS_GASTOS.map((h) => base[h] ?? null);
@@ -147,6 +150,7 @@ beforeEach(() => {
   ]);
   mocks.gastoFindMany.mockResolvedValue([]);
   mocks.repartoFindMany.mockResolvedValue([]);
+  mocks.repartoCreateMany.mockResolvedValue({ count: 1 });
   mocks.proyectoMiembroFindMany.mockResolvedValue([]);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
   mocks.programacionAggregate.mockResolvedValue({ _sum: { valor: null } });
@@ -241,11 +245,30 @@ describe("VERIFIER import", () => {
     mocks.create.mockReset();
   });
 
-  it("in-file duplicates (same tercero id + doc number, formatting variants) -> second invalid", async () => {
-    const res = await POST(subida(await libro([ok(), ok({ "Número de identificación": "900123456", "Número de documento": "fe 0123" }), ok({ "Número de identificación": "900.123.456-7", "Número de documento": "FE-0123", Rubro: "Viáticos" })]), { modo: "validar" }), ctx);
+  // S9/T14.3: el mismo documento en varias filas ya no es un duplicado dentro del archivo: es UNA factura
+  // distribuida, y sus filas tienen que sumar el «Total» que declara.
+  it("in-file: the same tercero id + doc number in several rows is ONE invoice, never a duplicate (S9)", async () => {
+    const res = await POST(subida(await libro([
+      ok({ Subtotal: 1000000, Total: 3000000 }),
+      ok({ "Número de identificación": "900123456", "Número de documento": "fe 0123", Subtotal: 1000000, Total: 3000000 }),
+      ok({ "Número de identificación": "900.123.456-7", "Número de documento": "FE-0123", Rubro: "Viáticos", Subtotal: 1000000, Total: 3000000 }),
+    ]), { modo: "validar" }), ctx);
     const j = await res.json();
-    expect(j.filas[0].valida).toBe(true);
-    expect(j.filas[1].valida).toBe(false);
+    expect(j.filas.map((f: { valida: boolean; mensaje: string | null }) => [f.valida, f.mensaje])).toEqual([
+      [true, null],
+      [true, null],
+      [true, null],
+    ]);
+  });
+
+  it("in-file: rows of one document that do not add up reject the whole invoice (S9)", async () => {
+    const res = await POST(subida(await libro([
+      ok({ Subtotal: 1000000, Total: 3000000 }),
+      ok({ Subtotal: 1000000, Total: 3000000 }),
+    ]), { modo: "validar" }), ctx);
+    const j = await res.json();
+    expect(j.filas.map((f: { valida: boolean }) => f.valida)).toEqual([false, false]);
+    expect(j.resumen).toMatchObject({ total: 2, validas: 0, invalidas: 2 });
   });
 
   it("duplicate without third-party id is NOT flagged (documented), different doc numbers fine", async () => {

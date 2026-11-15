@@ -377,6 +377,7 @@ const ExpensesImportPreviewSchema = registry.register(
       z.object({
         fila: z.number().int().openapi({ description: "Fila de Excel (base 1)." }),
         rubro: z.string().nullable(),
+        actividad: z.string().nullable().openapi({ description: "Código de actividad tal como está escrito en el archivo (S9)." }),
         tercero: z.string().nullable(),
         numero_documento: z.string().nullable(),
         valor: z.string().nullable(),
@@ -393,10 +394,10 @@ const ExpensesImportAppliedSchema = registry.register(
   "ImportacionGastosAplicada",
   z.object({
     importado: z.literal(true),
-    creados: z.number().int(),
+    creados: z.number().int().openapi({ description: "Facturas escritas: las filas de un mismo documento son una sola." }),
     lote_id: z.string().uuid().openapi({ description: "Lote de auditoría compartido por todos los gastos importados." }),
     valor_total: z.string(),
-    gastos: z.array(z.object({ fila: z.number().int(), id: z.string().uuid() })),
+    gastos: z.array(z.object({ fila: z.number().int().openapi({ description: "Primera fila del documento." }), id: z.string().uuid() })),
     rechazadas: z.array(ExpensesImportErrorSchema),
     alertas: z.array(z.object({ fila: z.number().int(), alertas: z.array(AlertaSchema) })),
   }),
@@ -406,28 +407,35 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/projects/{id}/expenses/import",
   tags: ["Projects"],
-  summary: "Importa gastos desde un Excel (una fila por gasto, soportes por enlace opcionales)",
+  summary: "Importa gastos desde un Excel (una fila por línea de reparto, soportes por enlace opcionales)",
   description:
     `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB, máximo 200 filas con datos; no se almacena). ` +
     "Columnas: `Rubro`, `Fecha del documento`, `Tipo de soporte`, `Tercero`, `Tipo de identificación` (opcional), " +
     "`Número de identificación` (opcional), `Número de documento`, `Descripción`, `Subtotal`, `IVA`, " +
-    "`Total` (opcional), `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento) y `Enlace del " +
-    "soporte` (opcional, AJ-06). `Subtotal` e `IVA` son " +
-    "obligatorios: el IVA puede ser 0 pero debe escribirse. Si viene `Total`, debe ser igual a Subtotal + IVA o la fila se " +
-    "rechaza con su fila y columna. Un archivo con la columna antigua `Valor (COP)` y sin `Subtotal` se rechaza completo: " +
+    "`Total` (opcional), `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento), `Enlace del " +
+    "soporte` (opcional, AJ-06) y `Código de actividad` (opcional, S9: el código o el nombre de la actividad). `Subtotal` e `IVA` son " +
+    "obligatorios: el IVA puede ser 0 pero debe escribirse. `Subtotal` e `IVA` describen la parte de la fila; el `Total` describe el documento. " +
+    "Un archivo con la columna antigua `Valor (COP)` y sin `Subtotal` se rechaza completo: " +
     "«Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.». " +
     "Cada fila pasa por las mismas reglas que un gasto individual (rubro con valor asignado, subtotal positivo con máximo dos " +
-    "decimales, periodo dentro del proyecto, límites de texto). `Enlace del soporte` admite uno o varios enlaces en la misma " +
+    "decimales, periodo dentro del proyecto, límites de texto). `Código de actividad` junto con `Rubro` fijan la línea exacta del " +
+    "presupuesto; sin la celda, la fila se resuelve por su rubro, y solo si ese rubro tiene una única línea con valor asignado (si " +
+    "está en varias actividades, se pide el código). `Enlace del soporte` admite uno o varios enlaces en la misma " +
     "celda separados por `;`; cada uno debe empezar por `http://` o `https://` (sin distinguir mayúsculas) o la fila se " +
     "rechaza con su fila y columna. Un archivo sin esa columna, o con la celda vacía, importa igual que antes (sin soportes). " +
-    "Cada enlace válido crea un soporte sobre el gasto creado, dentro de la misma transacción que el gasto (ej.: dos enlaces " +
-    "en la celda crean un gasto con dos soportes). Un gasto importado sin soporte se crea REGISTRADO y se adjunta después " +
-    "(`POST /expenses/{expenseId}/attachments`); sin soporte no se puede validar. Dos filas " +
-    "con el mismo tercero y número de documento normalizados: la segunda es inválida. Con `modo=validar` devuelve cada fila como " +
-    "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir. Aplicar crea solo las filas válidas en una " +
-    "transacción, con un único `lote_id` de auditoría, y devuelve las rechazadas; avisa a Gerencia por cada gasto que deja el " +
+    "El documento: las filas con el mismo tercero y número de documento normalizados son UNA factura distribuida, no duplicados. " +
+    "El primer renglón del documento debe escribir el `Total` de la factura y la suma de las filas tiene que ser exactamente ese " +
+    "total (mismo mensaje que el reparto de `POST /expenses`); si no cuadra, o si una fila del documento tiene un error, la factura " +
+    "completa se rechaza y no se escribe nada de ella. Una factura de una sola fila conserva la regla de siempre: si viene `Total`, " +
+    "debe ser igual a Subtotal + IVA. Cada enlace válido crea un soporte sobre la factura creada, dentro de la misma transacción que " +
+    "ella (ej.: dos enlaces en la celda crean un gasto con dos soportes). Un gasto importado sin soporte se crea REGISTRADO y se adjunta después " +
+    "(`POST /expenses/{expenseId}/attachments`); sin soporte no se puede validar. Con `modo=validar` devuelve cada fila como " +
+    "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir; el aviso de duplicado se consulta y se muestra " +
+    "una vez por factura (en su primera fila), no una vez por fila. Aplicar crea solo las facturas válidas en una " +
+    "transacción, una cabecera más sus filas de reparto por documento, con un único `lote_id` de auditoría, y devuelve las rechazadas; " +
+    "avisa a Gerencia por cada gasto que deja el " +
     "rubro por encima de lo asignado. Errores del archivo completo " +
-    "(no es Excel, faltan encabezados, sin filas, más de 200) y la ausencia de filas válidas al aplicar responden 400 con " +
+    "(no es Excel, faltan encabezados, sin filas, más de 200) y la ausencia de facturas válidas al aplicar responden 400 con " +
     "`reporte`. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400.",
   security: [{ sessionCookie: [] }],
   request: {
@@ -470,7 +478,8 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Descarga la plantilla vacía de gastos",
   description:
-    "Una hoja `Gastos` con los encabezados de la importación y una hoja `Rubros` con los rubros del proyecto que admiten gastos " +
+    "Una hoja `Gastos` con los encabezados de la importación —incluida la columna `Código de actividad` (S9), al final para no " +
+    "mover las anteriores— y una hoja `Rubros` con los rubros del proyecto que admiten gastos " +
     `(valor asignado mayor que cero). ${READ_NOTE}`,
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
