@@ -21,9 +21,9 @@ se actualizan.
 
 - **Pedido de la PO del 2026-11-10** (`docs/Hub-proyectos261110.docx`): Parte 1, ajustes AJ-07 a AJ-10, y Parte 2,
   presupuesto por actividad EV-01 a EV-08. Plan, specs textuales, decisiones D1–D5 y tareas T0–T15 en
-  `odd/tasks/po-2026-11-10-proyectos.md`. **Al 2026-11-15:** T10, T11 (#183–#187), T12 (#182), T13 (#188–#194) y **T14
-  con T7** (#206, `3bbbfbc`) en `main`; **T15** pendiente porque necesita volcado de producción y **S11** (EV-07)
-  pendiente de decisión. Corte del 2026-11-15 en la sección 15.
+  `odd/tasks/po-2026-11-10-proyectos.md`. **Al 2026-11-15:** T10, T11 (#183–#187), T12 (#182), T13 (#188–#194), **T14
+  con T7** (#206, `3bbbfbc`) y **S11 (EV-07)** (#207, `7ba0d2f`) en `main`; **T15** pendiente porque necesita volcado de
+  producción. Corte del 2026-11-15 en la sección 15.
 - **Producto (frente C y B):** V2 (ficha de oportunidad; convertir una GANADA crea el proyecto con sus tareas
   enlazadas), V5 (mapa de aliados; hoy redirige), V8 (faltan las reglas de «2 días antes» y «30 días sin contacto»),
   V9 (falta «nueva planeación»), B6 (rubros por proyecto; requiere migración) y D4 (semilla con una tarea comercial).
@@ -432,13 +432,18 @@ vista por actividad en móvil usa tabla en vez de tarjetas, y el título del obj
 - **Dos fallos de `e2e` corregidos, ninguno de producto:** la actividad 1.4 del seed venció el 2026-11-15 y sus
   entregables se despliegan solos, así que el botón «Ver N entregables» ya no existe; y el helper que registra un gasto
   elegía el rubro directo cuando el formulario ahora recorre Objetivo → Actividad → Rubro.
-- **S11 (EV-07) no entró:** sigue pendiente de decisión de la usuaria.
+- **S11 (EV-07) entró después, en su propia rebanada:** PR #207, squash `7ba0d2f`, con la migración aditiva
+  `20261116120000_t14_cierre_gastos_actividad` (tres columnas nulables en `actividades`), `close-expenses` con nota
+  obligatoria, `reopen-expenses` con motivo auditado, bloqueo de gastos nuevos en las tres escrituras y la mitad
+  visible en la hoja financiera (saldo mientras está abierta, ahorro o sobreejecución una vez cerrada, siempre
+  derivados y nunca guardados). El traslado del ahorro reutiliza el flujo de AJ-09/T13.6: no se reimplementó.
+  Bitácora con las dos mitades y el incidente de build: `odd/tasks/t14-gasto-por-actividad.md` (L54–L66).
 
 ### Plan de la próxima sesión
 
 | # | Quién | Qué | Depende de | Terminado cuando |
 |---|---|---|---|---|
-| 1 | humano | Decidir si entra S11 (cierre de gastos de la actividad: saldo, nota obligatoria, reapertura con motivo y traslado de ahorro) | — | respuesta |
+| 1 | humano | Decidir si el CI gana un job `build` (`npx next build`) propio. Hoy el único lugar que compila la app es el paso Build **dentro** del `e2e`, y por eso un PR pudo quedar con 5205 tests verdes y el despliegue roto (incidente de S11) | — | el job en el workflow |
 | 2 | humano + claude | T15 (CedeTextil): conseguir un volcado de producción y ensayar sobre la copia antes de tocar producción | volcado | ensayo documentado |
 | 3 | claude | Semillas: `scripts/seed*.ts` escribe gastos sin filas de reparto, así que la auditoría estricta del invariante falla en una base sembrada a mano (el job de CI que corre invariantes no siembra) | — | las semillas escriben su reparto |
 | 4 | claude | Deudas de la bitácora (L32): corte y base fijos en la vista por actividad (`project-financiero.tsx`), y la previsualización de la importación sin el campo `actividad` que el payload y el OpenAPI ya publican | — | ambas cerradas |
