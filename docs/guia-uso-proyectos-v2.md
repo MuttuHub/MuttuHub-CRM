@@ -15,7 +15,7 @@ El módulo reúne en un solo lugar el ciclo completo de un proyecto:
 
 - la información general y el equipo;
 - la estructura técnica (objetivos, actividades, entregables e indicadores);
-- el presupuesto por rubros y su programación mensual;
+- el presupuesto por actividad y rubro, y su programación mensual;
 - los gastos y sus soportes;
 - los documentos;
 - el historial de cambios y versiones.
@@ -24,7 +24,8 @@ El proyecto nace en **Borrador**, se completa y se aprueba su **línea base**. D
 empieza el seguimiento: avances, gastos, semáforos y alertas.
 
 > **Idea clave:** en Borrador todo se puede editar libremente. Al aprobar la línea base, la estructura y el presupuesto
-> quedan congelados; los cambios posteriores se piden como **modificación** y deben aprobarse.
+> quedan congelados; los cambios posteriores se piden como **modificación** y deben aprobarse. La única excepción es
+> mover valor entre meses de una misma línea, que el Gestor hace sin aprobación (ver 5.5).
 
 ---
 
@@ -150,7 +151,8 @@ Dos formas de cargarla:
   columnas **Actividad**, **Entregables**, **Inicio (semana)**, **Fin (semana)**, **Cantidad** y **Unidad**. Las filas
   con la misma actividad del mismo objetivo forman una actividad con varios entregables, y los códigos los genera el
   sistema. **Validar** muestra la vista previa o los errores por hoja y celda; **Confirmar importación** reemplaza la
-  estructura y **no toca el presupuesto**.
+  estructura y **conserva el presupuesto**: cada línea pasa a la actividad nueva con el mismo código. Si el archivo ya
+  no trae una actividad que tenía presupuesto, sus líneas se borran con su programación y hay que volver a cargarlas.
 
 > La plantilla solo se puede descargar cuando el proyecto ya tiene **fechas de inicio y fin**.
 
@@ -165,16 +167,18 @@ Los códigos son únicos dentro de cada hoja; varias líneas o municipios se sep
 | **1. Instrucciones** | título y versión (B2) | No editar; la versión debe seguir siendo **2026.2**. Una plantilla de la versión anterior (presupuesto por rubro u hoja de programación) se rechaza: descarga la nueva. |
 | **2. Proyecto** | Código · Cliente · Líneas estratégicas · Municipios · Fecha de inicio · Fecha de fin · Valor total · Meta de beneficiarios | **Código** debe coincidir con el del proyecto (si no, error). Líneas (`código - nombre`) y municipios (`Nombre (Departamento)`) deben existir y estar activos; al menos uno de cada uno. Las fechas son fechas reales de Excel y definen la duración en semanas. |
 | **3. Objetivos** | Código · Descripción | Código único; descripción hasta 2000 caracteres. Cada objetivo necesita al menos una actividad. |
-| **4. Actividades** | Código · Código objetivo · Nombre · Semana inicio · Semana fin · Responsable (correo) | El código de objetivo debe existir (desplegable). Semanas enteras entre 1 y la duración del proyecto, inicio ≤ fin. Si el correo del responsable no está registrado, se avisa (W-01) y la actividad queda sin responsable. **El peso ya no se llena: es la duración en semanas** (AJ-02). Cada actividad necesita al menos un entregable. |
+| **4. Actividades** | Código · Código objetivo · Nombre · Semana inicio · Semana fin · Responsable (correo) · Tipo | **Tipo** es **Normal** o **Transversal** (vacío = Normal). Una actividad **Transversal** va en «Gestión del proyecto» y deja vacío el código de objetivo; una **Normal** necesita su objetivo. Una plantilla 2026.2 sin la columna Tipo se sigue aceptando: todas sus actividades quedan Normal. El código de objetivo debe existir (desplegable). Semanas enteras entre 1 y la duración del proyecto, inicio ≤ fin. Si el correo del responsable no está registrado, se avisa (W-01) y la actividad queda sin responsable. **El peso ya no se llena: es la duración en semanas** (AJ-02). Cada actividad necesita al menos un entregable. |
 | **5. Entregables** | Código · Código actividad · Descripción · Cantidad · Unidad | El código de actividad debe existir. Cantidad mayor que cero. Unidad es texto libre (la lista de sugerencias solo avisa, no bloquea). |
 | **6. Indicadores** | Código · Código objetivo · Nombre · Meta · Línea base | El objetivo debe existir. Meta mayor que cero; línea base opcional. |
 | **7. Presupuesto** | Código de actividad · Rubro · Valor | Una fila por combinación de actividad y rubro: una actividad puede tener uno o varios rubros. La actividad debe existir en la hoja 4 (V-06), el rubro debe estar activo y la misma combinación no se repite (V-11, con fila y columna). Valor ≥ 0. El valor total del proyecto es la suma de las líneas. |
 | **8. Catálogos** | Rubros · Líneas estratégicas · Municipios · Unidades | Listas de los desplegables. La hoja está protegida: no se edita. |
 
 Al confirmar, la plantilla completa **reemplaza** la estructura, el presupuesto, las fechas, las líneas y los
-municipios del borrador (el cliente no cambia). Una línea de presupuesto que sigue en la plantilla (misma actividad y
-rubro) conserva su programación; una que ya no viene se elimina con su programación, y si tiene gastos registrados la
-importación se rechaza. Si hay errores, **no se escribe nada**: la vista previa
+municipios del borrador (el cliente no cambia). Una línea de presupuesto que ya no viene se elimina con su
+programación, y si tiene gastos registrados la importación se rechaza. **El sistema propone la programación mensual**
+de cada línea en proporción a los días que su actividad ocupa en cada mes (pesos enteros; lo que sobra va al último
+mes); una transversal se reparte parejo por mes. Una línea cuya programación ya suma su valor la conserva (el ajuste
+del Gestor no se pierde al reimportar). La importación quita la confirmación de la programación. Si hay errores, **no se escribe nada**: la vista previa
 los lista por hoja, fila, columna y mensaje.
 
 ### Paso 3 — Cronograma (Ver cronograma)
@@ -184,12 +188,17 @@ Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las activid
 
 ### Paso 4 — Presupuesto
 
-1. Revisa el **Valor total**.
-2. Asigna un monto a cada **rubro** (R01 a R15) y pulsa **Guardar presupuesto**.
-3. El **Total asignado** debe igualar el valor total. Si no cuadra, usa **Usar la suma como valor total** o ajusta
-   los montos.
-4. Programa los desembolsos por mes en **Programación mensual** y pulsa **Guardar programación**. Mientras no cuadre
-   con lo asignado, verás **«Programación pendiente»**.
+1. El presupuesto va por **línea**: una actividad con uno o varios rubros. Asigna el valor de cada línea y pulsa
+   **Guardar presupuesto**. El **Valor total** del proyecto es la suma de las líneas: no se digita.
+2. **Programación mensual:** arriba están los **totales por rubro y por mes**, que se actualizan mientras escribes;
+   abajo, las líneas agrupadas por actividad (cada grupo se pliega y despliega). Si el proyecto vino de la plantilla,
+   la programación ya viene propuesta y solo la ajustas. Pulsa **Guardar programación**.
+3. Cuando **«Falta por programar»** quede en **$ 0** en todas las líneas, pulsa **Confirmar programación**. Sin esa
+   confirmación no se aprueba la línea base («La programación no está confirmada»). Cualquier cambio posterior del
+   presupuesto o de la programación quita la confirmación y hay que confirmar otra vez.
+
+> **Borrar una actividad** que tiene presupuesto borra también sus líneas y su programación, y el valor total se
+> recalcula: hay que volver a cargar ese presupuesto. Si una de esas líneas ya tiene gastos, no se puede borrar.
 
 ### Paso 5 — Revisión
 
@@ -393,9 +402,14 @@ Tres segmentos: **Modificaciones**, **Versiones** y **Auditoría**.
 
 - **Modificaciones**: la cola de solicitudes con estado **Pendiente**, **Aprobada** o **Rechazada**. Un integrante
   solicita; Administrador y Gerencia aprueban o rechazan (el rechazo lleva **Comentario del rechazo**).
-  Mientras una solicitud está pendiente, el cambio no se aplica.
+  Mientras una solicitud está pendiente, el cambio no se aplica. Los traslados indican **actividad y rubro de origen**
+  y **actividad y rubro de destino**. Una solicitud antigua hecha por rubro sigue funcionando si el rubro tiene una
+  sola línea; si tiene varias, se rechaza y hay que volver a crearla indicando la actividad.
+- **Mover valor entre meses** (en Presupuesto, con el proyecto en ejecución): el Gestor mueve valor entre meses de una
+  misma línea **sin aprobación**, sin cambiar su total. Solo del mes en curso hacia meses futuros, o entre meses
+  futuros; los meses cerrados no se tocan. Cada movimiento queda en Auditoría (línea, meses, valor, usuario y fecha).
 - **Versiones**: la `v0` de la línea base y las versiones siguientes, con comparación campo por campo (proyecto,
-  presupuesto, programación, actividades, entregables e indicadores).
+  presupuesto y programación por línea, actividades, entregables e indicadores).
 - **Auditoría**: el registro de cambios del proyecto, con usuario y fecha.
 
 ### 5.6 Cambiar el estado: suspender, reactivar, cerrar, reabrir o cancelar

@@ -6,22 +6,24 @@ permisos vigente, 4136 pruebas unitarias y 29 e2e en verde.
 IDs: **A** operación, **B** producto, **V** v7 CRM, **U** auditoría UX (sus hallazgos conservan `C1–C12`), **E** plataforma. **Estado de ejecución (2026-10-19):** A1 (etiqueta `v2.0.0`), A5 (credenciales), B1/D1 (mensaje de acceso) y **U0
 (re-auditoría UX)** están **hechos**. La re-auditoría encontró 10 de 16 hallazgos ya resueltos y dejó cuatro vigentes,
 todos pequeños: `odd/tasks/ux-audit-2026-10-19.md`. Detalle de la fase en `odd/tasks/fase-0-ejecucion.md`.
-**Último corte: 2026-11-10** — ver la sección 13. **Lo que queda abierto está en la sección 0.**
+**Último corte: 2026-11-14** — ver la sección 14. **Lo que queda abierto está en la sección 0.**
 
 Este plan ordena lo que queda en cinco frentes. Cada tarea trae tamaño (**S** ≤ 1 día, **M** 2–4 días, **L** 1–2
 semanas), de qué depende y cómo se sabe que está terminada. Las decisiones que bloquean trabajo están en la sección 5.
 
 ---
 
-## 0. Qué queda abierto (al 2026-11-10)
+## 0. Qué queda abierto (al 2026-11-14)
 
 Este documento es la **fuente única** de lo pendiente. Los requerimientos nuevos de la PO entran aquí, como filas en su
 frente (secciones 1–5) y en esta lista. Las secciones 10–13 son **cortes fechados**: registran lo que pasó ese día y no
 se actualizan.
 
 - **Pedido de la PO del 2026-11-10** (`docs/Hub-proyectos261110.docx`): Parte 1, ajustes AJ-07 a AJ-10, y Parte 2,
-  presupuesto por actividad EV-01 a EV-08 (se estima aparte). Plan, specs textuales, decisiones abiertas D1–D5 y
-  tareas T0–T15 en `odd/tasks/po-2026-11-10-proyectos.md`.
+  presupuesto por actividad EV-01 a EV-08. Plan, specs textuales, decisiones D1–D5 y tareas T0–T15 en
+  `odd/tasks/po-2026-11-10-proyectos.md`. **Al 2026-11-15:** T10, T11 (#183–#187), T12 (#182), T13 (#188–#194) y **T14
+  con T7** (#206, `3bbbfbc`) en `main`; **T15** pendiente porque necesita volcado de producción y **S11** (EV-07)
+  pendiente de decisión. Corte del 2026-11-15 en la sección 15.
 - **Producto (frente C y B):** V2 (ficha de oportunidad; convertir una GANADA crea el proyecto con sus tareas
   enlazadas), V5 (mapa de aliados; hoy redirige), V8 (faltan las reglas de «2 días antes» y «30 días sin contacto»),
   V9 (falta «nueva planeación»), B6 (rubros por proyecto; requiere migración) y D4 (semilla con una tarea comercial).
@@ -370,3 +372,73 @@ T15.
 ### Qué falta de L0
 
 Nada. Sigue L1: `knip` en modo reporte y `noUnusedLocals`/`noUnusedParameters` en `tsconfig`.
+
+## 14. Corte del 2026-11-14: Parte 2 de la PO, T11 a T13 en `main`
+
+### Hecho en esta jornada
+
+- **T11** (presupuesto por actividad) en `main` por cinco PRs encadenados: #183 `18a44db`, #184 `1e371fe`, #185
+  `27500f2`, #186 `d4793fe`, #187 `4e98711`. Un verificador independiente encontró un bloqueante (el control de la
+  línea base comparaba cada línea contra todo su rubro); se corrigió antes del merge. Bitácora:
+  `odd/tasks/t11-presupuesto-por-actividad.md` (L12).
+- **T12** (actividad Transversal) en `main`: #182 `220d544`.
+- **T13** (programación propuesta, confirmación, reprogramación y modificaciones por línea) en `main` por siete PRs:
+  #188 `f1789f5` (T13.1–T13.3), #189 `09e2c00` (T13.9), #190 `10b177f` (T13.4), #191 `20b8b0b` (T13.7), #192 `60514a1`
+  (T13.8), #193 `5336fac` (T13.6), #194 `248d96d` (T13.5). T13.5 y T13.6 pasaron un verificador independiente sin
+  bloqueantes. Bitácora y decisiones textuales: `odd/tasks/t13-programacion.md`.
+- **Decisiones de la usuaria:**
+  - Borrar una actividad con presupuesto: «si tiene un presupuesto asignado se borra junto con la actividad, le toca
+    hacerlo de cero».
+  - La importación simple de estructura: «Hazlo de tal manera se cumplan los criterios de aceptacion».
+  - Mover valor entre meses: «realiza las modificaciones necesarias de tal manera se cumplan los criterios de
+    aceptacion». Se aplicó al pie de la letra: el destino es siempre un mes futuro.
+- **Carril B (deepseek, T14):** terminó las rebanadas 1, 2-A y 4. La migración `20261115120000_t14_gasto_reparto` está
+  revisada y **aprobada** (`odd/tasks/t14-revision-migracion.md`). Está detenido esperando que se le avise de la
+  aprobación para seguir con la rebanada 2-B.
+- **Higiene:** se borró la rama local `docs/t14-prompt-carril-b` (prompt viejo; el vigente está en `main`).
+
+### Plan de la próxima sesión
+
+| # | Quién | Qué | Depende de | Terminado cuando |
+|---|---|---|---|---|
+| 1 | humano | Avisar a deepseek que su migración está aprobada: `git fetch origin && git merge origin/main`, leer `odd/tasks/t14-revision-migracion.md` y seguir con 2-B | — | deepseek commitea la rebanada 2-B |
+| 2 | deepseek | T14 2-B: factura distribuida en servidor y pantalla; validar en el servidor que el reparto sume el total; reportar qué queda en `gastos.linea_id` | 1 | 2-B commiteada con sus tests |
+| 3 | deepseek | T14 rebanada 3: importación de gastos con «Código de actividad» y duplicados por factura | 2 | commit con un test por caso de la regla |
+| 4 | humano | Decidir si entra S11 (cierre de gastos de la actividad, rebanada 5) antes del lunes | — | respuesta a deepseek |
+| 5 | claude | Revisar el diff de T14 y abrir sus PRs encadenados a `main` | 3 | PRs con CI verde y mergeados |
+| 6 | claude | Deuda entre carriles: el ejecutado (`loadEjecutadoPorLinea`) y los cuatro chequeos «la línea tiene gastos» (PUT de presupuesto, plantilla, borrar actividad, importación de estructura) cuentan `gastos_reparto` | 5 | invariante en vivo con una factura repartida en dos líneas |
+| 7 | claude | T7: resumen de cambios del periodo en la ficha financiera | 5 | criterios de T7 con tests |
+| 8 | humano + claude | T15 (CedeTextil en producción): conseguir un volcado de producción y ensayar sobre la copia antes de tocar producción | volcado | ensayo documentado; producción solo con ventana acordada |
+
+Deuda menor anotada por deepseek en su bitácora (L32): el corte y la base de la vista por actividad están fijos, la
+vista por actividad en móvil usa tabla en vez de tarjetas, y el título del objetivo no trae su descripción.
+
+---
+
+## 15. Corte del 2026-11-15: T14 y T7 en `main`
+
+### Hecho en esta jornada
+
+- **T14** (gasto por actividad, facturas distribuidas y vistas financieras) y **T7** (resumen de cambios del periodo, el
+  «Propuesto» de S2) entraron en `main` en un solo PR: **#206**, squash `3bbbfbc`, con `unit`, `e2e` y Vercel en verde.
+  64 archivos, +7444/−352. La rama de integración fue `feat/t7-cambios-del-periodo`; bitácora del carril B en
+  `odd/tasks/t14-gasto-por-actividad.md` y revisión de su migración en `odd/tasks/t14-revision-migracion.md`.
+- **Deuda entre carriles cerrada** dentro del mismo PR: el ejecutado y los cuatro chequeos «la línea tiene gastos» (PUT
+  de presupuesto, plantilla, borrar actividad, importación de estructura) cuentan `gastos_reparto`
+  (`src/lib/api/lineas-con-gastos.ts`).
+- **PRs por rebanada cerrados** como supersedidos (#196–#204) y **#205** cerrado por redundante: su arreglo de e2e ya
+  viajaba dentro de #206. Ningún PR por rebanada podía tener CI verde solo, porque cada uno tenía base `main` y le
+  faltaba el resto de la cadena: la salida fue consolidar en una rama de integración.
+- **Dos fallos de `e2e` corregidos, ninguno de producto:** la actividad 1.4 del seed venció el 2026-11-15 y sus
+  entregables se despliegan solos, así que el botón «Ver N entregables» ya no existe; y el helper que registra un gasto
+  elegía el rubro directo cuando el formulario ahora recorre Objetivo → Actividad → Rubro.
+- **S11 (EV-07) no entró:** sigue pendiente de decisión de la usuaria.
+
+### Plan de la próxima sesión
+
+| # | Quién | Qué | Depende de | Terminado cuando |
+|---|---|---|---|---|
+| 1 | humano | Decidir si entra S11 (cierre de gastos de la actividad: saldo, nota obligatoria, reapertura con motivo y traslado de ahorro) | — | respuesta |
+| 2 | humano + claude | T15 (CedeTextil): conseguir un volcado de producción y ensayar sobre la copia antes de tocar producción | volcado | ensayo documentado |
+| 3 | claude | Semillas: `scripts/seed*.ts` escribe gastos sin filas de reparto, así que la auditoría estricta del invariante falla en una base sembrada a mano (el job de CI que corre invariantes no siembra) | — | las semillas escriben su reparto |
+| 4 | claude | Deudas de la bitácora (L32): corte y base fijos en la vista por actividad (`project-financiero.tsx`), y la previsualización de la importación sin el campo `actividad` que el payload y el OpenAPI ya publican | — | ambas cerradas |
