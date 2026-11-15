@@ -135,3 +135,7 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   600/600. Fixed with the verifier's cosmetic advisory (full «|» separator in the modification history) in `0895e46`;
   the affected component suites 58/58. All T13 tasks done; pending: the PO answer on moving into the current month,
   the PR of `feat/t13-4-pantalla-programacion`, and the follow-ups in L13.
+- **L16** (2026-11-14, user: «regrese, todas las preguntas que necesites, realiza las modificaciones necesarias de tal
+  manera se cumplan los criterios de aceptacion»). S4 applied verbatim: the destination of a move is always a future
+  month (`9adb877`; route 400 + screen filter; live test RED then GREEN). `diffSnapshots` now compares budget and
+  programming per line (`8181017`). Open: lane B relay of the migration review; PR of this branch.
