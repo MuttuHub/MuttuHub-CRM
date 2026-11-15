@@ -32,28 +32,51 @@ export type GastosFuente = {
   gastos: GastoAgregable[];
 };
 
+// S9/T14.2-B1: una fila por línea del reparto, no la factura entera en la línea de su cabecera. Las facturas de
+// una sola fila (todas las anteriores al reparto y las que siguen llegando sin `repartos`) producen exactamente
+// lo mismo que antes. Un gasto sin filas de reparto —la importación de Excel y los seeds escriben así— sigue
+// contando su total en la línea de su cabecera, como siempre, para que E no pierda un peso mientras ese escritor
+// se migra (T14.3). Una sola consulta: la ficha no paga un viaje extra por el reparto.
 export async function loadGastosEjecutados(
   proyectoId: string,
   client: Pick<Prisma.TransactionClient, "gasto"> = db,
 ): Promise<GastosFuente> {
+  const lineaSelect = { select: { id: true, rubro_id: true, actividad_id: true } } as const;
   const rows = await client.gasto.findMany({
     where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
     select: {
       periodo: true,
       monto_cop: true,
       estado: true,
-      linea: { select: { id: true, rubro_id: true, actividad_id: true } },
+      linea: lineaSelect,
+      // Un `Gasto` que llega sin la relación (una fila armada a mano) se lee como si no tuviera reparto.
+      repartos: { select: { valor: true, linea: lineaSelect } },
     },
   });
   return {
     disponible: true,
-    gastos: rows.map((row) => ({
-      rubroId: row.linea.rubro_id,
-      lineaId: row.linea.id,
-      actividadId: row.linea.actividad_id,
-      periodo: row.periodo,
-      valor: toCents(row.monto_cop),
-      estado: row.estado,
-    })),
+    gastos: rows.flatMap((row) => {
+      const repartos = row.repartos ?? [];
+      if (repartos.length === 0) {
+        return [
+          {
+            rubroId: row.linea.rubro_id,
+            lineaId: row.linea.id,
+            actividadId: row.linea.actividad_id,
+            periodo: row.periodo,
+            valor: toCents(row.monto_cop),
+            estado: row.estado,
+          },
+        ];
+      }
+      return repartos.map((reparto) => ({
+        rubroId: reparto.linea.rubro_id,
+        lineaId: reparto.linea.id,
+        actividadId: reparto.linea.actividad_id,
+        periodo: row.periodo,
+        valor: toCents(reparto.valor),
+        estado: row.estado,
+      }));
+    }),
   };
 }

@@ -36,6 +36,19 @@ const SoporteGastoSchema = registry.register(
 
 const EstadoGastoSchema = z.enum(["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"]);
 
+const RepartoGastoSchema = registry.register(
+  "RepartoGasto",
+  z.object({
+    linea_id: z.string().openapi({ description: "Línea del presupuesto (actividad + rubro) del reparto." }),
+    actividad_id: z
+      .string()
+      .nullable()
+      .openapi({ description: "Actividad de la línea; nula en una línea heredada («Sin actividad»)." }),
+    rubro: z.object({ id: z.string().uuid(), codigo: z.string().nullable(), nombre: z.string() }),
+    valor: z.string().openapi({ example: "350000.00", description: "Valor de la fila, Decimal(15,2) como string." }),
+  }),
+);
+
 const GastoSchema = registry.register(
   "Gasto",
   z.object({
@@ -81,6 +94,12 @@ const GastoSchema = registry.register(
       .int()
       .optional()
       .openapi({ description: "Soportes vigentes del gasto. Omitido sin acceso a soportes financieros (RNF-03)." }),
+    repartos: z.array(RepartoGastoSchema).openapi({
+      description:
+        "S9: el reparto de la factura, una fila por actividad + rubro, en el orden en que se registró. La primera fila " +
+        "es la línea que guarda la cabecera (`gastos.linea_id`) y las filas suman siempre `valor`. Una factura " +
+        "registrada sin `repartos` en el cuerpo tiene una sola fila con su total.",
+    }),
   }),
 );
 
@@ -147,14 +166,20 @@ registry.registerPath({
     "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto)." +
     " S9: `linea_id` (opcional) fija la línea exacta del presupuesto —la actividad y el rubro que el formulario elige en ese " +
     "orden, con el objetivo solo como filtro—; tiene que ser una línea de ese rubro en el proyecto y si no lo es responde 400 " +
-    "«La línea elegida no corresponde al rubro de este proyecto.». Sin `linea_id` se usa la línea del rubro, como antes.",
+    "«La línea elegida no corresponde al rubro de este proyecto.». Sin `linea_id` se usa la línea del rubro, como antes. " +
+    "S9/T14.2-B1: con `repartos` la factura se distribuye en varias actividades y rubros: el cuerpo no lleva `rubro_id` ni " +
+    "`linea_id` (un cuerpo que mezcla las dos formas responde 400 «Una factura distribuida no lleva rubro ni línea en la " +
+    "cabecera.»), cada `linea_id` tiene que ser una línea del proyecto con valor asignado y la suma de `valor` tiene que ser " +
+    "exactamente el total de la factura (subtotal + IVA): 990.000 para una factura de 1.000.000 responde 400 «Las líneas de la " +
+    "distribución deben sumar exactamente el total de la factura.». La cabecera y el reparto se guardan en una sola transacción " +
+    "y la cabecera conserva en `linea_id` la línea del primer reparto; sin `repartos` el gasto recibe una sola fila con su total,", 
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,
     body: {
       content: {
         "application/json": {
-          schema: GASTO_CREATE_SCHEMA.extend({
+          schema: GASTO_CREATE_SCHEMA.safeExtend({
             soportes: z.array(z.union([MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA])).min(1).max(5),
           }),
         },
@@ -258,7 +283,9 @@ registry.registerPath({
     "identificación solo se audita enmascarado. `subtotal` e `iva` se envían juntos o por separado (el que falta conserva el " +
     "guardado) y el Total siempre es su suma. Si cambia `fecha_documento` sin `periodo`, el periodo vuelve al mes de la nueva " +
     "fecha (400 si ese mes no es del proyecto). S9: si el rubro no cambia, el gasto conserva la línea que ya tenía; solo un " +
-    "cambio de rubro vuelve a resolver la línea.",
+    "cambio de rubro vuelve a resolver la línea. S9/T14.2-B1: `repartos` reescribe el reparto entero con las mismas reglas del " +
+    "registro (sin `rubro_id`, suma exacta del total) dentro de la misma transacción; la primera fila fija la línea de la " +
+    "cabecera. Una factura repartida no se corrige cambiando solo el total: hay que enviar su distribución completa.",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: GASTO_PATCH_SCHEMA } } } },
   responses: {

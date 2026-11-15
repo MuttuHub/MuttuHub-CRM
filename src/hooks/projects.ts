@@ -1714,6 +1714,16 @@ type ProjectExpenseSoporte = {
   created_at: string;
 };
 
+/** S9/T14.2-B1: una fila del reparto de la factura (una actividad y un rubro con su valor). */
+type ProjectExpenseReparto = {
+  linea_id: string;
+  /** Actividad de la línea; null en una línea heredada («Sin actividad»). */
+  actividad_id: string | null;
+  rubro: { id: string; codigo: string | null; nombre: string };
+  /** Decimal como string. */
+  valor: string;
+};
+
 export type ProjectExpense = {
   id: string;
   proyecto_id: string;
@@ -1753,6 +1763,11 @@ export type ProjectExpense = {
   soportes?: ProjectExpenseSoporte[];
   /** Soportes vigentes; ausente sin acceso a soportes financieros (RNF-03). */
   soportes_count?: number;
+  /**
+   * S9/T14.2-B1: el reparto de la factura; la primera fila es la línea que guarda la cabecera y las filas suman
+   * `valor`. El servidor lo devuelve siempre; opcional para que una fila vieja en caché no rompa la pantalla.
+   */
+  repartos?: ProjectExpenseReparto[];
 };
 
 type ProjectExpensesResumen = {
@@ -1784,13 +1799,26 @@ export type ExpenseDuplicateQuery = {
   numero_documento: string;
 };
 
+/** Una fila del reparto que se envía al registrar o corregir una factura distribuida (S9/T14.2-B1). */
+type ProjectExpenseRepartoInput = {
+  linea_id: string;
+  /** Decimal como string. */
+  valor: string;
+};
+
 export type ProjectExpenseInput = {
-  rubro_id: string;
+  /** Obligatorio salvo que se envíe `repartos`: en una factura distribuida la cabecera no lleva rubro. */
+  rubro_id?: string;
   /**
    * S9/T14.1: la línea exacta del presupuesto (actividad + rubro) que el formulario elige en ese orden. Opcional:
    * sin ella el servidor usa la línea del rubro, como antes.
    */
   linea_id?: string;
+  /**
+   * S9/T14.2-B1: la factura distribuida, una fila por actividad + rubro. Con `repartos` no se envían `rubro_id` ni
+   * `linea_id` (mezclarlos es un 400) y las filas tienen que sumar exactamente el total (subtotal + IVA).
+   */
+  repartos?: ProjectExpenseRepartoInput[];
   fecha_documento: string;
   /** Mes del proyecto AAAA-MM; el formulario lo rellena con el mes de la fecha del documento. */
   periodo: string;

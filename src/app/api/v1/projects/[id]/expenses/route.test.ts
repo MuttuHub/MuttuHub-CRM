@@ -9,6 +9,7 @@ import type { Usuario } from "@prisma/client";
 const mocks = vi.hoisted(() => ({
   info: vi.fn(),
   create: vi.fn(),
+  repartoCreate: vi.fn(),
   soporteCreate: vi.fn(),
   aggregate: vi.fn(),
   programadoAggregate: vi.fn(),
@@ -31,12 +32,13 @@ vi.mock("@/lib/permissions", async (importOriginal) => {
 vi.mock("@/lib/db", () => ({
   db: {
     proyecto: { findFirst: vi.fn() },
-    lineaPresupuestal: { findFirst: vi.fn() },
+    lineaPresupuestal: { findFirst: vi.fn(), findMany: vi.fn() },
     gasto: { findMany: vi.fn() },
     proyectoMiembro: { findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         gasto: { aggregate: mocks.aggregate, create: mocks.create },
+        gastoReparto: { createMany: mocks.repartoCreate },
         soporteProyecto: { create: mocks.soporteCreate },
         programacionPeriodo: { aggregate: mocks.programadoAggregate },
         usuario: { findMany: mocks.gerentes },
@@ -84,9 +86,33 @@ const valido = {
 };
 const linea = (asignado = "24000000") => ({
   id: "lin-1",
+  actividad_id: "act-12",
   monto_proyectado_cop: new Prisma.Decimal(asignado),
   rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
 });
+
+/** The two budget lines of the S9 example: 1.2 (Transporte) and 1.3 (Alimentación). */
+const lineas = (asignado12 = "10000000", asignado13 = "10000000") => [
+  {
+    id: "lin-12",
+    actividad_id: "act-12",
+    monto_proyectado_cop: new Prisma.Decimal(asignado12),
+    rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+  },
+  {
+    id: "lin-13",
+    actividad_id: "act-13",
+    monto_proyectado_cop: new Prisma.Decimal(asignado13),
+    rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+  },
+];
+
+/** The create body of a distributed invoice: no rubro and no line on the header, only its rows. */
+const facturaRepartida = (repartos: unknown[], montos: Record<string, unknown> = { subtotal: "1000000", iva: "0" }) => {
+  const { rubro_id: _r, ...sinRubro } = valido;
+  void _r;
+  return { ...sinRubro, ...montos, repartos };
+};
 
 const gastoRow = (data: Record<string, unknown> = {}) => ({
   id: "gas-1",
@@ -153,6 +179,7 @@ beforeEach(() => {
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
   vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValue(linea() as never);
+  vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue(lineas() as never);
   vi.mocked(db.gasto.findMany).mockResolvedValue([]);
   vi.mocked(db.proyectoMiembro.findMany).mockResolvedValue([]);
   mocks.info.mockResolvedValue({ data: { size: 2048 }, error: null });
@@ -399,6 +426,210 @@ describe("POST expenses: the exact budget line (S9)", () => {
   });
 });
 
+// S9 / T14.2-B1: una sola factura repartida en varias actividades y rubros. La suma de las líneas es
+// exactamente el total de la factura y la cabecera guarda la línea del primer reparto.
+describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
+  it("does not save a distribution of 990.000 for a 1.000.000 invoice and writes nothing (S9)", async () => {
+    const res = await POST(
+      post(facturaRepartida([
+        { linea_id: "lin-12", valor: "350000" },
+        { linea_id: "lin-13", valor: "640000" },
+      ])),
+      ctx,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Las líneas de la distribución deben sumar exactamente el total de la factura.",
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(logChange).not.toHaveBeenCalled();
+  });
+
+  it("saves 350.000 on activity 1.2 and 650.000 on 1.3 as one invoice, header on the first row's line (S9)", async () => {
+    const res = await POST(
+      post(facturaRepartida([
+        { linea_id: "lin-12", valor: "350000" },
+        { linea_id: "lin-13", valor: "650000" },
+      ])),
+      ctx,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    // One header, no rubro of its own: the line is the one of the first distribution row.
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(createdData()).toMatchObject({
+      proyecto_id: "pry-1",
+      linea_id: "lin-12",
+      monto_cop: new Prisma.Decimal("1000000"),
+    });
+    expect(db.lineaPresupuestal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["lin-12", "lin-13"] }, proyecto_id: "pry-1" } }),
+    );
+    // Two distribution rows, in the order the client sent them.
+    expect(mocks.repartoCreate).toHaveBeenCalledWith({
+      data: [
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-12", valor: new Prisma.Decimal("350000") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-13", valor: new Prisma.Decimal("650000") },
+      ],
+    });
+    expect(json.gasto.repartos).toEqual([
+      {
+        linea_id: "lin-12",
+        actividad_id: "act-12",
+        rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+        valor: "350000.00",
+      },
+      {
+        linea_id: "lin-13",
+        actividad_id: "act-13",
+        rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+        valor: "650000.00",
+      },
+    ]);
+  });
+
+  it("sums the distribution against the invoice total (subtotal + IVA), not the subtotal (S9)", async () => {
+    const conIva = (suma: string) =>
+      facturaRepartida(
+        [
+          { linea_id: "lin-12", valor: "350000" },
+          { linea_id: "lin-13", valor: suma },
+        ],
+        { subtotal: "1000000", iva: "190000" },
+      );
+
+    expect((await POST(post(conIva("650000")), ctx)).status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+
+    const res = await POST(post(conIva("840000")), ctx);
+    expect(res.status).toBe(201);
+    expect(createdData().monto_cop).toEqual(new Prisma.Decimal("1190000"));
+  });
+
+  it("rejects a body that mixes rubro_id or linea_id with repartos and writes nothing (S9)", async () => {
+    const { rubro_id: _r, ...sinRubro } = valido;
+    void _r;
+    const repartos = [{ linea_id: "lin-12", valor: "1000000" }];
+
+    for (const mezcla of [
+      { ...valido, subtotal: "1000000", iva: "0", repartos },
+      { ...sinRubro, subtotal: "1000000", iva: "0", linea_id: "lin-12", repartos },
+    ]) {
+      const res = await POST(post(mezcla), ctx);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({
+        code: "VALIDATION_ERROR",
+        error: "Una factura distribuida no lleva rubro ni línea en la cabecera.",
+      });
+    }
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+    expect(db.lineaPresupuestal.findMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a row on a line of another project or without an assigned amount and writes nothing (S9)", async () => {
+    const ajena = await POST(post(facturaRepartida([{ linea_id: "lin-ajena", valor: "1000000" }])), ctx);
+    expect(ajena.status).toBe(400);
+    expect(await ajena.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.",
+    });
+
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue(lineas("0") as never);
+    const sinAsignado = await POST(post(facturaRepartida([{ linea_id: "lin-12", valor: "1000000" }])), ctx);
+    expect(sinAsignado.status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a legacy body without repartos on one row that sums its total, on the same line (S9)", async () => {
+    const res = await POST(post(valido), ctx);
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(db.lineaPresupuestal.findMany).not.toHaveBeenCalled();
+    expect(createdData().linea_id).toBe("lin-1");
+    expect(mocks.repartoCreate).toHaveBeenCalledWith({
+      data: [
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-1", valor: new Prisma.Decimal("1500000.50") },
+      ],
+    });
+    expect(json.gasto.repartos).toEqual([
+      {
+        linea_id: "lin-1",
+        actividad_id: "act-12",
+        rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+        valor: "1500000.50",
+      },
+    ]);
+  });
+
+  it("checks the overspend against each row's own line and assigned amount (S9)", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue(lineas("10000000", "700000") as never);
+    // 1.2 has 9.7M spent, 1.3 nothing: only the 650.000 row of 1.3 passes its assigned amount.
+    mocks.aggregate
+      .mockResolvedValueOnce({ _sum: { monto_cop: new Prisma.Decimal("9700000") } })
+      .mockResolvedValueOnce({ _sum: { monto_cop: null } });
+
+    const res = await POST(
+      post(facturaRepartida([
+        { linea_id: "lin-12", valor: "350000" },
+        { linea_id: "lin-13", valor: "650000" },
+      ])),
+      ctx,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(mocks.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ linea_id: "lin-12" }) }),
+    );
+    expect(mocks.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ linea_id: "lin-13" }) }),
+    );
+    expect(createdData().alerta_sobregasto).toBe(true);
+    expect(json.alertas).toEqual([{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }]);
+  });
+
+  it("keeps the duplicate control on the invoice, not on its rows (S9)", async () => {
+    vi.mocked(db.gasto.findMany).mockResolvedValue([
+      { id: "gas-9", proyecto_id: "pry-2", proyecto: { codigo: "PRY-2026-002" } },
+    ] as never);
+
+    const json = await (
+      await POST(
+        post(facturaRepartida([
+          { linea_id: "lin-12", valor: "350000" },
+          { linea_id: "lin-13", valor: "650000" },
+        ])),
+        ctx,
+      )
+    ).json();
+
+    // One lookup, one alert: the control reads the expense (one header), never its distribution rows.
+    expect(db.gasto.findMany).toHaveBeenCalledTimes(1);
+    expect(db.gasto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tercero_id_norm: "900123456",
+          numero_documento_norm: "FE0123",
+          estado: { in: ["REGISTRADO", "VALIDADO"] },
+          id: { not: "gas-1" },
+        },
+      }),
+    );
+    expect(json.alertas).toEqual([
+      expect.objectContaining({ tipo: "DUPLICADO", gasto_id: "gas-9", proyecto_codigo: "PRY-2026-002" }),
+    ]);
+  });
+});
+
 describe("POST expenses: access and state", () => {
   it("allows ADM/GER and a member COORDINADOR; 403 for a non-member COORDINADOR and a COLABORADOR", async () => {
     authAs(coordinador);
@@ -537,16 +768,19 @@ describe("GET expenses", () => {
     {
       ...gastoRow({ id: "g1", estado: "REGISTRADO", monto_cop: new Prisma.Decimal("100.00") }),
       linea: { rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+      repartos: [],
       soportes: [soporteRow()],
     },
     {
       ...gastoRow({ id: "g2", estado: "VALIDADO", monto_cop: new Prisma.Decimal("200.50") }),
       linea: { rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+      repartos: [],
       soportes: [],
     },
     {
       ...gastoRow({ id: "g3", estado: "VALIDADO", monto_cop: new Prisma.Decimal("50") }),
       linea: { rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+      repartos: [],
       soportes: [],
     },
   ];
@@ -571,6 +805,55 @@ describe("GET expenses", () => {
     );
     expect(json.gastos[0].tercero_numero_id).toBe("900.123.456-7");
     expect(json.gastos[0].soportes).toHaveLength(1);
+  });
+
+  it("shows a distributed invoice as one document with its two rows, each in its activity (S9)", async () => {
+    vi.mocked(db.gasto.findMany).mockResolvedValue([
+      {
+        ...gastoRow({
+          id: "g1",
+          linea_id: "lin-12",
+          monto_cop: new Prisma.Decimal("1000000"),
+          subtotal_cop: new Prisma.Decimal("1000000"),
+          iva_cop: new Prisma.Decimal("0"),
+        }),
+        linea: { rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+        repartos: [
+          {
+            linea_id: "lin-13",
+            valor: new Prisma.Decimal("650000"),
+            linea: { actividad_id: "act-13", rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" } },
+          },
+          {
+            linea_id: "lin-12",
+            valor: new Prisma.Decimal("350000"),
+            linea: { actividad_id: "act-12", rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+          },
+        ],
+        soportes: [],
+      },
+    ] as never);
+
+    const json = await (await GET(get(), ctx)).json();
+
+    // One document: one header, one expense in the list, its total counted once.
+    expect(json.gastos).toHaveLength(1);
+    expect(json.totales.REGISTRADO).toEqual({ cantidad: 1, valor: "1000000.00" });
+    expect(json.gastos[0]).toMatchObject({ id: "g1", valor: "1000000.00" });
+    expect(json.gastos[0].repartos).toEqual([
+      {
+        linea_id: "lin-12",
+        actividad_id: "act-12",
+        rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+        valor: "350000.00",
+      },
+      {
+        linea_id: "lin-13",
+        actividad_id: "act-13",
+        rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+        valor: "650000.00",
+      },
+    ]);
   });
 
   it("reports the live support count of each expense", async () => {

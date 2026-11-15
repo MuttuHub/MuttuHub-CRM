@@ -9,11 +9,17 @@ import {
   GASTO_PATCH_SCHEMA,
   PERIODO_DOCUMENTO_FUERA_MESSAGE,
   PERIODO_FUERA_MESSAGE,
+  REPARTO_LINEA_MESSAGE,
+  REPARTO_MEZCLA_MESSAGE,
+  REPARTO_SIN_FILAS_MESSAGE,
+  REPARTO_SUMA_MESSAGE,
+  REPARTO_VALOR_MESSAGE,
   SOBREGASTO_MENSAJE,
   SOBREGASTO_PROGRAMADO_ADVERTENCIA,
   alertaSobregasto,
   evaluarMontosGasto,
   evaluarPeriodo,
+  evaluarRepartos,
   gastoAuditable,
   nivelSobregasto,
   superaAsignado,
@@ -91,6 +97,51 @@ describe("expense body schemas", () => {
     expect(GASTO_PATCH_SCHEMA.safeParse({ iva: "0" }).success).toBe(true);
     expect(GASTO_PATCH_SCHEMA.safeParse({ valor: "1" }).success).toBe(false);
   });
+
+  // S9 / T14.2-B1: la factura distribuida se registra por sus líneas; si el cuerpo mezcla el reparto con el
+  // rubro o la línea de la cabecera, la ambigüedad es el error que esta rebanada quita.
+  it("create takes repartos instead of rubro_id and linea_id, and rejects mixing them (S9)", () => {
+    const repartos = [
+      { linea_id: "lin-12", valor: "350000" },
+      { linea_id: "lin-13", valor: "650000" },
+    ];
+    const { rubro_id: _r, ...sinRubro } = base;
+    void _r;
+    expect(GASTO_CREATE_SCHEMA.safeParse({ ...sinRubro, subtotal: "1000000", iva: "0", repartos }).success).toBe(true);
+
+    const conRubro = GASTO_CREATE_SCHEMA.safeParse({ ...base, subtotal: "1000000", iva: "0", repartos });
+    expect(conRubro.success).toBe(false);
+    expect(conRubro.error?.issues[0]?.message).toBe(REPARTO_MEZCLA_MESSAGE);
+
+    const conLinea = GASTO_CREATE_SCHEMA.safeParse({
+      ...sinRubro,
+      subtotal: "1000000",
+      iva: "0",
+      linea_id: "lin-12",
+      repartos,
+    });
+    expect(conLinea.success).toBe(false);
+    expect(conLinea.error?.issues[0]?.message).toBe(REPARTO_MEZCLA_MESSAGE);
+  });
+
+  it("create still demands rubro_id without repartos and at least one distribution row (S9)", () => {
+    const { rubro_id: _r, ...sinRubro } = base;
+    void _r;
+    expect(GASTO_CREATE_SCHEMA.safeParse({ ...sinRubro, subtotal: "100", iva: "0" }).error?.issues[0]?.message).toBe(
+      "El rubro es obligatorio.",
+    );
+    expect(
+      GASTO_CREATE_SCHEMA.safeParse({ ...sinRubro, subtotal: "100", iva: "0", repartos: [] }).error?.issues[0]?.message,
+    ).toBe(REPARTO_SIN_FILAS_MESSAGE);
+  });
+
+  it("patch accepts repartos and rejects them next to rubro_id (S9)", () => {
+    const repartos = [{ linea_id: "lin-12", valor: "350000" }];
+    expect(GASTO_PATCH_SCHEMA.safeParse({ repartos }).success).toBe(true);
+    const mezcla = GASTO_PATCH_SCHEMA.safeParse({ rubro_id: "rub-1", repartos });
+    expect(mezcla.success).toBe(false);
+    expect(mezcla.error?.issues[0]?.message).toBe(REPARTO_MEZCLA_MESSAGE);
+  });
 });
 
 const row = {
@@ -124,6 +175,13 @@ const row = {
   anulado_at: null,
   motivo_anulacion: null,
   linea: { rubro: { id: "rub-1", codigo: "R1", nombre: "Transporte" } },
+  repartos: [
+    {
+      linea_id: "lin-1",
+      valor: new Prisma.Decimal("1190000"),
+      linea: { actividad_id: "act-1", rubro: { id: "rub-1", codigo: "R1", nombre: "Transporte" } },
+    },
+  ],
   soportes: [],
 };
 
@@ -131,6 +189,42 @@ describe("toGastoView", () => {
   it("keeps valor as the Total and adds subtotal and iva", () => {
     const view = toGastoView(row, { puedeVerSoportes: true });
     expect(view).toMatchObject({ valor: "1190000.00", subtotal: "1000000.00", iva: "190000.00" });
+  });
+
+  // S9 / T14.2-B1: el gasto publica su reparto (línea, actividad, rubro y valor) para que la pantalla lo muestre;
+  // la primera fila es la del primer reparto, que es la línea que guarda la cabecera.
+  it("publishes the distribution rows with their activity, header row first (S9)", () => {
+    const conReparto = {
+      ...row,
+      linea_id: "lin-12",
+      repartos: [
+        {
+          linea_id: "lin-13",
+          valor: new Prisma.Decimal("650000"),
+          linea: { actividad_id: "act-13", rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" } },
+        },
+        {
+          linea_id: "lin-12",
+          valor: new Prisma.Decimal("540000"),
+          linea: { actividad_id: "act-12", rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+        },
+      ],
+    };
+
+    expect(toGastoView(conReparto, { puedeVerSoportes: true }).repartos).toEqual([
+      {
+        linea_id: "lin-12",
+        actividad_id: "act-12",
+        rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+        valor: "540000.00",
+      },
+      {
+        linea_id: "lin-13",
+        actividad_id: "act-13",
+        rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+        valor: "650000.00",
+      },
+    ]);
   });
 });
 
@@ -164,6 +258,73 @@ describe("periodo from the document date (AJ-05)", () => {
 
   it("keeps rejecting an explicit period outside the project months", () => {
     expect(evaluarPeriodo(proyecto, "2026-10-28", "2027-03")).toEqual({ ok: false, message: PERIODO_FUERA_MESSAGE });
+  });
+});
+
+// S9 / T14.2-B1: la suma del reparto es exactamente el total de la factura (subtotal + IVA), en centavos.
+describe("evaluarRepartos", () => {
+  it("does not save a distribution of 990.000 for a 1.000.000 invoice (S9)", () => {
+    const result = evaluarRepartos(
+      [
+        { linea_id: "lin-12", valor: "350000" },
+        { linea_id: "lin-13", valor: "640000" },
+      ],
+      toCents("1000000"),
+    );
+    expect(result).toEqual({ ok: false, message: REPARTO_SUMA_MESSAGE });
+  });
+
+  it("splits 1.000.000 into 350.000 for 1.2 and 650.000 for 1.3 in exact cents (S9)", () => {
+    const result = evaluarRepartos(
+      [
+        { linea_id: "lin-12", valor: "350000" },
+        { linea_id: "lin-13", valor: "650000" },
+      ],
+      toCents("1000000"),
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: [
+        { linea_id: "lin-12", valor: toCents("350000") },
+        { linea_id: "lin-13", valor: toCents("650000") },
+      ],
+    });
+  });
+
+  it("compares against the invoice total, IVA included, and keeps cents exact (S9)", () => {
+    const filas = [
+      { linea_id: "lin-12", valor: "350000.10" },
+      { linea_id: "lin-13", valor: "649999.90" },
+    ];
+    expect(evaluarRepartos(filas, toCents("1000000"))).toMatchObject({ ok: true });
+    expect(evaluarRepartos(filas, toCents("1190000"))).toEqual({ ok: false, message: REPARTO_SUMA_MESSAGE });
+    expect(
+      evaluarRepartos(
+        [
+          { linea_id: "lin-12", valor: "350000" },
+          { linea_id: "lin-13", valor: "840000" },
+        ],
+        toCents("1190000"),
+      ),
+    ).toEqual({ ok: true, value: expect.any(Array) });
+  });
+
+  // The texts the screen shows, pinned here so a refactor cannot soften them.
+  it("names the distribution errors as the screen shows them (S9)", () => {
+    expect(REPARTO_MEZCLA_MESSAGE).toBe("Una factura distribuida no lleva rubro ni línea en la cabecera.");
+    expect(REPARTO_SUMA_MESSAGE).toBe("Las líneas de la distribución deben sumar exactamente el total de la factura.");
+    expect(REPARTO_SIN_FILAS_MESSAGE).toBe("Indica al menos una línea de la distribución.");
+    expect(REPARTO_VALOR_MESSAGE).toBe("El valor de cada línea de la distribución debe ser mayor que cero.");
+    expect(REPARTO_LINEA_MESSAGE).toBe("Cada línea de la distribución debe ser una línea del proyecto con valor asignado.");
+  });
+
+  it("rejects a zero, negative, float-noise or oversized row", () => {
+    for (const valor of ["0", "-1", "10.001", "abc", "9999999999999999.99"]) {
+      expect(evaluarRepartos([{ linea_id: "lin-12", valor }], toCents("1000000")), valor).toEqual({
+        ok: false,
+        message: REPARTO_VALOR_MESSAGE,
+      });
+    }
   });
 });
 

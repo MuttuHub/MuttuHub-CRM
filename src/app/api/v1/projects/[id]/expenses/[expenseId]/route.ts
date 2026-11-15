@@ -10,8 +10,10 @@
 // the registrant's own edit does not require one, and a motive they send anyway is recorded too. Editing
 // a RECHAZADO expense returns it to REGISTRADO and clears the rejection. The line, norms and
 // early-overspend flag are recomputed; the write is guarded on the editable estados so a racing
-// validation cannot be overwritten. Audit: one EDITAR row per changed field, the identification number
-// only masked (RNF-04).
+// validation cannot be overwritten. S9/T14.2-B1: `repartos` rewrites the whole distribution of the
+// invoice inside the same transaction (header + rows), with the same sum rule as the create; the audit
+// keeps recording the header fields it always recorded. Audit: one EDITAR row per changed field, the
+// identification number only masked (RNF-04).
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -32,18 +34,23 @@ import {
   GASTO_NO_EXISTE,
   GASTO_PATCH_SCHEMA,
   GASTO_VALIDADO_MESSAGE,
+  REPARTO_REQUERIDO_MESSAGE,
   alertaSobregasto,
   buscarDuplicados,
   clavesNormalizadas,
+  evaluarRepartos,
   gastoAuditable,
   gateGastoRead,
-  nivelSobregasto,
+  nivelSobregastoDeFactura,
   parseMontosGasto,
+  repartosDeLineas,
   resolverLinea,
+  resolverRepartos,
   resolverPeriodo,
   superaAsignado,
   toGastoView,
   type AlertaGasto,
+  type RepartoFactura,
 } from "@/lib/api/gastos";
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
 import { gateGastoGestion } from "@/lib/api/validacion-gastos";
@@ -106,8 +113,10 @@ export const PATCH = withApiErrorHandling(
 
     const body = await parseEstructuraBody(request, GASTO_PATCH_SCHEMA);
     if (!body.ok) return body.response;
-    const { motivo, updated_at: visto, ...cambios } = body.value;
-    if (Object.keys(cambios).length === 0) return apiError(NOTHING_TO_UPDATE, 400, "VALIDATION_ERROR");
+    const { motivo, updated_at: visto, repartos: repartosPedidos, ...cambios } = body.value;
+    if (Object.keys(cambios).length === 0 && repartosPedidos === undefined) {
+      return apiError(NOTHING_TO_UPDATE, 400, "VALIDATION_ERROR");
+    }
     if ((!esAutor || anulado) && motivo === undefined) return apiError(CORRECCION_SIN_MOTIVO_MESSAGE, 400, "VALIDATION_ERROR");
     const input = cambios;
 
@@ -120,16 +129,49 @@ export const PATCH = withApiErrorHandling(
     const valor = montos.total;
 
     const rubroActual = actual.linea.rubro.id;
-    // S9/T14.1: a correction that keeps the rubro keeps the expense on its own line, even when that rubro is
-    // budgeted in several activities; only a rubro change re-resolves the line by rubro.
-    const rubroDestino = input.rubro_id ?? rubroActual;
-    const resuelta = await resolverLinea(
-      id,
-      rubroDestino,
-      rubroDestino === rubroActual ? actual.linea_id : undefined,
-    );
-    if (!resuelta.ok) return resuelta.response;
-    const linea = resuelta.value;
+    const repartosActuales: RepartoFactura[] = actual.repartos.map((fila) => ({
+      linea: {
+        id: fila.linea.id,
+        actividad_id: fila.linea.actividad_id,
+        asignado: toCents(fila.linea.monto_proyectado_cop),
+        rubro: fila.linea.rubro,
+      },
+      valor: toCents(fila.valor),
+    }));
+
+    // S9/T14.2-B1: a new distribution is validated as a whole; a legacy invoice keeps its single row in step
+    // with its header, and a split invoice is only re-split with its full distribution (its rows would stop
+    // adding up otherwise).
+    let repartos: RepartoFactura[] | null;
+    if (repartosPedidos) {
+      const evaluados = evaluarRepartos(repartosPedidos, valor);
+      if (!evaluados.ok) return apiError(evaluados.message, 400, "VALIDATION_ERROR");
+      const resueltos = await resolverRepartos(id, evaluados.value);
+      if (!resueltos.ok) return resueltos.response;
+      repartos = resueltos.value;
+    } else if (repartosActuales.length <= 1) {
+      // S9/T14.1: a correction that keeps the rubro keeps the expense on its own line, even when that rubro is
+      // budgeted in several activities; only a rubro change re-resolves the line by rubro.
+      const rubroDestino = input.rubro_id ?? rubroActual;
+      const resuelta = await resolverLinea(
+        id,
+        rubroDestino,
+        rubroDestino === rubroActual ? actual.linea_id : undefined,
+      );
+      if (!resuelta.ok) return resuelta.response;
+      repartos = [{ linea: resuelta.value, valor }];
+    } else {
+      if (valor !== toCents(actual.monto_cop) || (input.rubro_id !== undefined && input.rubro_id !== rubroActual)) {
+        return apiError(REPARTO_REQUERIDO_MESSAGE, 400, "VALIDATION_ERROR");
+      }
+      repartos = null;
+    }
+    // The distribution in force after the write: the new rows, or the stored ones when nothing is re-split.
+    const efectivos = repartos ?? repartosActuales;
+    // `gastos.linea_id` means «the line of the first distribution row»; without a new distribution it is the
+    // stored pointer, which the rows keep describing.
+    const lineaCabecera = repartos ? repartos[0].linea.id : actual.linea_id;
+    const rubroCabecera = repartos ? repartos[0].linea.rubro.id : rubroActual;
 
     const fechaDocumento = input.fecha_documento ?? isoDate(actual.fecha_documento);
     const periodoPedido =
@@ -146,7 +188,7 @@ export const PATCH = withApiErrorHandling(
     const claves = clavesNormalizadas({ ...tercero, numero_documento: numeroDocumento });
 
     const data = {
-      linea_id: linea.id,
+      linea_id: lineaCabecera,
       fecha_documento: normalizeProjectDate(fechaDocumento),
       periodo: periodo.value,
       tipo_soporte: input.tipo_soporte ?? actual.tipo_soporte,
@@ -162,8 +204,13 @@ export const PATCH = withApiErrorHandling(
 
     try {
       const { gasto, nivel } = await db.$transaction(async (tx) => {
-        // AJ-08: REGISTRADO already counts as executed, so the row being edited is left out of the sum.
-        const sobregasto = await superaAsignado(tx, linea, valor, expenseId);
+        // AJ-08: REGISTRADO already counts as executed, so the row being edited is left out of the sum. The
+        // overspend is checked against each row's own line and assigned amount, never the header's.
+        const criticos: boolean[] = [];
+        for (const reparto of efectivos) {
+          criticos.push(await superaAsignado(tx, reparto.linea, reparto.valor, expenseId));
+        }
+        const sobregasto = criticos.some(Boolean);
         const corrige = actual.estado === "RECHAZADO";
         const { count } = await tx.gasto.updateMany({
           // Pin the state and, when the client sent it, the `updated_at` it read: two corrections of the
@@ -189,10 +236,24 @@ export const PATCH = withApiErrorHandling(
           throw new RespuestaAbortada(conflict(visto ? GASTO_CAMBIO_MESSAGE : GASTO_VALIDADO_MESSAGE));
         }
 
+        // S9/T14.2-B1: the distribution is rewritten with the header, in this same transaction, so a failure
+        // leaves both the header and the previous rows as they were.
+        if (repartos) {
+          await tx.gastoReparto.deleteMany({ where: { gasto_id: expenseId } });
+          await tx.gastoReparto.createMany({
+            data: repartos.map((reparto) => ({
+              proyecto_id: id,
+              gasto_id: expenseId,
+              linea_id: reparto.linea.id,
+              valor: decimalFromCents(reparto.valor),
+            })),
+          });
+        }
+
         const gasto = await tx.gasto.findFirstOrThrow({ where: { id: expenseId }, include: GASTO_INCLUDE });
 
         const antes = gastoAuditable({ ...actual, rubro_id: rubroActual });
-        const despues = gastoAuditable({ ...gasto, rubro_id: linea.rubro.id });
+        const despues = gastoAuditable({ ...gasto, rubro_id: rubroCabecera });
         const cambios = diffFields(antes, despues, CAMPOS_AUDITABLES_GASTO);
         const filas: CambioInput[] = cambios.map((cambio) => ({
           usuario_id: auth.usuario.id,
@@ -228,8 +289,12 @@ export const PATCH = withApiErrorHandling(
         }
         await logChanges(tx, filas);
 
-        // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
-        const nivel = await nivelSobregasto(tx, linea, { periodo: periodo.value, critico: sobregasto });
+        // S2/L16: after saving, each line tells its level; the critical one also rings the Gerencia bell.
+        const nivel = await nivelSobregastoDeFactura(
+          tx,
+          efectivos.map((reparto, indice) => ({ ...reparto, critico: criticos[indice] })),
+          periodo.value,
+        );
         if (sobregasto) await notificarSobregasto(tx, { gastoId: gasto.id, proyectoId: id });
         return { gasto, nivel };
       });
@@ -238,7 +303,10 @@ export const PATCH = withApiErrorHandling(
       const alerta = alertaSobregasto(nivel);
       if (alerta) alertas.push(alerta);
       alertas.push(...(await buscarDuplicados(auth.usuario, gasto)));
-      return NextResponse.json({ gasto: toGastoView(gasto, { puedeVerSoportes: true }), alertas });
+      return NextResponse.json({
+        gasto: toGastoView({ ...gasto, repartos: repartosDeLineas(efectivos) }, { puedeVerSoportes: true }),
+        alertas,
+      });
     } catch (err) {
       if (err instanceof RespuestaAbortada) return err.response;
       throw err;
