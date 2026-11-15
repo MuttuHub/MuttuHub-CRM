@@ -87,11 +87,13 @@ test("Registrar avance with a generated file → Documentos (Actividades) → op
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await tab(page, "Actividades").click();
   // 1.4-E2 has target 4 and 0 counted: room for several runs; the form asks for a justification past the target.
-  // The deliverables of an activity in progress start folded: unfold them first.
-  if (!(await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).isVisible())) {
-    await page.getByRole("button", { name: /^Ver \d+ entregables?$/ }).filter({ visible: true }).last().click();
-  }
-  await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).click();
+  // The deliverables of an activity in progress start folded, but an overdue one opens them by itself (1.4 ends on a
+  // fixed date of the seed), so wait for either state before deciding: `isVisible` does not wait for the render.
+  const registrar = page.getByRole("button", { name: "Registrar cantidad 1.4-E2" });
+  const desplegar = page.getByRole("button", { name: /^Ver \d+ entregables?$/ }).filter({ visible: true }).last();
+  await expect(registrar.or(desplegar).first()).toBeVisible();
+  if (!(await registrar.isVisible())) await desplegar.click();
+  await registrar.click();
   const form = page.getByRole("form", { name: "Registrar cantidad 1.4-E2" });
   await form.getByLabel("Cantidad").fill("1");
   const just = form.getByLabel("Justificación del exceso");
