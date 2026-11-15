@@ -5,11 +5,16 @@
 // fila. El cliente NUNCA recalcula un umbral, un porcentaje ni un color: los pinta tal como llegan. El dinero
 // viaja como texto y solo se formatea (nunca `Number()`); mientras el proyecto es BORRADOR el servidor manda
 // `ejecucion_disponible: false` con porcentajes y colores nulos, y aquí no se inventa ninguno.
+//
+// L32 (S10): el título del objetivo lleva su descripción, que la hoja no publica, así que se lee de la misma
+// estructura que usa Actividades (`useProjectObjectives`); y debajo de `md` cada actividad y sus rubros se pintan
+// como tarjetas, el mismo patrón del «Por rubro» vecino, mientras la tabla de siempre se queda en escritorio.
 
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
+import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { mesLegible } from "@/components/proyectos/project-display";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
@@ -19,8 +24,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   useProjectFinancialSheet,
+  useProjectObjectives,
   type ProjectFinancialSheet,
   type ProjectListRow,
+  type ProjectObjective,
 } from "@/hooks/projects";
 import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
 import { formatCOP, formatPercent, toCents } from "@/lib/proyectos/money";
@@ -50,17 +57,23 @@ const COLUMNA_SALDO = (
 
 export function PorActividad({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectFinancialSheet(proyecto.id, null, "vigente");
+  // L32.3: la hoja solo publica `objetivo_codigo`, así que la descripción del título se lee de la estructura, la
+  // misma fuente que usa la pantalla de Actividades. Mientras carga, si falla o si el objetivo no está en la
+  // lista, el título se queda como hoy («Objetivo 1»).
+  const objetivosQuery = useProjectObjectives(proyecto.id);
 
   if (query.isError) return <InlineError message={errorMessage(query.error, ACTIVIDAD_ERROR)} />;
   if (!query.data) return <Skeleton className="h-24 w-full rounded-[14px]" />;
-  return <Actividades ficha={query.data} />;
+  return <Actividades ficha={query.data} objetivos={objetivosQuery.data ?? []} />;
 }
 
-function Actividades({ ficha }: { ficha: ProjectFinancialSheet }) {
+function Actividades({ ficha, objetivos }: { ficha: ProjectFinancialSheet; objetivos: readonly ProjectObjective[] }) {
   // BORRADOR: el servidor ya manda los nulos; el gate es el mismo de la vista por rubro, por si llegara
   // un color o un porcentaje cuando no hay ejecución disponible.
   const disponible = ficha.ejecucion_disponible;
-  const grupos = agrupar(ficha.actividades);
+  // Debajo de `md` se montan las tarjetas y por encima la tabla: nunca las dos a la vez, como el «Por rubro».
+  const movil = useIsMobile();
+  const grupos = agrupar(ficha.actividades, objetivos);
 
   return (
     <div data-testid="finanzas-por-actividad" className="flex flex-col gap-4">
@@ -68,7 +81,15 @@ function Actividades({ ficha }: { ficha: ProjectFinancialSheet }) {
       {ficha.actividades.length === 0 ? (
         <EmptyBlock>Aún no hay presupuesto asignado a este proyecto.</EmptyBlock>
       ) : (
-        grupos.map((grupo) => <GrupoActividades key={grupo.clave} grupo={grupo} disponible={disponible} corte={ficha.corte} />)
+        grupos.map((grupo) => (
+          <GrupoActividades
+            key={grupo.clave}
+            grupo={grupo}
+            disponible={disponible}
+            corte={ficha.corte}
+            movil={movil}
+          />
+        ))
       )}
     </div>
   );
@@ -114,7 +135,7 @@ type Grupo = { clave: string; titulo: string; testId: string; filas: ActividadRo
  * Agrupa en el orden del servidor (objetivos en su orden y «Gestión del proyecto» al final) y deja «Gestión
  * del proyecto» de último siempre, que es el orden que nombra S10; no reordena las filas dentro del grupo.
  */
-function agrupar(actividades: readonly ActividadRow[]): Grupo[] {
+function agrupar(actividades: readonly ActividadRow[], objetivos: readonly ProjectObjective[]): Grupo[] {
   const grupos = new Map<string, Grupo>();
   for (const fila of actividades) {
     const clave = fila.gestion ? "gestion" : `objetivo:${fila.objetivo_id ?? fila.objetivo_codigo ?? ""}`;
@@ -125,8 +146,7 @@ function agrupar(actividades: readonly ActividadRow[]): Grupo[] {
     }
     grupos.set(clave, {
       clave,
-      // Sin nombre de objetivo en el payload: el código es lo que la ficha usa como etiqueta («Objetivo 1»).
-      titulo: fila.gestion ? GRUPO_GESTION : fila.objetivo_codigo ? `Objetivo ${fila.objetivo_codigo}` : "Objetivo",
+      titulo: tituloObjetivo(fila, objetivos),
       testId: fila.gestion ? "actividad-grupo-gestion" : `actividad-grupo-${fila.objetivo_codigo ?? "sin-codigo"}`,
       filas: [fila],
     });
@@ -135,34 +155,75 @@ function agrupar(actividades: readonly ActividadRow[]): Grupo[] {
   return [...todos.filter((grupo) => grupo.clave !== "gestion"), ...todos.filter((grupo) => grupo.clave === "gestion")];
 }
 
-function GrupoActividades({ grupo, disponible, corte }: { grupo: Grupo; disponible: boolean; corte: string }) {
+/** El objetivo de la fila: por id y, si la lista todavía no lo trae, por el código que publica la hoja. */
+function objetivoDe(fila: ActividadRow, objetivos: readonly ProjectObjective[]): ProjectObjective | undefined {
+  const porId = fila.objetivo_id ? objetivos.find((objetivo) => objetivo.id === fila.objetivo_id) : undefined;
+  return porId ?? (fila.objetivo_codigo ? objetivos.find((objetivo) => objetivo.codigo === fila.objetivo_codigo) : undefined);
+}
+
+/**
+ * «Objetivo 1» de siempre, o «Objetivo 1. Ferias» cuando la lista de objetivos ya trae su descripción (el mismo
+ * texto de Actividades). Sin descripción —cargando, con error o un objetivo ausente de la lista— no cambia nada.
+ */
+function tituloObjetivo(fila: ActividadRow, objetivos: readonly ProjectObjective[]): string {
+  if (fila.gestion) return GRUPO_GESTION;
+  const objetivo = objetivoDe(fila, objetivos);
+  const codigo = fila.objetivo_codigo ?? objetivo?.codigo ?? null;
+  if (!codigo) return "Objetivo";
+  return objetivo?.descripcion ? `Objetivo ${codigo}. ${objetivo.descripcion}` : `Objetivo ${codigo}`;
+}
+
+function GrupoActividades({
+  grupo,
+  disponible,
+  corte,
+  movil,
+}: {
+  grupo: Grupo;
+  disponible: boolean;
+  corte: string;
+  movil: boolean;
+}) {
   const tituloId = useId();
   return (
     <section data-testid={grupo.testId} aria-labelledby={tituloId} className="flex min-w-0 flex-col gap-2">
       <h3 id={tituloId} className="font-display text-[15px] font-bold text-ink-950">
         {grupo.titulo}
       </h3>
-      <div className="surface overflow-x-auto">
-        <Table className="min-w-[46rem]">
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">Actividad</TableHead>
-              <TableHead scope="col" numeric>Asignado</TableHead>
-              <TableHead scope="col" numeric>Programado al corte</TableHead>
-              <TableHead scope="col" numeric>Ejecutado</TableHead>
-              <TableHead scope="col" numeric>{COLUMNA_SALDO}</TableHead>
-              <TableHead scope="col" numeric>% de lo programado</TableHead>
-              <TableHead scope="col" numeric>Pasa a rojo desde</TableHead>
-              <TableHead scope="col">Semáforo</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {grupo.filas.map((fila) => (
-              <FilaActividad key={fila.actividad_id ?? "sin-actividad"} fila={fila} disponible={disponible} corte={corte} />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {movil ? (
+        <ul data-testid="actividad-lista" className="surface flex flex-col divide-y divide-border">
+          {grupo.filas.map((fila) => (
+            <TarjetaActividad
+              key={fila.actividad_id ?? "sin-actividad"}
+              fila={fila}
+              disponible={disponible}
+              corte={corte}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div className="surface overflow-x-auto">
+          <Table data-testid="actividad-tabla" className="min-w-[46rem]">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Actividad</TableHead>
+                <TableHead scope="col" numeric>Asignado</TableHead>
+                <TableHead scope="col" numeric>Programado al corte</TableHead>
+                <TableHead scope="col" numeric>Ejecutado</TableHead>
+                <TableHead scope="col" numeric>{COLUMNA_SALDO}</TableHead>
+                <TableHead scope="col" numeric>% de lo programado</TableHead>
+                <TableHead scope="col" numeric>Pasa a rojo desde</TableHead>
+                <TableHead scope="col">Semáforo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {grupo.filas.map((fila) => (
+                <FilaActividad key={fila.actividad_id ?? "sin-actividad"} fila={fila} disponible={disponible} corte={corte} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </section>
   );
 }
@@ -250,5 +311,106 @@ function FilaRubro({ row, disponible }: { row: RubroRow; disponible: boolean }) 
       <TableCell numeric>{monto(row.umbral_rojo)}</TableCell>
       <TableCell>{color ? <SemaforoChip color={color} /> : "—"}</TableCell>
     </TableRow>
+  );
+}
+
+/* ── Tarjetas (teléfono) ────────────────────────────────────────────────── */
+
+/** Un dato de la tarjeta, con la MISMA etiqueta de la columna que sustituye. */
+function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-[12px] text-ink-500">{etiqueta}</dt>
+      <dd className="font-mono text-[12.5px] text-ink-900">{children}</dd>
+    </div>
+  );
+}
+
+/** El porcentaje en la esquina, como en la tarjeta del «Por rubro», con su etiqueta de columna. */
+function PorcentajeTarjeta({ valor }: { valor: string }) {
+  return (
+    <span className="shrink-0 text-right">
+      <span className="block text-[12px] text-ink-500">% de lo programado</span>
+      <span className="text-[13px] font-bold text-ink-900 tabular-nums">{valor}</span>
+    </span>
+  );
+}
+
+/**
+ * La actividad como tarjeta en el teléfono: las mismas cifras, etiquetas, color y porcentaje que la fila de la
+ * tabla, y el mismo botón que abre su detalle por rubro.
+ */
+function TarjetaActividad({ fila, disponible, corte }: { fila: ActividadRow; disponible: boolean; corte: string }) {
+  const [abierta, setAbierta] = useState(false);
+  const detalleId = useId();
+  const conDetalle = fila.rubros.length > 0;
+  const pct = disponible ? fila.ep_decimas : null;
+  const color = disponible ? fila.color : null;
+
+  return (
+    <li data-testid="actividad-fila" className="flex flex-col gap-2 p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span data-testid="actividad-nombre" className="min-w-0 text-[14px] font-semibold text-ink-900">
+          {conDetalle ? (
+            <button
+              type="button"
+              aria-expanded={abierta}
+              aria-controls={detalleId}
+              onClick={() => setAbierta((valor) => !valor)}
+              className="flex min-h-11 items-center gap-1.5 rounded-12 text-left outline-none hover:text-ink-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <ChevronRight
+                className={cn("size-4 shrink-0 transition-transform", abierta && "rotate-90")}
+                strokeWidth={2}
+                aria-hidden
+              />
+              {nombreActividad(fila)}
+            </button>
+          ) : (
+            <span className="flex min-h-11 items-center">{nombreActividad(fila)}</span>
+          )}
+        </span>
+        <PorcentajeTarjeta valor={porcentaje(pct)} />
+      </div>
+      <dl className="grid grid-cols-2 gap-2">
+        <Dato etiqueta="Asignado">{monto(fila.asignado)}</Dato>
+        <Dato etiqueta="Programado al corte">{monto(fila.programado)}</Dato>
+        <Dato etiqueta="Ejecutado">{monto(fila.ejecutado)}</Dato>
+        <Dato etiqueta="Saldo">{monto(fila.saldo)}</Dato>
+        <Dato etiqueta="Pasa a rojo desde">{monto(fila.umbral_rojo)}</Dato>
+        <Dato etiqueta="Semáforo">{color ? <SemaforoChip color={color} /> : "—"}</Dato>
+      </dl>
+      {conDetalle && abierta && (
+        <div id={detalleId} data-testid="actividad-detalle" className="rounded-inner bg-ink-100/40 p-3">
+          <p className="text-[12px] font-semibold text-ink-700">Detalle por rubro</p>
+          <ul data-testid="actividad-rubros" className="mt-1 flex flex-col divide-y divide-border">
+            {fila.rubros.map((row) => (
+              <TarjetaRubro key={row.rubro_id ?? row.nombre} row={row} disponible={disponible} />
+            ))}
+          </ul>
+          <p className="mt-1 text-[12px] text-ink-600">{`Programado al corte de ${mesLegible(corte)}.`}</p>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Un rubro hijo en tarjeta: el mismo color, umbral y porcentaje del servidor, solo pintados. */
+function TarjetaRubro({ row, disponible }: { row: RubroRow; disponible: boolean }) {
+  const color = disponible ? row.color : null;
+  return (
+    <li data-testid="actividad-rubro" className="flex flex-col gap-2 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 text-[13px] font-semibold text-ink-800">{nombreRubro(row)}</span>
+        <PorcentajeTarjeta valor={porcentaje(disponible ? row.ep_decimas : null)} />
+      </div>
+      <dl className="grid grid-cols-2 gap-2">
+        <Dato etiqueta="Asignado">{monto(row.asignado)}</Dato>
+        <Dato etiqueta="Programado al corte">{monto(row.programado)}</Dato>
+        <Dato etiqueta="Ejecutado">{monto(row.ejecutado)}</Dato>
+        <Dato etiqueta="Pasa a rojo desde">{monto(row.umbral_rojo)}</Dato>
+        <Dato etiqueta="Semáforo">{color ? <SemaforoChip color={color} /> : "—"}</Dato>
+      </dl>
+    </li>
   );
 }

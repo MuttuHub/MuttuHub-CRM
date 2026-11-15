@@ -3,7 +3,7 @@
 // la hoja financiera que llega es la MISMA en las dos vistas, que es lo que S10 exige.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -269,6 +269,21 @@ const FICHA = {
   parametros: { tolerancia: 10, retraso: 70, confirmado: true },
 }
 
+/** La lista de objetivos de la estructura: la descripción que la hoja financiera no trae (L32.3). */
+const OBJETIVOS = {
+  objetivos: [
+    {
+      id: "o1",
+      proyecto_id: "p1",
+      codigo: "1",
+      descripcion: "Ferias",
+      orden: 1,
+      created_at: "2026-10-01T00:00:00.000Z",
+      updated_at: "2026-10-01T00:00:00.000Z",
+    },
+  ],
+}
+
 // BORRADOR: el servidor no manda color ni porcentajes mientras no haya ejecución (S10).
 const BORRADOR = {
   ...FICHA,
@@ -337,9 +352,16 @@ function respuestaGastos() {
 describe("VistasFinancieras", () => {
   const fetchMock = vi.fn()
 
-  type Setup = { ficha?: unknown; status?: number; proyecto?: Partial<ProjectListRow> }
+  type Setup = {
+    ficha?: unknown
+    status?: number
+    proyecto?: Partial<ProjectListRow>
+    /** Respuesta de `/objectives`: la descripción del objetivo no viene en la hoja financiera (L32.3). */
+    objetivos?: unknown
+    objetivosStatus?: number
+  }
 
-  function setup({ ficha = FICHA as unknown, status = 200, proyecto = {} }: Setup = {}) {
+  function setup({ ficha = FICHA as unknown, status = 200, proyecto = {}, objetivos = {}, objetivosStatus = 200 }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
       if (url.includes("/financial-sheet")) {
@@ -347,6 +369,13 @@ describe("VistasFinancieras", () => {
           status === 200
             ? jsonResponse(ficha)
             : jsonResponse({ error: "No tienes permisos sobre este proyecto.", code: "FORBIDDEN" }, status),
+        )
+      }
+      if (url.endsWith("/objectives")) {
+        return Promise.resolve(
+          objetivosStatus === 200
+            ? jsonResponse(objetivos)
+            : jsonResponse({ error: "No pudimos leer los objetivos del proyecto.", code: "ERROR" }, objetivosStatus),
         )
       }
       if (url.endsWith("/api/v1/auth/me")) return Promise.resolve(jsonResponse({ usuario: { id: "yo", nombre: "Yo", rol: "GERENCIA" } }))
@@ -579,6 +608,127 @@ describe("VistasFinancieras", () => {
       expect(porRubro).toHaveFocus()
       expect(porRubro).toBeChecked()
       expect(screen.getByRole("status")).toHaveTextContent("Vista por rubro")
+    })
+  })
+
+  describe("(g) el nombre del objetivo", () => {
+    it("pinta «Objetivo 1. Ferias» con la descripción que trae la lista de objetivos (S10)", async () => {
+      const user = userEvent.setup()
+      setup({ objetivos: OBJETIVOS })
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+
+      const grupo = await screen.findByTestId("actividad-grupo-1")
+      expect(within(grupo).getByRole("heading")).toHaveTextContent("Objetivo 1. Ferias")
+      // La descripción solo alarga el título: las filas y su orden son los del servidor.
+      expect(within(grupo).getAllByTestId("actividad-nombre").map((celda) => celda.textContent)).toEqual([
+        "1.1 · Talleres",
+        "1.2 · Ferias",
+      ])
+    })
+
+    it("deja «Objetivo 1» cuando la lista de objetivos no se puede leer (S10)", async () => {
+      const user = userEvent.setup()
+      setup({ objetivosStatus: 500 })
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+
+      const grupo = await screen.findByTestId("actividad-grupo-1")
+      // El texto de hoy, exacto: sin descripción no se inventa ninguna.
+      expect(within(grupo).getByRole("heading").textContent).toBe("Objetivo 1")
+      expect(screen.getByTestId("actividad-grupo-gestion")).toBeInTheDocument()
+    })
+  })
+
+  describe("(h) tarjetas en el teléfono", () => {
+    it("en el teléfono cada actividad es una tarjeta con los datos del servidor; en escritorio sigue la tabla (S10)", async () => {
+      mockViewport(true)
+      const user = userEvent.setup()
+      setup()
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+
+      // Teléfono: tarjetas, sin la tabla que hacía scroll horizontal.
+      expect(screen.queryByRole("table")).not.toBeInTheDocument()
+      const grupo = await screen.findByTestId("actividad-grupo-1")
+      const lista = within(grupo).getByTestId("actividad-lista")
+      expect(lista.tagName).toBe("UL")
+      const [talleres, ferias] = within(lista).getAllByTestId("actividad-fila")
+      expect(talleres.tagName).toBe("LI")
+      expect(within(talleres).getByTestId("actividad-nombre")).toHaveTextContent("1.1 · Talleres")
+      // Los mismos montos, el mismo umbral y el mismo porcentaje del payload, sin recalcular nada.
+      expect(talleres).toHaveTextContent("$ 24.000.000")
+      expect(talleres).toHaveTextContent("$ 12.000.000")
+      expect(talleres).toHaveTextContent("$ 9.500.000")
+      expect(talleres).toHaveTextContent("$ 14.500.000")
+      expect(talleres).toHaveTextContent("$ 13.200.000")
+      expect(talleres).toHaveTextContent("79,2 %")
+      expect(talleres.querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
+      expect(ferias.querySelector("[data-color]")).toHaveAttribute("data-color", "rojo")
+      // «Gestión del proyecto» también en tarjetas, en el mismo orden.
+      expect(within(screen.getByTestId("actividad-grupo-gestion")).getByTestId("actividad-lista").tagName).toBe("UL")
+
+      // Por encima del corte: la tabla de siempre, con las mismas filas.
+      cleanup()
+      mockViewport(false)
+      setup()
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(userEvent.setup())
+
+      const tabla = within(await screen.findByTestId("actividad-grupo-1")).getByTestId("actividad-tabla")
+      expect(tabla.tagName).toBe("TABLE")
+      expect(within(tabla).getAllByTestId("actividad-fila")).toHaveLength(2)
+      expect(screen.queryByTestId("actividad-lista")).not.toBeInTheDocument()
+    })
+
+    it("abre el detalle por rubro en la tarjeta y en la tabla de escritorio (S10)", async () => {
+      // Teléfono: la tarjeta abre sus rubros con los montos y el color del payload.
+      mockViewport(true)
+      const user = userEvent.setup()
+      setup()
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+
+      const talleres = within(await screen.findByTestId("actividad-grupo-1")).getAllByTestId("actividad-fila")[0]
+      const boton = within(talleres).getByRole("button", { name: "1.1 · Talleres" })
+      expect(boton).toHaveAttribute("aria-expanded", "false")
+      await user.click(boton)
+      expect(boton).toHaveAttribute("aria-expanded", "true")
+      const panel = document.getElementById(boton.getAttribute("aria-controls") ?? "")
+      expect(panel).not.toBeNull()
+
+      const detalle = screen.getByTestId("actividad-detalle")
+      // La tarjeta es la dueña del panel que anuncia `aria-controls`.
+      expect(detalle).toBe(panel)
+      expect(detalle).toHaveTextContent("Detalle por rubro")
+      expect(within(detalle).getByTestId("actividad-rubros").tagName).toBe("UL")
+      const rubros = within(detalle).getAllByTestId("actividad-rubro")
+      expect(rubros).toHaveLength(2)
+      expect(rubros[0]).toHaveTextContent("R01 · Personal")
+      expect(rubros[0]).toHaveTextContent("$ 20.000.000")
+      expect(rubros[0]).toHaveTextContent("$ 8.000.000")
+      expect(rubros[0].querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
+      await user.click(boton)
+      expect(screen.queryByTestId("actividad-detalle")).not.toBeInTheDocument()
+
+      // Escritorio: el mismo detalle, dentro de la tabla de siempre.
+      cleanup()
+      mockViewport(false)
+      setup()
+      await screen.findByTestId("financiero-rubros")
+      const usuario = userEvent.setup()
+      await irAActividad(usuario)
+      const fila = within(await screen.findByTestId("actividad-grupo-1")).getAllByTestId("actividad-fila")[0]
+      const botonEscritorio = within(fila).getByRole("button", { name: "1.1 · Talleres" })
+      await usuario.click(botonEscritorio)
+      const panelEscritorio = document.getElementById(botonEscritorio.getAttribute("aria-controls") ?? "")
+      expect(panelEscritorio).not.toBeNull()
+      const detalleEscritorio = screen.getByTestId("actividad-detalle")
+      // En escritorio el panel es la celda que anuncia el botón, dentro de la fila de detalle de la tabla.
+      expect(detalleEscritorio).toContainElement(panelEscritorio)
+      expect(within(detalleEscritorio).getByTestId("actividad-rubros").tagName).toBe("TABLE")
+      expect(within(detalleEscritorio).getAllByTestId("actividad-rubro")).toHaveLength(2)
+      expect(detalleEscritorio).toHaveTextContent("R01 · Personal")
     })
   })
 })
