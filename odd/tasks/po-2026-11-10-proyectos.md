@@ -42,6 +42,7 @@ propuesta y reprogramación entre meses (`S7`, `S8`) · `T14` gasto por activida
 # Plan PO 2026-11-10 — Ajustes de Proyectos (Parte 1) y presupuesto por actividad (Parte 2)
 
 Fuente: `docs/Hub-proyectos261110.docx` («Ajustes y evolución del módulo Proyectos», observaciones de las pruebas del 10 de noviembre de 2026). Rama de trabajo: una por tarea desde `main`.
+**Prioridad del documento** (columna «Prioridad» del resumen de la PO, textual): AJ-07 **Alta** · AJ-08 **Alta** · AJ-09 **Alta** · AJ-10 **Media** · EV-01 a EV-08 **«Nuevo alcance»** (es la categoría del pedido, no un nivel de prioridad).
 Entrega: un PR por tarea, CI verde (`unit` + `e2e`) antes de mergear. Runner: `npx vitest run src scripts` (unit/API),
 `npx vitest run prisma/<archivo>` (invariantes, base local), `npx playwright test --config playwright.ci.config.ts` (e2e).
 
@@ -300,10 +301,10 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Hecha: PR #172, `f5c4e4e` en `main`; verificación manual en local pendiente |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Hecha: `9214f06` (servidor) y `fa2dfb3` (formulario) en `feat/aj-08-validadores-alertas`; verificación manual en local pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Hecha: PR #175, `1e6410b` en `main` (`843842b`…`57b2f17`); verificación manual de AJ-07 en local pendiente |
-| T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
+| T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Hecha: PR #206, `3bbbfbc` en `main` (entró con la integración de T14); verificación manual en local pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
 | T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Hecha: `odd/tasks/po-2026-11-10-parte-2-diseno.md`; 5 preguntas abiertas para la PO (L21) |
-| T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
+| T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | T10–T14 en `main` (2026-11-14/15: #181–#194 y T14 en #206, `3bbbfbc`); T15 pendiente: necesita volcado de producción |
 
 ### Orden y calendario sugerido
 
