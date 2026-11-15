@@ -407,3 +407,39 @@ factura 1.2/1.3 como un solo documento en formulario y lista; cuerpo viejo de un
 test propio (`gastos.test.ts`: 350.000 en 1.2 y 650.000 en 1.3). Verificación propia: `tsc` 0, `eslint` 0, `knip` 0,
 **206 tests** en el árbol de `expenses`, **160** en las suites de UI y alerta, **275** invariantes. Tamaño: 857 líneas
 insertadas en 10 archivos, sobre la guía; el reparto ya venía de 2-B1 y el límite se anota para la revisión.
+
+---
+
+### Rebanada 3 (T14.3) — importación por actividad, factura única y duplicados
+
+**L46** Commit `57c3c7a5918eba9c6cdb80a3db3ddf3bf172d312` — `feat(gastos-import): one distributed invoice per document,
+by activity (S9, T14.3)`. 16 archivos, +992 / −171. Plantilla: «Código de actividad» entra como **última** columna (N,
+después de «Enlace del soporte»), así que
+ninguna columna anterior cambia de sitio, de formato ni de desplegable; acepta los alias «codigo de actividad»,
+«codigo actividad», «codigo de la actividad» y «actividad», y se resuelve contra el **código o el nombre** de la
+actividad. Una fila sin esa celda todavía se resuelve por rubro, y solo cuando ese rubro tiene **una** línea con valor
+asignado; si tiene varias, la fila pide la actividad en vez de elegir a ciegas.
+
+**L47** Lectura por factura: las filas con el mismo tercero normalizado y el mismo documento son **una** factura
+distribuida, nunca duplicados. `cerrarFactura` (`parse.ts:545`) rechaza la factura **entera** —sin escribir nada— si
+alguna fila trae error, si no coinciden fecha, periodo o tipo de soporte, o si las líneas no suman el total. Decisión de
+diseño que hay que aprobar en la revisión: **«Total» significa el total del documento y en una factura de varias filas
+tiene que venir en la primera**; sin eso la hoja no tiene contra qué comparar y el criterio de S9 sería inverificable.
+
+**L48** Escritura y duplicados: `aplicarGastosImport` escribe cabecera + `gastoReparto.createMany` + soportes en la
+misma transacción, con la cabecera en la línea del primer reparto, igual que el `POST`. La importación deja de ser el
+escritor sin filas, así que **la auditoría estricta del invariante se restauró** (`sinReparto = 0`, sin excepción). El
+umbral de duplicados se movió a la factura en las tres capas: el parser agrupa por documento, `esDuplicado` gana
+`factura_id` —dos filas de la misma factura nunca son duplicado entre sí— y `buscarDuplicados` se llama una vez por
+documento.
+
+**L49** Deudas nombradas que deja: (1) `scripts/seed*.ts` sigue escribiendo gastos sin reparto, así que la auditoría
+estricta pasa en CI —cuyo job de invariantes no siembra— pero fallaría en una base sembrada: fuera de mi superficie;
+(2) el comentario de cabecera de `src/lib/api/financiera.ts` sigue listando la importación de Excel entre los
+escritores sin filas (archivo prohibido, solo desactualizado); (3) la pantalla de previsualización de la importación
+(`src/components/**`, prohibido) todavía no muestra el campo `actividad` que ya viaja en el payload y en el OpenAPI.
+
+**L50** Verificación propia de la rebanada 3: `tsc` **0**, `eslint` de los 10 paths **0**, `knip` **0**, **117 tests** en
+las suites de importación, **211** en el árbol de `expenses` (206 + 5 nuevos), **277** invariantes con la auditoría
+estricta restaurada y el documento OpenAPI validando. Riesgo: **`Risk: none`**; el único punto que pide decisión es el
+significado de «Total» descrito en L47.
