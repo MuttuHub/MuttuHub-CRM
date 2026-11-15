@@ -16,8 +16,10 @@ export type TipoModificacion = "TRASLADO" | "ADICION" | "REDUCCION" | "REPROGRAM
 export type DetalleElemento = "presupuesto" | "programacion" | "proyecto" | "actividad" | "entregable" | "indicador"
 
 /**
- * One field change. `clave` is the business key: rubro code (presupuesto), `R12|AAAA-MM`
- * (programacion), `proyecto`, or the activity / deliverable / indicator code. `antes` is what the
+ * One field change. `clave` is the business key: the budget line (`1.1|R12` for an activity line,
+ * `R12` for a legacy one) for presupuesto, the line plus the month (`1.1|R12|AAAA-MM`) for
+ * programacion, `proyecto`, or the activity / deliverable / indicator code. Requests stored before
+ * T13 may address a line by its bare rubro code; see `resolverClaves`. `antes` is what the
  * requester saw; `despues` the proposed value. Money and quantities travel as decimal text.
  */
 export type DetalleItem = {
@@ -44,6 +46,7 @@ type ErrorReglaCodigo =
   | "VALOR_INVALIDO"
   | "DETALLE_DUPLICADO"
   | "DETALLE_VACIO"
+  | "CLAVE_AMBIGUA"
 
 export type ErrorRegla = { codigo: ErrorReglaCodigo; mensaje: string; clave?: string }
 
@@ -95,22 +98,81 @@ function normalizar(clase: Clase, texto: string): string | null {
 }
 
 const CLAVE_CELDA = /^(.+)\|(\d{4}-(?:0[1-9]|1[0-2]))$/
-const claveCelda = (rubro: string, periodo: string) => `${rubro}|${periodo}`
+const claveCelda = (linea: string, periodo: string) => `${linea}|${periodo}`
+
+type FilaConClave = { rubro_codigo: string | null; codigo_linea?: string | null }
+
+/** T13 (S5): the key of a budget line, as the live reader derives it (`ACT|RUBRO`, or `RUBRO` for a legacy line). */
+const claveDeLinea = (fila: FilaConClave): string => fila.codigo_linea ?? fila.rubro_codigo ?? ""
+
+/**
+ * The line key of a stored budget line: `ACT|RUBRO`, the bare rubro code for a line without an activity,
+ * null for a legacy rubro without a code. The same derivation as `loadLiveProyecto`, for the writers
+ * that map a key back to its row.
+ */
+export function claveLineaDe(rubroCodigo: string | null, actividadCodigo: string | null | undefined): string | null {
+  if (rubroCodigo === null) return null
+  return actividadCodigo ? `${actividadCodigo}|${rubroCodigo}` : rubroCodigo
+}
+
+/** The activity code of a line key; null for a legacy line keyed by its bare rubro. */
+const actividadDeClave = (clave: string): string | null => (clave.includes("|") ? clave.slice(0, clave.lastIndexOf("|")) : null)
 
 /**
  * T10: la clave de una fila, leída de las dos formas. Las solicitudes guardadas antes de la Parte 2
  * direccionan por código de rubro (`R12`, `R12|2026-10`); las nuevas pueden direccionar por línea
  * (`1.1|R12`, `1.1|R12|2026-10`). Leer con esto y escribir la forma nueva es la regla de T10.
  */
-function coincideClave(fila: { rubro_codigo: string | null; codigo_linea?: string | null }, clave: string): boolean {
+function coincideClave(fila: FilaConClave, clave: string): boolean {
   return fila.rubro_codigo === clave || fila.codigo_linea === clave
+}
+
+/**
+ * T13 (S5): the line key a request key points at. A line key is itself; a bare rubro code (the shape of
+ * the requests stored before the budget had one line per activity) is the rubro's only line, and
+ * `null` when the rubro has several lines, so the request cannot say which. A key no line matches is
+ * left as it is: a new rubro line (ADICION) or an element the structural checks report.
+ */
+function lineaDeClave(live: LiveProyecto, clave: string): string | null {
+  if (live.presupuesto.some((r) => claveDeLinea(r) === clave)) return clave
+  const lineas = new Set(live.presupuesto.filter((r) => coincideClave(r, clave)).map(claveDeLinea))
+  if (lineas.size > 1) return null
+  return [...lineas][0] ?? clave
+}
+
+const MENSAJE_AMBIGUA = (rubro: string) =>
+  `El rubro «${rubro}» tiene varias líneas (una por actividad): la solicitud debe indicar la actividad. Vuelve a crearla.`
+
+/**
+ * The detail with every presupuesto / programacion key rewritten to its line key, plus a
+ * `CLAVE_AMBIGUA` failure for every old rubro key that matches several lines. Both the rules and the
+ * apply read the request through this, so a stored request is judged and applied by the same keys.
+ */
+function resolverClaves(live: LiveProyecto, s: Solicitud): { solicitud: Solicitud; ambiguas: ErrorRegla[] } {
+  const ambiguas: ErrorRegla[] = []
+  const detalle = s.detalle.map((item): DetalleItem => {
+    if (item.elemento === "presupuesto") {
+      const linea = lineaDeClave(live, item.clave)
+      if (linea === null) ambiguas.push({ codigo: "CLAVE_AMBIGUA", clave: item.clave, mensaje: MENSAJE_AMBIGUA(item.clave) })
+      return linea === null ? item : { ...item, clave: linea }
+    }
+    if (item.elemento === "programacion") {
+      const [, fila, periodo] = CLAVE_CELDA.exec(item.clave) ?? []
+      if (fila === undefined || periodo === undefined) return item
+      const linea = lineaDeClave(live, fila)
+      if (linea === null) ambiguas.push({ codigo: "CLAVE_AMBIGUA", clave: item.clave, mensaje: MENSAJE_AMBIGUA(fila) })
+      return linea === null ? item : { ...item, clave: claveCelda(linea, periodo) }
+    }
+    return item
+  })
+  return { solicitud: { tipo: s.tipo, detalle }, ambiguas }
 }
 
 /** The live value of the field a detail item points at; null when the element does not exist. */
 function valorActual(live: LiveProyecto, item: DetalleItem, campo: string): string | null {
   switch (item.elemento) {
     case "presupuesto": {
-      const fila = live.presupuesto.find((r) => coincideClave(r, item.clave))
+      const fila = live.presupuesto.find((r) => claveDeLinea(r) === item.clave)
       return normalizar("dinero", fila ? fila.asignado : "0")
     }
     case "programacion": {
@@ -118,7 +180,7 @@ function valorActual(live: LiveProyecto, item: DetalleItem, campo: string): stri
       const corte = item.clave.lastIndexOf("|")
       const claveFila = item.clave.slice(0, corte)
       const periodo = item.clave.slice(corte + 1)
-      const fila = live.programacion.find((c) => c.periodo === periodo && coincideClave(c, claveFila))
+      const fila = live.programacion.find((c) => c.periodo === periodo && claveDeLinea(c) === claveFila)
       return normalizar("dinero", fila ? fila.valor : "0")
     }
     case "proyecto": {
@@ -196,12 +258,13 @@ function revisarDetalle(live: LiveProyecto, s: Solicitud): ErrorRegla[] {
  */
 export function applyModificacion(
   live: LiveProyecto,
-  s: Solicitud,
+  solicitud: Solicitud,
   catalogo: ReadonlyMap<string, string> = new Map(),
 ): LiveProyecto {
+  const s = resolverClaves(live, solicitud).solicitud
   const proyecto = { ...live.proyecto }
-  const lineas = new Map(live.presupuesto.map((r) => [r.rubro_codigo ?? "", { ...r }]))
-  const celdas = new Map(live.programacion.map((c) => [claveCelda(c.rubro_codigo ?? "", c.periodo), { ...c }]))
+  const lineas = new Map(live.presupuesto.map((r) => [claveDeLinea(r), { ...r }]))
+  const celdas = new Map(live.programacion.map((c) => [claveCelda(claveDeLinea(c), c.periodo), { ...c }]))
   const actividades = live.actividades.map((a) => ({ ...a }))
   const entregables = live.entregables.map((e) => ({ ...e }))
   const indicadores = live.indicadores.map((i) => ({ ...i }))
@@ -219,10 +282,11 @@ export function applyModificacion(
         break
       }
       case "programacion": {
-        const [, rubro = "", periodo = ""] = CLAVE_CELDA.exec(item.clave) ?? []
+        const [, clave = "", periodo = ""] = CLAVE_CELDA.exec(item.clave) ?? []
         const fila = celdas.get(item.clave)
+        // A new cell belongs to its line: it takes the line's rubro (the key of a line a request creates is its rubro).
         if (fila) fila.valor = despues
-        else celdas.set(item.clave, { rubro_codigo: rubro, codigo_linea: rubro, periodo, valor: despues })
+        else celdas.set(item.clave, { rubro_codigo: lineas.get(clave)?.rubro_codigo ?? clave, codigo_linea: clave, periodo, valor: despues })
         break
       }
       case "proyecto":
@@ -265,8 +329,8 @@ export function applyModificacion(
 
   const ZERO = BigInt(0)
   const programacion = [...celdas.values()].filter((c) => toCents(c.valor) > ZERO)
-  const conCeldas = new Set(programacion.map((c) => c.rubro_codigo))
-  const presupuesto = [...lineas.values()].filter((r) => toCents(r.asignado) > ZERO || conCeldas.has(r.rubro_codigo))
+  const conCeldas = new Set(programacion.map(claveDeLinea))
+  const presupuesto = [...lineas.values()].filter((r) => toCents(r.asignado) > ZERO || conCeldas.has(claveDeLinea(r)))
 
   if (s.tipo === "ADICION" || s.tipo === "REDUCCION") {
     proyecto.valor_total = fromCents(sumCents(presupuesto.map((r) => toCents(r.asignado))))
@@ -274,24 +338,27 @@ export function applyModificacion(
   return { proyecto, presupuesto, programacion, actividades, entregables, indicadores }
 }
 
-const asignadoPorRubro = (live: LiveProyecto): Map<string, Cents> =>
-  new Map(live.presupuesto.map((r) => [r.rubro_codigo ?? "", toCents(r.asignado)]))
+const asignadoPorLinea = (live: LiveProyecto): Map<string, Cents> =>
+  new Map(live.presupuesto.map((r) => [claveDeLinea(r), toCents(r.asignado)]))
 
 const celdasPorClave = (live: LiveProyecto): Map<string, Cents> =>
-  new Map(live.programacion.map((c) => [claveCelda(c.rubro_codigo ?? "", c.periodo), toCents(c.valor)]))
+  new Map(live.programacion.map((c) => [claveCelda(claveDeLinea(c), c.periodo), toCents(c.valor)]))
 
 /**
- * Every rule of RF-28 plus REQ-GAS-06. `ejecutado` is the VALIDADO total per rubro code (the caller
- * reads it under the line locks at approval time), `periodoActual` the current Bogota month.
- * Returns all the failures, never just the first; an empty list means the request may proceed.
+ * Every rule of RF-28 plus REQ-GAS-06, per budget line (T13 S5). `ejecutado` is the executed total
+ * per line key (the caller reads it under the line locks at approval time), `periodoActual` the
+ * current Bogota month. Returns all the failures, never just the first; an empty list means the
+ * request may proceed.
  */
 export function validarModificacion(
   live: LiveProyecto,
-  s: Solicitud,
+  solicitud: Solicitud,
   ejecutado: ReadonlyMap<string, Cents>,
   periodoActual: Periodo,
   params: { bloqueaPeriodosPasados: boolean },
 ): ErrorRegla[] {
+  const { solicitud: s, ambiguas } = resolverClaves(live, solicitud)
+  if (ambiguas.length > 0) return ambiguas
   const estructurales = revisarDetalle(live, s)
   if (estructurales.length > 0) return estructurales
 
@@ -305,9 +372,9 @@ export function validarModificacion(
     errores.push({ codigo: "FECHAS_INVALIDAS", clave: "proyecto", mensaje: MENSAJE_RANGO_FECHAS })
   }
 
-  // Budget deltas per rubro.
-  const antes = asignadoPorRubro(live)
-  const nuevo = asignadoPorRubro(despues)
+  // Budget deltas per line.
+  const antes = asignadoPorLinea(live)
+  const nuevo = asignadoPorLinea(despues)
   const rubros = [...new Set([...antes.keys(), ...nuevo.keys()])].sort()
   const deltas = rubros.map((rubro) => ({ rubro, delta: (nuevo.get(rubro) ?? ZERO) - (antes.get(rubro) ?? ZERO) }))
   const sumaDeltas = sumCents(deltas.map((d) => d.delta))
@@ -352,7 +419,7 @@ export function validarModificacion(
     const previo = celdasPorClave(live)
     const posterior = celdasPorClave(despues)
     for (const clave of [...new Set([...previo.keys(), ...posterior.keys()])].sort()) {
-      const periodo = clave.slice(clave.indexOf("|") + 1)
+      const periodo = clave.slice(clave.lastIndexOf("|") + 1)
       if (periodo < periodoActual && (previo.get(clave) ?? ZERO) !== (posterior.get(clave) ?? ZERO)) {
         errores.push({
           codigo: "PERIODO_PASADO",
@@ -373,18 +440,22 @@ export function validarModificacion(
         }
       }
     }
-    // The post-state budget must still be balanced and inside the project periods.
+    // The post-state budget must still be balanced per line and inside the project periods. The
+    // line key is both the control key and the `clave` of the failure.
     if (s.tipo !== "ENTREGABLES" || fechasCambian) {
       const fallas = precondicionesPresupuesto({
         valorTotal: null,
         lineas: despues.presupuesto.map((r) => ({
-          rubroId: r.rubro_codigo ?? "",
+          lineaId: claveDeLinea(r),
+          actividadCodigo: actividadDeClave(claveDeLinea(r)),
+          rubroId: claveDeLinea(r),
           nombre: r.rubro_nombre,
           asignado: toCents(r.asignado),
           activo: true,
         })),
         programacion: despues.programacion.map((c) => ({
-          rubroId: c.rubro_codigo ?? "",
+          lineaId: claveDeLinea(c),
+          rubroId: claveDeLinea(c),
           periodo: c.periodo,
           valor: toCents(c.valor),
         })),

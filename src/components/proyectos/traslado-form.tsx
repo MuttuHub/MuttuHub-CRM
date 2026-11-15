@@ -1,4 +1,5 @@
-// Formulario simple "Solicitar traslado" (AJ-09): rubro de origen, rubro de destino, valor y motivo. El
+// Formulario simple "Solicitar traslado" (AJ-09): actividad y rubro de origen, actividad y rubro de destino
+// (T13 S5: una línea del presupuesto), valor y motivo. El
 // reparto del valor entre los meses abiertos lo hace `construirTrasladoSimple`; aquí solo se pide lo
 // mínimo y se envía una solicitud TRASLADO como la del formulario completo (`modificacion-form.tsx`).
 // NO valida reglas: RF-28 y REQ-GAS-06 las decide la API y llegan en línea (todas a la vez). El diálogo
@@ -24,6 +25,7 @@ import {
   type ModificacionRegla,
   type ProjectListRow,
 } from "@/hooks/projects";
+import { claveLineaDe } from "@/lib/proyectos/modificaciones";
 import { toCents } from "@/lib/proyectos/money";
 import { construirTrasladoSimple, periodosAbiertos, type RubroTraslado } from "@/lib/proyectos/traslado-simple";
 import { periodOf, todayInBogota } from "@/lib/proyectos/weeks";
@@ -44,12 +46,18 @@ export function TrasladoForm({ proyecto, onDone }: { proyecto: ProjectListRow; o
   const cargando = budget.isLoading || programming.isLoading;
   const fallo = [budget, programming].find((q) => q.isError);
 
-  // Only the project's budget lines: a traslado moves money between rubros that already have one.
-  const rubros = (budget.data?.rubros ?? []).filter((r) => r.codigo !== null && r.linea_id !== null);
-  const lineas: RubroTraslado[] = rubros.map((r) => ({
-    codigo: r.codigo as string,
-    asignado: r.asignado,
-    celdas: (programming.data?.filas ?? []).filter((f) => f.rubro_id === r.rubro_id),
+  // Only the project's budget lines (activity + rubro): a traslado moves money between lines that exist.
+  // A line is keyed `ACT|RUBRO` (the bare rubro for a legacy line), the key the API resolves.
+  const opciones = (budget.data?.lineas ?? []).flatMap((l) => {
+    const codigo = claveLineaDe(l.rubro_codigo, l.actividad_codigo);
+    if (codigo === null) return [];
+    const etiqueta = `${l.actividad_codigo ? `Actividad ${l.actividad_codigo} · ` : ""}${l.rubro_codigo} · ${l.rubro_nombre}`;
+    return [{ codigo, etiqueta, linea: l }];
+  });
+  const lineas: RubroTraslado[] = opciones.map(({ codigo, linea }) => ({
+    codigo,
+    asignado: linea.valor,
+    celdas: (programming.data?.filas ?? []).filter((f) => f.linea_id === linea.linea_id),
   }));
 
   // Same parser as the budget and the expenses (es-CO: dot = thousands, comma = decimals).
@@ -88,9 +96,9 @@ export function TrasladoForm({ proyecto, onDone }: { proyecto: ProjectListRow; o
     }
   }
 
-  const opcion = (r: (typeof rubros)[number]) => (
-    <option key={r.rubro_id} value={r.codigo as string}>
-      {r.codigo} · {r.nombre}
+  const opcion = (o: (typeof opciones)[number]) => (
+    <option key={o.linea.linea_id} value={o.codigo}>
+      {o.etiqueta}
     </option>
   );
 
@@ -103,16 +111,16 @@ export function TrasladoForm({ proyecto, onDone }: { proyecto: ProjectListRow; o
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo id={`${id}-origen`} label="Rubro de origen">
+            <Campo id={`${id}-origen`} label="Actividad y rubro de origen">
               <select id={`${id}-origen`} value={origen} onChange={(event) => cambiarOrigen(event.target.value)} className={SELECT_CLASS}>
-                <option value="">Elige un rubro</option>
-                {rubros.map(opcion)}
+                <option value="">Elige una línea</option>
+                {opciones.map(opcion)}
               </select>
             </Campo>
-            <Campo id={`${id}-destino`} label="Rubro de destino">
+            <Campo id={`${id}-destino`} label="Actividad y rubro de destino">
               <select id={`${id}-destino`} value={destino} onChange={(event) => setDestino(event.target.value)} className={SELECT_CLASS}>
-                <option value="">Elige un rubro</option>
-                {rubros.filter((r) => r.codigo !== origen).map(opcion)}
+                <option value="">Elige una línea</option>
+                {opciones.filter((o) => o.codigo !== origen).map(opcion)}
               </select>
             </Campo>
           </div>

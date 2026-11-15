@@ -386,3 +386,109 @@ describe("aplicarModificacion (live DB)", () => {
     expect(r).toEqual({ versiones: 1, lineas: ["100", "50"], estado: "PENDIENTE", auditoria: 0 })
   })
 })
+
+/**
+ * T13 (S5): the same project with its budget by activity: A has one line in activity 1.1 (100) and one
+ * in activity 1.2 (40, 20 a month), B one line in activity 1.1 (50). Baseline approved, EN_EJECUCION.
+ */
+async function porActividad(tx: Tx) {
+  const f = await borrador(tx)
+  const act11 = await tx.actividad.findFirstOrThrow({ where: { proyecto_id: f.proyecto.id, codigo: "1.1" } })
+  const act12 = await tx.actividad.create({
+    data: { proyecto_id: f.proyecto.id, objetivo_id: act11.objetivo_id, codigo: "1.2", nombre: "Segunda", semana_inicio: 1, semana_fin: 2 },
+  })
+  await tx.entregable.create({
+    data: { proyecto_id: f.proyecto.id, actividad_id: act12.id, codigo: "1.2-E1", descripcion: "Entregable", cantidad_meta: 1, unidad: "Informe", tipo_medio_exigido: "Documento" },
+  })
+  await tx.lineaPresupuestal.updateMany({ where: { id: { in: [f.lineas.A.id, f.lineas.B.id] } }, data: { actividad_id: act11.id } })
+  const lineaA12 = await tx.lineaPresupuestal.create({
+    data: { proyecto_id: f.proyecto.id, rubro_id: f.rubros.A.id, actividad_id: act12.id, monto_proyectado_cop: 40 },
+  })
+  for (const periodo of ["2030-01", "2030-02"]) {
+    await tx.programacionPeriodo.create({ data: { proyecto_id: f.proyecto.id, linea_id: lineaA12.id, periodo, valor: 20 } })
+  }
+  await tx.proyecto.update({ where: { id: f.proyecto.id }, data: { valor_total: 190 } })
+  await aprobarLineaBase(tx, f.ids)
+  return { ...f, lineaA11: f.lineas.A, lineaA12, lineaB11: f.lineas.B }
+}
+
+describe("aplicarModificacion per budget line (T13 S5, live DB)", () => {
+  it("a TRASLADO between two activity lines of one rubro changes each line, its programming and its audit apart", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const f = await porActividad(tx)
+      const detalle = [
+        presupuesto(`1.1|${A(f)}`, "100", "90"),
+        presupuesto(`1.2|${A(f)}`, "40", "50"),
+        celda(`1.1|${A(f)}|2030-02`, "50", "40"),
+        celda(`1.2|${A(f)}|2030-02`, "20", "30"),
+      ]
+      const sol = await solicitud(tx, f, "TRASLADO", detalle)
+      const salida = await aplicarModificacion(tx, { ...f.ids, solicitudId: sol.id })
+      const lineas = await tx.lineaPresupuestal.findMany({ where: { proyecto_id: f.proyecto.id } })
+      const celdas = await tx.programacionPeriodo.findMany({ where: { proyecto_id: f.proyecto.id, periodo: "2030-02" } })
+      const loteMod = (await tx.auditoriaCambio.findFirstOrThrow({ where: { proyecto_id: f.proyecto.id, entidad: "solicitud" } })).lote_id
+      return {
+        salida,
+        monto: Object.fromEntries(lineas.map((l) => [l.id, l.monto_proyectado_cop.toString()])),
+        celda: Object.fromEntries(celdas.map((c) => [c.linea_id, c.valor.toString()])),
+        auditoria: (await tx.auditoriaCambio.findMany({ where: { lote_id: loteMod, entidad: { in: ["presupuesto", "programacion"] } } }))
+          .map((a) => `${a.entidad}:${a.entidad_id}:${a.campo}:${String(a.valor_anterior)}->${String(a.valor_nuevo)}`)
+          .sort(),
+        ids: { a11: f.lineaA11.id, a12: f.lineaA12.id, b11: f.lineaB11.id },
+      }
+    })
+    expect(r.salida.version.numero).toBe(1)
+    expect(r.monto).toEqual({ [r.ids.a11]: "90", [r.ids.a12]: "50", [r.ids.b11]: "50" })
+    expect(r.celda).toEqual({ [r.ids.a11]: "40", [r.ids.a12]: "30", [r.ids.b11]: "25" })
+    expect(r.auditoria).toEqual(
+      [
+        `presupuesto:${r.ids.a11}:asignado:90.00->100.00`.replace("90.00->100.00", "100.00->90.00"),
+        `presupuesto:${r.ids.a12}:asignado:40.00->50.00`,
+        `programacion:${r.ids.a11}:2030-02:50.00->40.00`,
+        `programacion:${r.ids.a12}:2030-02:20.00->30.00`,
+      ].sort(),
+    )
+  })
+
+  it("a stored request with the old rubro key applies to the rubro's only (activity) line", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const f = await porActividad(tx)
+      // B has one line (activity 1.1): the pre-T13 key `B` still points at it.
+      const detalle = [presupuesto(B(f), "50", "40"), presupuesto(`1.2|${A(f)}`, "40", "50"), celda(`${B(f)}|2030-02`, "25", "15"), celda(`1.2|${A(f)}|2030-02`, "20", "30")]
+      const sol = await solicitud(tx, f, "TRASLADO", detalle)
+      await aplicarModificacion(tx, { ...f.ids, solicitudId: sol.id })
+      return {
+        b: (await tx.lineaPresupuestal.findUniqueOrThrow({ where: { id: f.lineaB11.id } })).monto_proyectado_cop.toString(),
+        a12: (await tx.lineaPresupuestal.findUniqueOrThrow({ where: { id: f.lineaA12.id } })).monto_proyectado_cop.toString(),
+        lineas: await tx.lineaPresupuestal.count({ where: { proyecto_id: f.proyecto.id } }),
+        estado: (await tx.solicitudModificacion.findUniqueOrThrow({ where: { id: sol.id } })).estado,
+      }
+    })
+    expect(r).toEqual({ b: "40", a12: "50", lineas: 3, estado: "APROBADA" })
+  })
+
+  it("a stored request with the old rubro key is refused with a 400 when the rubro has several lines, and nothing changes", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const f = await porActividad(tx)
+      const detalle = [presupuesto(A(f), "140", "130"), presupuesto(B(f), "50", "60"), celda(`${A(f)}|2030-02`, "70", "60"), celda(`${B(f)}|2030-02`, "25", "35")]
+      const sol = await solicitud(tx, f, "TRASLADO", detalle)
+      const respuesta = await aborto(aplicarModificacion(tx, { ...f.ids, solicitudId: sol.id }))
+      return {
+        status: respuesta.status,
+        json: await respuesta.json(),
+        montos: (await tx.lineaPresupuestal.findMany({ where: { proyecto_id: f.proyecto.id } })).map((l) => l.monto_proyectado_cop.toString()).sort(),
+        versiones: await tx.versionProyecto.count({ where: { proyecto_id: f.proyecto.id } }),
+        estado: (await tx.solicitudModificacion.findUniqueOrThrow({ where: { id: sol.id } })).estado,
+        a: A(f),
+      }
+    })
+    expect(r.status).toBe(400)
+    expect(r.json.code).toBe("VALIDATION_ERROR")
+    expect(r.json.reglas.map((x: { codigo: string; clave: string }) => `${x.codigo}:${x.clave}`)).toEqual([
+      `CLAVE_AMBIGUA:${r.a}`,
+      `CLAVE_AMBIGUA:${r.a}|2030-02`,
+    ])
+    expect(r.json.error).toBe(`El rubro «${r.a}» tiene varias líneas (una por actividad): la solicitud debe indicar la actividad. Vuelve a crearla.`)
+    expect(r).toMatchObject({ montos: ["100", "40", "50"], versiones: 1, estado: "PENDIENTE" })
+  })
+})

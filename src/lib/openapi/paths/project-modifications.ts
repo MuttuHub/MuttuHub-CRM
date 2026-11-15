@@ -11,10 +11,13 @@ const DetalleItemSchema = registry.register(
   z.object({
     elemento: z.enum(["presupuesto", "programacion", "proyecto", "actividad", "entregable", "indicador"]),
     clave: z.string().openapi({
-      example: "R12",
+      example: "1.1|R12",
       description:
-        "Clave de negocio: código de rubro (`presupuesto`), `R12|AAAA-MM` (`programacion`), `proyecto`, o el código " +
-        "de la actividad, entregable o indicador.",
+        "Clave de negocio: la línea del presupuesto, actividad y rubro (`1.1|R12`; el código de rubro solo en una " +
+        "línea sin actividad o un rubro nuevo) en `presupuesto`, la línea y el mes (`1.1|R12|AAAA-MM`) en " +
+        "`programacion`, `proyecto`, o el código de la actividad, entregable o indicador. Una clave con solo el " +
+        "rubro (solicitudes anteriores) vale cuando el rubro tiene una única línea; con varias se rechaza " +
+        "(`CLAVE_AMBIGUA`).",
     }),
     campo: z.string().optional().openapi({
       example: "asignado",
@@ -56,7 +59,8 @@ const ReglaSchema = registry.register(
       description:
         "TRASLADO_CAMBIA_TOTAL, ADICION_NO_AUMENTA, REDUCCION_NO_DISMINUYE, A_MENOR_QUE_EJECUTADO, PERIODO_PASADO, " +
         "PROGRAMACION_DESCUADRADA, PERIODO_FUERA_DE_RANGO, ELEMENTO_NO_PERMITIDO, ELEMENTO_INEXISTENTE, " +
-        "ANTES_DESACTUALIZADO, SEMANAS_INVALIDAS, FECHAS_INVALIDAS, VALOR_INVALIDO, DETALLE_DUPLICADO, DETALLE_VACIO.",
+        "ANTES_DESACTUALIZADO, SEMANAS_INVALIDAS, FECHAS_INVALIDAS, VALOR_INVALIDO, DETALLE_DUPLICADO, DETALLE_VACIO, " +
+        "CLAVE_AMBIGUA.",
     }),
     mensaje: z.string(),
     clave: z.string().optional(),

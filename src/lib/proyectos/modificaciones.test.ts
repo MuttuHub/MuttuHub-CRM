@@ -272,3 +272,105 @@ describe("claves de línea (T10): el detalle lee las dos formas", () => {
     expect(codigos(valida(live, "REDUCCION", detalle))).not.toContain("ANTES_DESACTUALIZADO")
   })
 })
+
+describe("modifications per budget line (T13 S5): a rubro with two activity lines", () => {
+  // R12 (24M) split into two activity lines of 12M, 3M per month each: 1.1|R12 and 1.2|R12.
+  const liveDosLineas = (): LiveProyecto => {
+    const live = liveF_V1()
+    const mitad = (valor: string) => String(toCents(valor) / BigInt(200))
+    return {
+      ...live,
+      presupuesto: live.presupuesto.flatMap((r) =>
+        r.rubro_codigo === "R12"
+          ? ["1.1", "1.2"].map((act) => ({ ...r, codigo_linea: `${act}|R12`, asignado: mitad(r.asignado) }))
+          : [{ ...r, codigo_linea: r.rubro_codigo }],
+      ),
+      programacion: live.programacion.flatMap((c) =>
+        c.rubro_codigo === "R12"
+          ? ["1.1", "1.2"].map((act) => ({ ...c, codigo_linea: `${act}|R12`, valor: mitad(c.valor) }))
+          : [{ ...c, codigo_linea: c.rubro_codigo }],
+      ),
+    }
+  }
+  /** 2.000.000 from activity 1.1 to activity 1.2 of the same rubro, in January. */
+  const entreActividades = (): DetalleItem[] => [
+    presupuesto("1.1|R12", "12000000", "10000000"),
+    presupuesto("1.2|R12", "12000000", "14000000"),
+    celda("1.1|R12|2027-01", "3000000", "1000000"),
+    celda("1.2|R12|2027-01", "3000000", "5000000"),
+  ]
+  const linea = (live: LiveProyecto, clave: string) => live.presupuesto.find((r) => r.codigo_linea === clave)
+  const celdaDe = (live: LiveProyecto, clave: string, periodo: string) =>
+    live.programacion.find((c) => c.codigo_linea === clave && c.periodo === periodo)
+
+  it("a TRASLADO between the two activity lines of one rubro changes each line apart", () => {
+    const live = liveDosLineas()
+    expect(valida(live, "TRASLADO", entreActividades())).toEqual([])
+    const despues = applyModificacion(live, { tipo: "TRASLADO", detalle: entreActividades() })
+    expect(linea(despues, "1.1|R12")?.asignado).toBe("10000000.00")
+    expect(linea(despues, "1.2|R12")?.asignado).toBe("14000000.00")
+    expect(celdaDe(despues, "1.1|R12", "2027-01")).toMatchObject({ rubro_codigo: "R12", valor: "1000000.00" })
+    expect(celdaDe(despues, "1.2|R12", "2027-01")).toMatchObject({ rubro_codigo: "R12", valor: "5000000.00" })
+    expect(celdaDe(despues, "1.1|R12", "2026-12")?.valor).toBe("3000000")
+    expect(despues.presupuesto.filter((r) => r.rubro_codigo === "R12")).toHaveLength(2)
+  })
+
+  it("the post-state control checks each line: a line whose programming no longer matches its A is rejected", () => {
+    // The rubro still adds up (24M budget, 24M programmed) but each line is off by 2.000.000.
+    const detalle = [presupuesto("1.1|R12", "12000000", "10000000"), presupuesto("1.2|R12", "12000000", "14000000")]
+    const errores = valida(liveDosLineas(), "TRASLADO", detalle)
+    expect(codigos(errores)).toEqual(["PROGRAMACION_DESCUADRADA", "PROGRAMACION_DESCUADRADA"])
+    expect(errores.map((e) => e.clave)).toEqual(["1.1|R12", "1.2|R12"])
+    expect(errores[0]!.mensaje).toContain("en la actividad 1.1")
+  })
+
+  it("a cell may be created in an existing activity line and keeps that line's rubro", () => {
+    const live = liveDosLineas()
+    live.programacion = live.programacion.filter((c) => !(c.codigo_linea === "1.2|R12" && c.periodo === "2027-01"))
+    live.presupuesto = live.presupuesto.map((r) => (r.codigo_linea === "1.2|R12" ? { ...r, asignado: "9000000" } : r))
+    const detalle = [presupuesto("1.2|R12", "9000000", "11000000"), presupuesto("1.1|R12", "12000000", "10000000"), celda("1.1|R12|2027-01", "3000000", "1000000"), celda("1.2|R12|2027-01", "0", "2000000")]
+    const despues = applyModificacion(live, { tipo: "TRASLADO", detalle })
+    expect(celdaDe(despues, "1.2|R12", "2027-01")).toEqual({ rubro_codigo: "R12", codigo_linea: "1.2|R12", periodo: "2027-01", valor: "2000000.00" })
+  })
+
+  it("an elapsed month of an activity line stays frozen (PERIODO_PASADO reads the line key)", () => {
+    const detalle = [celda("1.1|R12|2026-10", "3000000", "2000000"), celda("1.1|R12|2026-11", "3000000", "4000000")]
+    const errores = valida(liveDosLineas(), "REPROGRAMACION", detalle, { periodoActual: "2026-11", params: BLOQUEA })
+    expect(codigos(errores)).toEqual(["PERIODO_PASADO"])
+    expect(errores[0]!.clave).toBe("1.1|R12|2026-10")
+    expect(errores[0]!.mensaje).toBe("El periodo 2026-10 ya transcurrió: no se puede reprogramar.")
+  })
+
+  it("the executed amount is checked per line (REQ-GAS-06)", () => {
+    // 1.1|R12 already executed 11M: leaving it at 10M is refused although the rubro keeps 24M.
+    const errores = valida(liveDosLineas(), "TRASLADO", entreActividades(), { ejecutado: new Map([["1.1|R12", toCents("11000000")]]) })
+    expect(codigos(errores)).toEqual(["A_MENOR_QUE_EJECUTADO"])
+    expect(errores[0]!.clave).toBe("1.1|R12")
+  })
+
+  it("a stored request with the old rubro key is refused, not misapplied, when the rubro has several lines", () => {
+    const viejo = [presupuesto("R12", "24000000", "23000000"), presupuesto("R13", "12800000", "13800000"), celda("R12|2027-01", "6000000", "5000000"), celda("R13|2027-01", "3200000", "4200000")]
+    const errores = valida(liveDosLineas(), "TRASLADO", viejo)
+    expect(codigos(errores)).toEqual(["CLAVE_AMBIGUA", "CLAVE_AMBIGUA"])
+    expect(errores.map((e) => e.clave)).toEqual(["R12", "R12|2027-01"])
+    expect(errores[0]!.mensaje).toBe(
+      "El rubro «R12» tiene varias líneas (una por actividad): la solicitud debe indicar la actividad. Vuelve a crearla.",
+    )
+  })
+
+  it("a stored request with the old rubro key still applies to the rubro's only line", () => {
+    const live = liveDosLineas()
+    const viejo = [presupuesto("R13", "12800000", "11800000"), presupuesto("1.1|R12", "12000000", "13000000"), celda("R13|2027-01", "3200000", "2200000"), celda("1.1|R12|2027-01", "3000000", "4000000")]
+    expect(valida(live, "TRASLADO", viejo)).toEqual([])
+    const despues = applyModificacion(live, { tipo: "TRASLADO", detalle: viejo })
+    expect(linea(despues, "R13")?.asignado).toBe("11800000.00")
+    expect(celdaDe(despues, "R13", "2027-01")?.valor).toBe("2200000.00")
+    expect(despues.presupuesto.filter((r) => r.rubro_codigo === "R13")).toHaveLength(1)
+  })
+
+  it("the old and the new key of the same line in one request are a repeated change", () => {
+    const live = liveDosLineas()
+    const repetido = [presupuesto("R13", "12800000", "11800000"), presupuesto("R13", "12800000", "11800000")]
+    expect(codigos(valida(live, "REDUCCION", repetido))).toEqual(["DETALLE_DUPLICADO"])
+  })
+})
