@@ -1160,6 +1160,40 @@ describe("GastoForm", () => {
         await waitFor(() => expect(onDone).toHaveBeenCalled())
       })
 
+      // Review of T14: the strict PATCH schema has no `linea_id`, so a split invoice corrected down to one line
+      // must travel as a one-row distribution, never as `rubro_id` + `linea_id` (a 400 «Unrecognized key»).
+      it("corrige una factura repartida dejándola en una sola línea, como una distribución de una fila (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+          const url = String(input)
+          if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES_12_13 }))
+          if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+          if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+            return Promise.resolve(jsonResponse({ gasto: GASTO_REPARTIDO, alertas: [] }))
+          return Promise.resolve(jsonResponse({}))
+        })
+        render(
+          <GastoForm
+            proyecto={PROYECTO}
+            rubros={RUBROS}
+            lineas={LINEAS_12_13}
+            gasto={GASTO_REPARTIDO}
+            onDone={onDone}
+          />,
+          { wrapper: createWrapper() },
+        )
+
+        await waitFor(() => expect(screen.getByLabelText("Valor 2")).toHaveValue("650.000"))
+        await user.click(screen.getByRole("button", { name: "Quitar línea 2" }))
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+        await waitFor(() => expect(patchBody()).not.toBeNull())
+        expect(patchBody().repartos).toEqual([{ linea_id: "l-12-r12", valor: "1000000.00" }])
+        expect(patchBody()).not.toHaveProperty("rubro_id")
+        expect(patchBody()).not.toHaveProperty("linea_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      })
+
       // S9/T14.2-B2: mientras el presupuesto no trajo sus líneas no hay forma de saber a qué línea va cada fila; el
       // formulario se niega en vez de mandar una distribución a medias.
       it("se niega a corregir una factura repartida mientras el presupuesto no trae sus líneas (S9)", async () => {

@@ -471,6 +471,9 @@ export function GastoForm({
     setLocal(null);
     // S9/T14.2-B2: con una sola línea el cuerpo es el de siempre (rubro y línea exacta). Desde dos líneas la
     // factura va por su distribución y la cabecera no lleva ni rubro ni línea: mezclarlos es el 400 del servidor.
+    // A split invoice corrected down to one line still travels as a distribution (of one row): the PATCH has no
+    // `linea_id`, and without `repartos` the server would refuse to collapse the stored rows.
+    const unaFilaRepartida = !enDistribucion && enCorreccion && enCascada && lineaElegida !== null;
     const campos = {
       ...(enDistribucion
         ? {
@@ -480,7 +483,9 @@ export function GastoForm({
               valor: fromCents(valorDeReparto(fila) ?? BigInt(0)),
             })),
           }
-        : {
+        : unaFilaRepartida
+          ? { repartos: [{ linea_id: lineaElegida, valor: fromCents(toCents(subtotalNormal) + toCents(ivaNormal)) }] }
+          : {
             rubro_id: rubroElegido,
             // S9/T14.1: la línea exacta de la actividad y el rubro elegidos; sin cascada (un llamador anterior) la
             // API resuelve la del rubro, como antes.
