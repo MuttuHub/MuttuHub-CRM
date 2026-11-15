@@ -37,7 +37,12 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { RespuestaAbortada } from "@/lib/api/presupuesto";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { generarPlantilla } from "@/lib/proyectos/plantilla/generate";
-import { fixtureContextoFX1, fixtureF_X1 } from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
+import {
+  fixtureConTransversal,
+  fixtureContextoFX1,
+  fixtureF_X1,
+  plantillaSinTipo,
+} from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
 import { POST } from "./route";
 
 const admin = { id: "adm-1", rol: "ADMINISTRADOR" } as Usuario;
@@ -245,6 +250,59 @@ describe("POST /projects/:id/import — budget that differs from the total (PO f
     expect(mocks.importarPlantilla).toHaveBeenCalledTimes(1);
     const [, args] = mocks.importarPlantilla.mock.calls[0] as [unknown, { plan: { proyecto: { valorTotalCents: bigint } } }];
     expect(args.plan.proyecto.valorTotalCents).toBe(BigInt(17_736_000_000));
+  });
+});
+
+describe("POST /projects/:id/import — activity type (T13.8, S7)", () => {
+  it("a Transversal row that names an objective is rejected with row and column, and nothing is written", async () => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load((await generarPlantilla(fixtureConTransversal())) as never);
+    workbook.getWorksheet("4. Actividades")!.getCell("B6").value = "OE1";
+    const response = await POST(subida(Buffer.from(await workbook.xlsx.writeBuffer())), ctx);
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).reporte.errores).toEqual([
+      {
+        regla: "V-06",
+        hoja: "4. Actividades",
+        fila: 6,
+        columna: "B",
+        valor: "OE1",
+        mensaje: "Una actividad transversal no lleva objetivo: deja vacío el código objetivo (va en «Gestión del proyecto»).",
+      },
+    ]);
+    expect(mocks.importarPlantilla).not.toHaveBeenCalled();
+  });
+
+  it("imports a Transversal activity with its type, no objective and a proposal of one cell per month", async () => {
+    const validar = await POST(subida(await generarPlantilla(fixtureConTransversal()), { modo: "validar" }), ctx);
+    expect(validar.status).toBe(200);
+    // The ten F-X1 cells plus G.1's four months (October to January).
+    expect((await validar.json()).resumen).toMatchObject({ actividades: 5, celdas_programacion: 14 });
+
+    const response = await POST(subida(await generarPlantilla(fixtureConTransversal())), ctx);
+    expect(response.status).toBe(200);
+    const [, args] = mocks.importarPlantilla.mock.calls[0] as [unknown, { plan: { actividades: { codigo: string; tipo: string; objetivoCodigo: string }[] } }];
+    expect(args.plan.actividades.find((a) => a.codigo === "G.1")).toMatchObject({ tipo: "TRANSVERSAL", objetivoCodigo: "" });
+  });
+
+  it("a 2026.2 workbook without «Tipo» validates and imports as before, every activity Normal", async () => {
+    const sinTipo = await plantillaSinTipo(valido);
+    const validar = await POST(subida(sinTipo, { modo: "validar" }), ctx);
+    expect(validar.status).toBe(200);
+    expect((await validar.json()).resumen).toEqual({
+      objetivos: 1,
+      actividades: 4,
+      entregables: 7,
+      indicadores: 2,
+      rubros: 8,
+      celdas_programacion: 10,
+    });
+
+    const response = await POST(subida(sinTipo), ctx);
+    expect(response.status).toBe(200);
+    const [, args] = mocks.importarPlantilla.mock.calls[0] as [unknown, { plan: { actividades: { tipo: string }[] } }];
+    expect(args.plan.actividades.map((a) => a.tipo)).toEqual(["NORMAL", "NORMAL", "NORMAL", "NORMAL"]);
   });
 });
 

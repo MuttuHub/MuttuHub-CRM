@@ -53,8 +53,8 @@ export function proponerProgramacion(input: {
 
 
 /**
- * The proposal for every budget line of an import plan, keyed `actividadCodigo|rubroCodigo`. The template has no
- * activity type yet, so every activity is proposed by days (T13.8 adds the «Tipo» column).
+ * The proposal for every budget line of an import plan, keyed `actividadCodigo|rubroCodigo`. A Normal activity is
+ * proposed by days; a Transversal one (the template's «Tipo» column, T13.8) evenly by month.
  */
 export function programacionDelPlan(plan: Pick<PlanImportacion, "proyecto" | "actividades" | "presupuesto">): Map<string, CeldaPropuesta[]> {
   const proyecto = { inicio: plan.proyecto.fechaInicio, fin: plan.proyecto.fechaFin }
@@ -69,7 +69,7 @@ export function programacionDelPlan(plan: Pick<PlanImportacion, "proyecto" | "ac
         valor: linea.cents,
         actividad: activityDates(proyecto.inicio, actividad.semanaInicio, actividad.semanaFin),
         proyecto,
-        transversal: false,
+        transversal: actividad.tipo === "TRANSVERSAL",
       }),
     )
   }

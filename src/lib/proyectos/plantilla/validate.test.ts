@@ -25,7 +25,15 @@ import { generarPlantilla } from "./generate"
 import { parsePlantilla, type Celda, type Fila, type ParsedTemplate } from "./parse"
 import { HOJAS, MAX_FILAS_HOJA, PLANTILLA_VERSION } from "./columns"
 import { toCents } from "../money"
-import { fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
+import { readFileSync } from "node:fs"
+import path from "node:path"
+import {
+  fixtureConTransversal,
+  fixtureContextoFX1,
+  fixtureF_X1,
+  plantillaFormatoAnterior,
+  plantillaSinTipo,
+} from "../__fixtures__/plantilla-cedetextil"
 
 let bufferValido: Buffer
 let bufferV12: Buffer
@@ -68,8 +76,15 @@ describe("V-01 structural", () => {
 
   it("accepts an activities sheet filled in with the layout before AJ-02 (trailing «Peso (opcional)»)", async () => {
     const parsed = await parsedValido()
-    parsed.encabezados.actividades = [...parsed.encabezados.actividades, "Peso (opcional)"]
+    // That layout predates the «Tipo» column (T13.8).
+    parsed.encabezados.actividades = [...parsed.encabezados.actividades.filter((h) => h !== "Tipo"), "Peso (opcional)"]
     expect(v01(parsed, contexto())).toEqual([])
+  })
+
+  it("rejects the «Tipo» column together with the «Peso (opcional)» one: no layout had both", async () => {
+    const parsed = await parsedValido()
+    parsed.encabezados.actividades = [...parsed.encabezados.actividades, "Peso (opcional)"]
+    expect(v01(parsed, contexto())).toMatchObject([{ regla: "V-01", hoja: HOJAS.actividades, fila: 1, columna: "H" }])
   })
 
   it("reports a header mismatch with expected and found", async () => {
@@ -267,6 +282,91 @@ describe("V-06 cross-sheet references", () => {
     expect(v06(parsed, contexto()).filter((e) => e.hoja === HOJAS.presupuesto)).toMatchObject([
       { regla: "V-06", fila: 2, columna: "A", valor: null },
     ])
+  })
+})
+
+describe("T13.8 (S7): the activity type («Tipo» column of 4. Actividades)", () => {
+  async function parsedTransversal(): Promise<ParsedTemplate> {
+    return parsePlantilla(await generarPlantilla(fixtureConTransversal()))
+  }
+
+  it("accepts a Transversal row with an empty «Código objetivo»", async () => {
+    const parsed = await parsedTransversal()
+    expect(parsed.actividades.map((f) => f.celdas["Tipo"]?.valor)).toEqual(["Normal", "Normal", "Normal", "Normal", "Transversal"])
+    expect(validarPlantilla(parsed, contexto()).errores).toEqual([])
+  })
+
+  it("rejects a Transversal row that names an objective, by row and column", async () => {
+    const parsed = await parsedTransversal()
+    parsed.actividades[4].celdas["Código objetivo"].valor = "OE1"
+    expect(validarPlantilla(parsed, contexto()).errores).toEqual([
+      {
+        regla: "V-06",
+        hoja: HOJAS.actividades,
+        fila: 6,
+        columna: "B",
+        valor: "OE1",
+        mensaje: "Una actividad transversal no lleva objetivo: deja vacío el código objetivo (va en «Gestión del proyecto»).",
+      },
+    ])
+  })
+
+  it("still requires the objective of a Normal row", async () => {
+    const parsed = await parsedTransversal()
+    parsed.actividades[0].celdas["Código objetivo"].valor = null
+    expect(v06(parsed, contexto())).toEqual([
+      {
+        regla: "V-06",
+        hoja: HOJAS.actividades,
+        fila: 2,
+        columna: "B",
+        valor: null,
+        mensaje: `El objetivo «» no existe en la hoja ${HOJAS.objetivos}.`,
+      },
+    ])
+  })
+
+  it("rejects a type other than Normal or Transversal, by row and column", async () => {
+    const parsed = await parsedTransversal()
+    parsed.actividades[1].celdas["Tipo"].valor = "Transversl"
+    expect(v06(parsed, contexto())).toEqual([
+      {
+        regla: "V-06",
+        hoja: HOJAS.actividades,
+        fila: 3,
+        columna: "G",
+        valor: "Transversl",
+        mensaje: "El tipo «Transversl» no es válido: usa Normal o Transversal.",
+      },
+    ])
+  })
+
+  it("reads the type without minding case or spaces, and an empty type as Normal", async () => {
+    const parsed = await parsedTransversal()
+    parsed.actividades[4].celdas["Tipo"].valor = "  TRANSVERSAL "
+    parsed.actividades[0].celdas["Tipo"].valor = null
+    expect(validarPlantilla(parsed, contexto()).errores).toEqual([])
+  })
+
+  it("keeps importing a 2026.2 workbook without the «Tipo» column, with no errors", async () => {
+    const parsed = await parsePlantilla(await plantillaSinTipo(bufferValido))
+    expect(parsed.version).toBe(PLANTILLA_VERSION)
+    expect(parsed.encabezados.actividades).not.toContain("Tipo")
+    expect(validarPlantilla(parsed, contexto()).errores).toEqual([])
+  })
+
+  it("a 2026.2 workbook without «Tipo» still requires every objective (its activities are Normal)", async () => {
+    const parsed = await parsePlantilla(await plantillaSinTipo(bufferValido))
+    parsed.actividades[0].celdas["Código objetivo"].valor = null
+    expect(v06(parsed, contexto())).toMatchObject([{ regla: "V-06", fila: 2, columna: "B", valor: null }])
+  })
+
+  it("the e2e PO fixture (2026.2, no «Tipo») passes the structure and reference rules", async () => {
+    const fixture = path.resolve(__dirname, "../../../../e2e/fixtures/plantilla-po-ejemplo-importable.xlsx")
+    const parsed = await parsePlantilla(readFileSync(fixture))
+    expect(parsed.encabezados.actividades).not.toContain("Tipo")
+    expect(v01(parsed, contexto())).toEqual([])
+    expect(v06(parsed, contexto())).toEqual([])
   })
 })
 

@@ -7,7 +7,13 @@ import type { Prisma } from "@prisma/client";
 import { parsePlantilla } from "@/lib/proyectos/plantilla/parse";
 import { generarPlantilla } from "@/lib/proyectos/plantilla/generate";
 import { construirPlan } from "@/lib/proyectos/plantilla/mapear";
-import { F_X1_LINEAS, fixtureContextoFX1, fixtureF_X1 } from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
+import {
+  F_X1_LINEAS,
+  fixtureConTransversal,
+  fixtureContextoFX1,
+  fixtureF_X1,
+  plantillaSinTipo,
+} from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
 import { RespuestaAbortada } from "@/lib/api/presupuesto";
 import {
   LINEA_CON_GASTOS_MESSAGE,
@@ -249,6 +255,89 @@ describe("importarPlantilla budget lines (T11.3)", () => {
     expect(await respuesta.json()).toMatchObject({ error: LINEA_CON_GASTOS_MESSAGE, code: "CONFLICT" });
     expect(llamadas.some((l) => l.op === "programacionPeriodo.deleteMany" || l.op === "lineaPresupuestal.deleteMany")).toBe(false);
     expect(llamadas.some((l) => l.op === "auditoriaCambio.createMany")).toBe(false);
+  });
+});
+
+describe("importarPlantilla activity type (T13.8, S7)", () => {
+  type ActividadCreada = { id: string; codigo: string; tipo: string; objetivo_id: string | null };
+
+  async function importar(buffer: Buffer) {
+    const plan = construirPlan(await parsePlantilla(buffer), fixtureContextoFX1());
+    const { tx, llamadas } = grabadora();
+    await importarPlantilla(tx, { proyectoId: "p1", usuarioId: "u1", plan, loteId: "lote-1" });
+    const objetivos = datos<{ id: string; codigo: string }[]>(llamadas, "objetivo.createMany");
+    const actividades = datos<ActividadCreada[]>(llamadas, "actividad.createMany");
+    const lote = (llamadas.at(-1)?.args as { data: { entidad: string; entidad_id: string; valor_nuevo: Record<string, unknown> }[] }).data;
+    return { objetivos, actividades, lote };
+  }
+
+  it("writes the type, and no objective for a Transversal", async () => {
+    const { objetivos, actividades, lote } = await importar(await generarPlantilla(fixtureConTransversal()));
+    const oe1 = objetivos.find((o) => o.codigo === "OE1")!.id;
+
+    expect(actividades.map((a) => [a.codigo, a.tipo, a.objetivo_id])).toEqual([
+      ["1.1", "NORMAL", oe1],
+      ["1.2", "NORMAL", oe1],
+      ["1.3", "NORMAL", oe1],
+      ["1.4", "NORMAL", oe1],
+      ["G.1", "TRANSVERSAL", null],
+    ]);
+    const g1 = actividades.find((a) => a.codigo === "G.1")!;
+    expect(lote.find((c) => c.entidad === "actividad" && c.entidad_id === g1.id)?.valor_nuevo).toMatchObject({
+      tipo: "TRANSVERSAL",
+      objetivo_id: null,
+    });
+  });
+
+  it("writes every activity of a 2026.2 workbook without «Tipo» as Normal, on its objective", async () => {
+    const { objetivos, actividades } = await importar(await plantillaSinTipo(await generarPlantilla(fixtureF_X1("valido"))));
+    const oe1 = objetivos.find((o) => o.codigo === "OE1")!.id;
+    expect(actividades.map((a) => [a.codigo, a.tipo, a.objetivo_id])).toEqual([
+      ["1.1", "NORMAL", oe1],
+      ["1.2", "NORMAL", oe1],
+      ["1.3", "NORMAL", oe1],
+      ["1.4", "NORMAL", oe1],
+    ]);
+  });
+});
+
+describe("cargarPlantillaInput activity type (export, T13.8)", () => {
+  it("writes each activity's current type; a Transversal goes without objective", async () => {
+    const actividad = (codigo: string, tipo: string, objetivo: string | null) => ({
+      codigo,
+      nombre: codigo,
+      semana_inicio: 1,
+      semana_fin: 2,
+      tipo,
+      objetivo: objetivo === null ? null : { codigo: objetivo },
+      responsable: null,
+    });
+    const cliente = new Proxy({} as Record<string, unknown>, {
+      get: (_c, nombre: string) => ({
+        findFirst: async () => ({
+          codigo: "PRY-1",
+          fecha_inicio: new Date("2026-10-05T00:00:00.000Z"),
+          fecha_fin: new Date("2027-01-29T00:00:00.000Z"),
+          valor_total: null,
+          beneficiarios_meta: null,
+          cliente: { nombre: "Cliente" },
+          lineas: [],
+          municipios: [],
+        }),
+        findMany: async (args: { select?: Record<string, unknown> }) => {
+          if (nombre !== "actividad") return [];
+          expect(args.select).toMatchObject({ tipo: true });
+          return [actividad("1.1", "NORMAL", "OE1"), actividad("G.1", "TRANSVERSAL", null)];
+        },
+      }),
+    });
+
+    const input = await cargarPlantillaInput(cliente as never, "p1");
+
+    expect(input.estructura.actividades.map((a) => [a.codigo, a.objetivoCodigo, a.tipo])).toEqual([
+      ["1.1", "OE1", "NORMAL"],
+      ["G.1", "", "TRANSVERSAL"],
+    ]);
   });
 });
 

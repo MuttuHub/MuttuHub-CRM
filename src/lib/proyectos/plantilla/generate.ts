@@ -9,6 +9,7 @@
 import ExcelJS from "exceljs"
 import { randomUUID } from "node:crypto"
 import { type IsoDate } from "../weeks"
+import type { TipoActividad } from "../actividad"
 import {
   CATALOGOS,
   ENCABEZADO_PROYECTO,
@@ -18,6 +19,7 @@ import {
   MAX_FILAS_HOJA,
   NOMBRES_RANGO,
   PLANTILLA_VERSION,
+  TIPOS_ACTIVIDAD,
   UNIDADES_SUGERIDAS,
 } from "./columns"
 
@@ -25,11 +27,14 @@ type ObjetivoInput = { codigo: string; descripcion: string }
 
 type ActividadInput = {
   codigo: string
+  /** Empty on a Transversal activity: it has no objective. */
   objetivoCodigo: string
   nombre: string
   semanaInicio: number
   semanaFin: number
   responsable: string | null
+  /** T13.8 (S7): written in the «Tipo» column. */
+  tipo: TipoActividad
 }
 
 type EntregableInput = {
@@ -221,6 +226,7 @@ function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput
     ["3. Objetivos", "Descripción", "Fortalecer las capacidades productivas de las unidades textiles", "Qué logra el objetivo, en una frase."],
     ["4. Actividades", "Semana inicio / Semana fin", "1 / 4", "Semanas del proyecto (1 a la duración); inicio ≤ fin."],
     ["4. Actividades", "Responsable (correo)", "ana@muttu.co", "Usuario registrado; si no existe, se avisa y queda sin responsable."],
+    ["4. Actividades", "Tipo", "Normal / Transversal", "Normal lleva código objetivo. Transversal es trabajo de gestión: va en «Gestión del proyecto» y deja vacío el código objetivo."],
     ["5. Entregables", "Cantidad / Unidad", "4 / Acta", "Cuántos y en qué unidad se entrega (la unidad es libre)."],
     ["6. Indicadores", "Meta", "30", "Valor esperado del indicador (mayor que cero)."],
     ["7. Presupuesto", "Código de actividad / Rubro", "1.2 / R08 - Formación", "Una fila por actividad y rubro; una actividad puede llevar varios rubros."],
@@ -331,19 +337,21 @@ function escribirActividades(workbook: ExcelJS.Workbook, input: PlantillaInput):
       actividad.semanaInicio,
       actividad.semanaFin,
       actividad.responsable,
+      TIPOS_ACTIVIDAD[actividad.tipo],
     ])
   }
   pintarCabecera(hoja.getRow(1))
   pintarCuerpo(hoja)
   congelarCabecera(hoja)
-  anchos(hoja, [14, 16, 46, 14, 14, 32])
+  anchos(hoja, [14, 16, 46, 14, 14, 32, 14])
   ayudasDeCabecera(hoja, {
     A: "Código único de la actividad. Ejemplo: 1.1.",
-    B: "Debe existir en la hoja 3. Objetivos (desplegable). Ejemplo: O1.",
+    B: "Debe existir en la hoja 3. Objetivos (desplegable); vacío solo en una actividad transversal. Ejemplo: O1.",
     C: "Nombre de la actividad. Ejemplo: Caracterización de las unidades productivas.",
     D: "Semana del proyecto en la que inicia (1 a la duración). Ejemplo: 1.",
     E: "Semana en la que termina; debe ser mayor o igual a la inicial. Ejemplo: 4.",
     F: "Correo de un usuario registrado. Ejemplo: ana@muttu.co. Si no existe, la actividad queda sin responsable (aviso).",
+    G: "Normal o Transversal (desplegable); vacío es Normal. Una transversal va en «Gestión del proyecto» y no lleva código objetivo.",
   })
   return hoja
 }
@@ -507,10 +515,9 @@ function aplicarValidaciones(hojas: {
     formulae: [1],
   })
   addValidation(hojas.actividades, `G2:G${ultima}`, {
-    type: "decimal",
-    operator: "greaterThanOrEqual",
+    type: "list",
     allowBlank: true,
-    formulae: [0],
+    formulae: [`"${TIPOS_ACTIVIDAD.NORMAL},${TIPOS_ACTIVIDAD.TRANSVERSAL}"`],
   })
   addValidation(hojas.entregables, `B2:B${ultima}`, {
     type: "list",

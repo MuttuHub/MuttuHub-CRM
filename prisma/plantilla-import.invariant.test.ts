@@ -72,7 +72,12 @@ import { generarPlantilla, type PlantillaInput } from "@/lib/proyectos/plantilla
 import { parsePlantilla } from "@/lib/proyectos/plantilla/parse";
 import { construirPlan } from "@/lib/proyectos/plantilla/mapear";
 import { cargarContexto } from "@/lib/api/plantilla-import";
-import { F_X1_LINEAS, fixtureF_X1 } from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
+import {
+  F_X1_LINEAS,
+  fixtureConTransversal,
+  fixtureF_X1,
+  plantillaSinTipo,
+} from "@/lib/proyectos/__fixtures__/plantilla-cedetextil";
 
 const TX_OPTIONS = { timeout: 120_000, maxWait: 20_000 };
 const MARKER = "sdd-invariant-plantilla";
@@ -391,6 +396,74 @@ describe("template import (live DB)", () => {
       expect(reemplazo?.valor_nuevo).toEqual({ objetivos: 1, actividades: 4, entregables: 7, indicadores: 2 });
       expect(filas.filter((f) => f.entidad === "actividad")).toHaveLength(4);
       expect(await tx.auditoriaCambio.count({ where: { proyecto_id: ctx.proyecto.id, lote_id: { not: cuerpo.lote_id } } })).toBe(0);
+    });
+  });
+
+  // T13.8 (S7): the «Tipo» column. «En las transversales la propuesta sale pareja por mes, y el Gestor la ajusta.»
+  it("imports a Transversal activity with no objective and a proposal even by month; Normal ones keep their objective", async () => {
+    await runAndRollback(async (tx) => {
+      const ctx = await fixture(tx);
+      autenticar(ctx.gerente);
+      const input = ctx.input();
+      const transversal = fixtureConTransversal();
+      input.estructura.actividades.push({ ...transversal.estructura.actividades.at(-1)!, responsable: null });
+      input.estructura.entregables.push(transversal.estructura.entregables.at(-1)!);
+      input.presupuesto.push(transversal.presupuesto.at(-1)!);
+
+      const respuesta = await POST(...peticion(ctx.proyecto.id, await generarPlantilla(input)));
+      expect(respuesta.status).toBe(200);
+
+      const actividades = await tx.actividad.findMany({
+        where: { proyecto_id: ctx.proyecto.id, deleted_at: null },
+        include: { objetivo: true },
+        orderBy: { codigo: "asc" },
+      });
+      expect(actividades.map((a) => [a.codigo, a.tipo, a.objetivo?.codigo ?? null])).toEqual([
+        ["1.1", "NORMAL", "OE1"],
+        ["1.2", "NORMAL", "OE1"],
+        ["1.3", "NORMAL", "OE1"],
+        ["1.4", "NORMAL", "OE1"],
+        ["G.1", "TRANSVERSAL", null],
+      ]);
+
+      const g1 = (await lineasPorActividad(tx, ctx.proyecto.id)).get("G.1|R01")!;
+      const celdas = await tx.programacionPeriodo.findMany({ where: { linea_id: g1.id }, orderBy: { periodo: "asc" } });
+      expect(celdas.map((c) => [c.periodo, c.valor.toString()])).toEqual([
+        ["2026-10", "1000000"],
+        ["2026-11", "1000000"],
+        ["2026-12", "1000000"],
+        ["2027-01", "1000000"],
+      ]);
+    });
+  });
+
+  it("imports a 2026.2 workbook without «Tipo» exactly as before: every activity Normal on its objective", async () => {
+    await runAndRollback(async (tx) => {
+      const ctx = await fixture(tx);
+      autenticar(ctx.gerente);
+      const { valido } = await plantillas(ctx);
+
+      const respuesta = await POST(...peticion(ctx.proyecto.id, await plantillaSinTipo(valido)));
+      expect(respuesta.status).toBe(200);
+      expect((await respuesta.json()).resumen).toEqual({
+        objetivos: 1,
+        actividades: 4,
+        entregables: 7,
+        indicadores: 2,
+        rubros: 8,
+        celdas_programacion: 10,
+      });
+      const actividades = await tx.actividad.findMany({
+        where: { proyecto_id: ctx.proyecto.id, deleted_at: null },
+        include: { objetivo: true },
+        orderBy: { codigo: "asc" },
+      });
+      expect(actividades.map((a) => [a.codigo, a.tipo, a.objetivo?.codigo ?? null])).toEqual([
+        ["1.1", "NORMAL", "OE1"],
+        ["1.2", "NORMAL", "OE1"],
+        ["1.3", "NORMAL", "OE1"],
+        ["1.4", "NORMAL", "OE1"],
+      ]);
     });
   });
 

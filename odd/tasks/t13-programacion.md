@@ -57,7 +57,7 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | done | `278074c` |
-| T13.8 | S7 | Template «Tipo» column | inline | pending | |
+| T13.8 | S7 | Template «Tipo» column | delegated (writer, parallel with T13.5/T13.6, disjoint surfaces) | done | `c239152` |
 | T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
 
 Route evidence: one agent, sequential units sharing `presupuesto.ts`/`hooks/projects.ts` → no Writer trigger; inline.
@@ -111,3 +111,7 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   (`odd/tasks/t14-revision-migracion.md`, `45ba544`): six points verified on a seeded disposable DB. Cross-lane debt:
   once T14.2-B writes multi-line repartos, the three «line has expenses» checks of lane A (budget PUT A3,
   plantilla-import, borrarPresupuestoDeActividad) must count `gastos_reparto` — lane A does it when lane B reaches main.
+- **L12** T13.8 `c239152` by a delegated writer (Writer trigger: two parallel units with disjoint surfaces, plus the
+  long-session backstop). «Tipo» is column G; PLANTILLA_VERSION stays 2026.2 and a workbook without «Tipo» imports as
+  before; a transversal has no objective and is proposed evenly by month. Parent spot check: plantilla,
+  plantilla-import, programacion-propuesta 159/159. T13.5 + T13.6 still with the second writer.

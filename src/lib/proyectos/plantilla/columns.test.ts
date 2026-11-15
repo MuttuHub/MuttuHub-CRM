@@ -2,11 +2,13 @@
 import { describe, expect, it } from "vitest"
 import {
   ENCABEZADOS,
+  ENCABEZADOS_ANTERIORES,
   HOJAS,
   IMPORT_MAX_BYTES,
   MAX_ERRORES,
   MAX_FILAS_HOJA,
   PLANTILLA_VERSION,
+  TIPOS_ACTIVIDAD,
   UNIDADES_SUGERIDAS,
 } from "./columns"
 
@@ -39,6 +41,8 @@ describe("plantilla columns", () => {
         "Semana inicio",
         "Semana fin",
         "Responsable (correo)",
+        // T13.8 (S7): Normal or Transversal.
+        "Tipo",
       ],
       // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" nor the indicator "Unidad".
       entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad"],
@@ -46,6 +50,19 @@ describe("plantilla columns", () => {
       // S3: «columnas Código de actividad, Rubro y Valor».
       presupuesto: ["Código de actividad", "Rubro", "Valor"],
     })
+  })
+
+  it("still accepts the 2026.2 activities sheet without «Tipo», without bumping the version (T13.8)", () => {
+    expect(PLANTILLA_VERSION).toBe("2026.2")
+    expect(ENCABEZADOS_ANTERIORES.actividades).toContainEqual([
+      "Código",
+      "Código objetivo",
+      "Nombre",
+      "Semana inicio",
+      "Semana fin",
+      "Responsable (correo)",
+    ])
+    expect(TIPOS_ACTIVIDAD).toEqual({ NORMAL: "Normal", TRANSVERSAL: "Transversal" })
   })
 
   it("caps the import at 4 MB, the rows at 1000 and the errors at 500", () => {
