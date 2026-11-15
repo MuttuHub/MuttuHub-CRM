@@ -323,6 +323,8 @@ en ese estado.
 - La **ficha financiera**: presupuesto asignado, programado y ejecutado por rubro.
 - La comparación contra la **base original (v0)** cuando la línea base está aprobada.
 - Filtros **Calcular hasta** y **Comparar con** (**Plan actual** o **Plan inicial**) para ver la foto de una fecha.
+- **Cambios del periodo** (solo Administrador y Gerencia): los gastos corregidos y anulados durante el mes elegido
+  (por defecto, el actual), cada uno con su motivo y, en **Ver detalle**, cada campo con su valor antes y después.
 
 **Gastos**
 

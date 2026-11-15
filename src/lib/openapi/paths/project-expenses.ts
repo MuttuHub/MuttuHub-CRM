@@ -512,3 +512,36 @@ registry.registerPath({
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
+
+const CambioGastoSchema = z.object({
+  id: z.string(),
+  accion: z.enum(["EDITAR", "ANULAR"]),
+  fecha: z.string(),
+  usuario_nombre: z.string().nullable(),
+  motivo: z.string().nullable(),
+  gasto: z
+    .object({ id: z.string(), numero_documento: z.string(), tercero_nombre: z.string(), estado: z.string() })
+    .nullable(),
+  detalle: z.array(z.object({ campo: z.string(), antes: z.unknown(), despues: z.unknown() })),
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/expense-changes",
+  tags: ["Projects"],
+  summary: "Gastos editados y anulados en un periodo, con su detalle y motivo (T7)",
+  description:
+    "Resumen de cambios del periodo para la Gerencia (AJ-08): una entrada por corrección (los campos que cambió y su motivo) " +
+    "y una por anulación (con su motivo), hechas durante ese mes calendario en Bogotá, en el orden en que ocurrieron. Solo " +
+    "ADMINISTRADOR y GERENCIA (403 para otro rol). `periodo` es obligatorio, como AAAA-MM; si falta o no tiene ese formato " +
+    "responde 400 «Indica el periodo como AAAA-MM.».",
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectParams, query: z.object({ periodo: z.string() }) },
+  responses: {
+    200: {
+      description: "Cambios del periodo.",
+      content: { "application/json": { schema: z.object({ periodo: z.string(), cambios: z.array(CambioGastoSchema) }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});

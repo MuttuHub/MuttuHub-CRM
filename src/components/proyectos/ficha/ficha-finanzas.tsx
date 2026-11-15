@@ -4,6 +4,7 @@
 // igual que las pestañas de la ficha. El segmento activo es controlado: «Ver todos los gastos» del Resumen cambia a
 // Gastos, y la cabecera puede abrir Finanzas directo en Gastos con el formulario «Registrar gasto» abierto.
 // S10: el Resumen lleva el selector «Por actividad / Por rubro» (su propio componente, que monta una u otra vista).
+// T7: debajo, «Cambios del periodo» (gastos editados y anulados con su detalle y motivo), solo para la Gerencia.
 // AJ-09: junto al segmentado, «Solicitar traslado» abre el formulario simple de traslado entre rubros para
 // quien puede solicitar una modificación (gestores e integrantes del equipo, con el proyecto en ejecución).
 
@@ -11,6 +12,7 @@
 
 import { useState } from "react";
 import { ArrowLeftRight } from "lucide-react";
+import { CambiosDelPeriodo } from "@/components/proyectos/ficha/finanzas/cambios-del-periodo";
 import { VistasFinancieras } from "@/components/proyectos/ficha/finanzas/vistas-financieras";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { usePuedeSolicitarModificacion } from "@/components/proyectos/project-modificaciones";
@@ -93,6 +95,7 @@ export function FichaFinanzas({
           onVerActividades={onVerActividades}
           onVerGastos={() => setSegmento("gastos")}
         />
+        <CambiosDelPeriodo proyecto={proyecto} />
       </TabsContent>
 
       <TabsContent value="gastos" className={PANEL_CLASS}>

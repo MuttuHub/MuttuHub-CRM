@@ -371,6 +371,35 @@ export function useProject(id: string): UseQueryResult<ProjectListRow> {
  * tras crear o convertir un proyecto también lo refresca. `enabled` repite el
  * guard de `useProject`: con un id vacío no se dispara la petición.
  */
+/** T7: one edited or annulled expense of the period, as `GET /projects/:id/expense-changes` answers it. */
+export type CambioGasto = {
+  id: string;
+  accion: "EDITAR" | "ANULAR";
+  fecha: string;
+  usuario_nombre: string | null;
+  motivo: string | null;
+  gasto: { id: string; numero_documento: string; tercero_nombre: string; estado: string } | null;
+  detalle: { campo: string; antes: unknown; despues: unknown }[];
+};
+
+/**
+ * T7: the period's edited and annulled expenses, for the Gerente. Keyed under the audit key, so every expense
+ * mutation (which already invalidates `["projects", "audit", id]`) refreshes it too. `enabled` lets the caller skip
+ * the request for a role the API would answer with a 403.
+ */
+export function useProjectExpenseChanges(id: string, periodo: string, enabled = true): UseQueryResult<CambioGasto[]> {
+  return useQuery({
+    queryKey: [...projectQueryKeys.audit(id), "expense-changes", periodo],
+    enabled: enabled && id !== "" && periodo !== "",
+    queryFn: async () => {
+      const res = await apiGet<{ cambios: CambioGasto[] }>(
+        `/api/v1/projects/${id}/expense-changes?periodo=${encodeURIComponent(periodo)}`,
+      );
+      return res.cambios;
+    },
+  });
+}
+
 export function useProjectAudit(id: string): UseQueryResult<ProjectAuditEntry[]> {
   return useQuery({
     queryKey: projectQueryKeys.audit(id),

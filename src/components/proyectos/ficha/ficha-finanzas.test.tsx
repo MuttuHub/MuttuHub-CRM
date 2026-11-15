@@ -21,6 +21,9 @@ vi.mock("@/components/proyectos/project-gastos", () => ({
     <div data-testid="segmento-gastos" />
   ),
 }))
+vi.mock("@/components/proyectos/ficha/finanzas/cambios-del-periodo", () => ({
+  CambiosDelPeriodo: () => <div data-testid="cambios-del-periodo" />,
+}))
 vi.mock("@/components/proyectos/project-presupuesto", () => ({
   ProjectPresupuesto: () => <div data-testid="segmento-presupuesto" />,
 }))
@@ -115,6 +118,15 @@ describe("FichaFinanzas", () => {
     gastos.consulta = { data: undefined, isSuccess: false, isError: true }
     render(<FichaFinanzas proyecto={PROYECTO} />)
     expect(screen.getByRole("tab", { name: "Gastos" })).toBeInTheDocument()
+  })
+
+  // T7: the period's edited and annulled expenses sit in the Resumen, under the financial views.
+  it("shows the period changes in the Resumen and nowhere else (T7)", async () => {
+    const user = userEvent.setup()
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.getByTestId("cambios-del-periodo")).toBeInTheDocument()
+    await user.click(tab(/^Gastos/))
+    expect(screen.queryByTestId("cambios-del-periodo")).not.toBeInTheDocument()
   })
 
   it("opens on Resumen for a project that is not BORRADOR and mounts only that segment", () => {

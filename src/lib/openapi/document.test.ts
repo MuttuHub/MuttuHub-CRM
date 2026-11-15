@@ -279,6 +279,11 @@ describe("buildOpenApiDocument", () => {
       codes(paths["/api/v1/projects/{id}/expenses/{expenseId}/attachments/{attachmentId}/download"]?.get),
     ).toEqual(expect.arrayContaining(["200", "401", "403", "404", "500"]))
   })
+  it("registers the T7 period expense changes read for the Gerente", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const op = paths["/api/v1/projects/{id}/expense-changes"]?.get
+    expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "500"]))
+  })
   it("registers the S7 template download and import operations", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
