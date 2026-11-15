@@ -12,9 +12,19 @@ vi.mock("@/lib/settings", () => ({ getSemaforoParametrosV2: vi.fn(async () => mo
 
 import { evaluarSolicitud, loadEjecutadoPorLinea } from "./modificaciones";
 
-const gasto = (codigo: string | null, monto: string, actividad: string | null = null) => ({
+const lineaDe = (codigo: string | null, actividad: string | null = null) => ({
+  rubro: { codigo },
+  actividad: actividad === null ? null : { codigo: actividad },
+});
+const gasto = (
+  codigo: string | null,
+  monto: string,
+  actividad: string | null = null,
+  repartos: { valor: string; linea: ReturnType<typeof lineaDe> }[] = [],
+) => ({
   monto_cop: monto,
-  linea: { rubro: { codigo }, actividad: actividad === null ? null : { codigo: actividad } },
+  linea: lineaDe(codigo, actividad),
+  repartos,
 });
 const cliente = (gastos: unknown[], rubros: unknown[] = []) =>
   ({
@@ -41,6 +51,16 @@ describe("loadEjecutadoPorLinea", () => {
   it("keys an activity line by ACT|RUBRO, so two lines of one rubro add up apart (T13 S5)", async () => {
     const total = await loadEjecutadoPorLinea(cliente([gasto("R12", "100", "1.1"), gasto("R12", "40", "1.2"), gasto("R12", "1", "1.1")]), "pry-1");
     expect(Object.fromEntries(total)).toEqual({ "1.1|R12": BigInt(10100), "1.2|R12": BigInt(4000) });
+  });
+
+  // T14 cross-lane debt: a split invoice is executed row by row, never whole on its header's line.
+  it("puts each row of a split invoice on its own line and keeps a gasto without rows on its header (S9)", async () => {
+    const repartida = gasto("R12", "1000000", "1.2", [
+      { valor: "350000", linea: lineaDe("R12", "1.2") },
+      { valor: "650000", linea: lineaDe("R12", "1.3") },
+    ]);
+    const total = await loadEjecutadoPorLinea(cliente([repartida, gasto("R12", "10", "1.2")]), "pry-1");
+    expect(Object.fromEntries(total)).toEqual({ "1.2|R12": BigInt(35001000), "1.3|R12": BigInt(65000000) });
   });
 
   it("reads REGISTRADO and VALIDADO: a registered expense already counts as executed (AJ-08)", async () => {

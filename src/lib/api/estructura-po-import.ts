@@ -26,6 +26,7 @@ import { fromCents, sumCents, toCents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { durationWeeks } from "@/lib/proyectos/weeks";
 import type { PlanEstructuraPO } from "@/lib/proyectos/estructura-po/parse";
+import { lineasTienenGastos } from "./lineas-con-gastos";
 
 export type ResumenEstructuraPO = { objetivos: number; actividades: number; entregables: number; indicadores: number };
 
@@ -128,7 +129,7 @@ async function reubicarPresupuesto(
   if (quitadas.length === 0) return;
 
   const ids = quitadas.map((linea) => linea.id);
-  if ((await tx.gasto.count({ where: { proyecto_id: id, linea_id: { in: ids } } })) > 0) {
+  if (await lineasTienenGastos(tx, id, ids)) {
     throw new RespuestaAbortada(apiError(LINEA_CON_GASTOS_MESSAGE, 409, "CONFLICT"));
   }
   await tx.programacionPeriodo.deleteMany({ where: { proyecto_id: id, linea_id: { in: ids } } });

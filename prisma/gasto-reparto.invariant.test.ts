@@ -21,6 +21,11 @@ import type { LineaGasto } from "@/lib/api/gastos"
 import { ENCABEZADOS_GASTOS, parseGastosImport, type ContextoImportGastos } from "@/lib/proyectos/gastos-import/parse"
 import { aplicarGastosImport } from "@/lib/proyectos/gastos-import/server"
 import { toCents } from "@/lib/proyectos/money"
+import { RespuestaAbortada } from "@/lib/api/errors"
+import { lineasTienenGastos } from "@/lib/api/lineas-con-gastos"
+import { loadEjecutadoPorLinea } from "@/lib/api/modificaciones"
+import { borrarPresupuestoDeActividad } from "@/lib/api/presupuesto"
+import { claveLineaDe } from "@/lib/proyectos/modificaciones"
 
 const TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 }
 
@@ -382,5 +387,63 @@ describe("GastoReparto invariants (live DB)", () => {
       [expect.any(String), "650000"],
     ])
     expect(result).toMatchObject({ sinReparto: 0, sumaNoCuadra: 0, lineaHuerfana: 0, fueraDelProyecto: 0, huerfanas: 0 })
+  })
+})
+
+// Cross-lane debt of T14 (plan §14, row 6): the readers lane A wrote before `gastos_reparto` existed. A line whose
+// only expense is a non-first row of a split invoice must still count as «has expenses» and as executed.
+describe("Readers of a line's expenses count the distribution rows (live DB, T14 cross-lane debt)", () => {
+  async function facturaRepartida(tx: Tx) {
+    const base = await fixture(tx)
+    const gasto = await tx.gasto.create({
+      data: { ...base.datos, subtotal_cop: 1_000_000, iva_cop: 0, monto_cop: 1_000_000 },
+    })
+    await tx.gastoReparto.createMany({
+      data: [
+        { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: base.linea1.id, valor: 350_000 },
+        { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: base.linea2.id, valor: 650_000 },
+      ],
+    })
+    return base
+  }
+
+  it("answers 409 when deleting an activity whose line holds only the second row of a split invoice", async () => {
+    let status: number | null = null
+    const error = await captureError(async (tx) => {
+      const { proyecto, actividad2, usuario } = await facturaRepartida(tx)
+      await borrarPresupuestoDeActividad(tx, {
+        proyectoId: proyecto.id,
+        actividadId: actividad2.id,
+        usuarioId: usuario.id,
+      })
+    })
+    if (error instanceof RespuestaAbortada) status = error.response.status
+    expect(driverMessage(error)).not.toMatch(/foreign key/i)
+    expect(status).toBe(409)
+  })
+
+  it("reports a line as having expenses when only a distribution row points at it", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { proyecto, linea1, linea2, lineaOtro } = await facturaRepartida(tx)
+      return {
+        cabecera: await lineasTienenGastos(tx, proyecto.id, [linea1.id]),
+        soloFila: await lineasTienenGastos(tx, proyecto.id, [linea2.id]),
+        ajena: await lineasTienenGastos(tx, proyecto.id, [lineaOtro.id]),
+        ninguna: await lineasTienenGastos(tx, proyecto.id, []),
+      }
+    })
+    expect(result).toEqual({ cabecera: true, soloFila: true, ajena: false, ninguna: false })
+  })
+
+  it("puts 350.000 executed on 1.2 and 650.000 on 1.3, never 1.000.000 on the header's line", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { proyecto, rubro } = await facturaRepartida(tx)
+      const ejecutado = await loadEjecutadoPorLinea(tx, proyecto.id)
+      return {
+        l12: ejecutado.get(claveLineaDe(rubro.codigo, "1.2") as string),
+        l13: ejecutado.get(claveLineaDe(rubro.codigo, "1.3") as string),
+      }
+    })
+    expect(result).toEqual({ l12: toCents("350000"), l13: toCents("650000") })
   })
 })

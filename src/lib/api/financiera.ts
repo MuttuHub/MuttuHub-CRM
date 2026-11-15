@@ -34,9 +34,9 @@ export type GastosFuente = {
 
 // S9/T14.2-B1: una fila por línea del reparto, no la factura entera en la línea de su cabecera. Las facturas de
 // una sola fila (todas las anteriores al reparto y las que siguen llegando sin `repartos`) producen exactamente
-// lo mismo que antes. Un gasto sin filas de reparto —la importación de Excel y los seeds escriben así— sigue
-// contando su total en la línea de su cabecera, como siempre, para que E no pierda un peso mientras ese escritor
-// se migra (T14.3). Una sola consulta: la ficha no paga un viaje extra por el reparto.
+// lo mismo que antes. Todo escritor (la API, la importación de Excel y el seed) graba ya sus filas; un gasto sin
+// filas de reparto —solo un dato viejo o un script que escriba a mano— sigue contando su total en la línea de su
+// cabecera, para que E no pierda un peso. Una sola consulta: la ficha no paga un viaje extra por el reparto.
 export async function loadGastosEjecutados(
   proyectoId: string,
   client: Pick<Prisma.TransactionClient, "gasto"> = db,
