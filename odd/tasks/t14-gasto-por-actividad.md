@@ -54,7 +54,7 @@ Bitácora de la rebanada: reportes, evidencia y decisiones. Specs textuales de l
 |---|---|---|---|---|---|
 | T14.1 | S9 | El formulario elige Objetivo → Actividad → Rubro y guarda el `linea_id` exacto (sin schema) | delegated (writer) | done | `466abb0` |
 | T14.2A | S9 | Schema y migración del reparto (riesgo 1) con reporte de seis puntos | delegated (writer) | done | `45e98f7` |
-| T14.2B | S9 | API y UI del reparto: suma = total, `DROP NOT NULL` y reescritura de lectores | pending | **espera la revisión de Claude** | — |
+| T14.2B | S9 | API y UI del reparto: suma = total, `DROP NOT NULL` y reescritura de lectores | delegated (writer) | en curso | — |
 | T14.3 | S9 | Importación con «Código de actividad», agrupación por documento y umbral de duplicados en tres capas | inline | pending | — |
 | T14.4A | S10 | Vistas por actividad, lado servidor: costura con `actividadId` y `actividades` con detalle por rubro | delegated (writer) | done | `1a9c4fa` |
 | T14.4B | S10 | Selector «Por actividad / Por rubro» en Finanzas y árbol de detalle | delegated (writer) | done | `1f85a18` |
@@ -330,3 +330,47 @@ Las dos van en el reporte de 2-B para que Claude ajuste el ejecutado y «la lín
 --noEmit` **exit 0**, `npx prisma migrate deploy` → `47 migrations found`, `No pending migrations to apply`, y `npx
 vitest run prisma --no-file-parallelism` → **37 archivos / 275 tests** en verde sobre `localhost:55433`. El árbol de T13
 quedó incorporado sin una sola intervención manual.
+
+---
+
+### Rebanada 2-B1 (T14.2-B1) — la factura distribuida en el servidor
+
+**L37** Commit `f649a65891dc485c146c24f9af1c4800b364211d` — `feat(gastos): record a distributed invoice on the server
+(S9, T14.2b1)`. 10 archivos, +1191 / −61. Contrato: `POST`/`PATCH` aceptan `repartos?: [{ linea_id, valor }]`
+(min 1), **exclusivo** con `rubro_id`/`linea_id`; la suma se compara en centavos contra el total (subtotal + IVA); cada
+línea debe ser del proyecto y con valor asignado; cabecera y filas en una sola transacción; `gastos.linea_id` = la
+línea del primer reparto. Sin `repartos` el gasto recibe **una** fila con su total, así que los llamadores viejos
+siguen igual y toda factura suma.
+
+**L38** **Lo que Claude necesita** (su aviso 2 de la revisión): «`gastos.linea_id` de una factura repartida = la línea
+del primer reparto, el primero que envió el cliente; la columna se queda NOT NULL para siempre y todo gasto creado por
+la API tiene al menos una fila en `gastos_reparto` —una sola con el total cuando el cuerpo no trae `repartos`—, así
+que las tres comprobaciones del carril A tienen que contar `gastos_reparto` cuando esta rama entre.»
+
+**L39** Cobertura con sus tests: criterio del $990.000 → `evaluarRepartos > does not save a distribution of 990.000 for a
+1.000.000 invoice (S9)`, `POST … > does not save a distribution of 990.000 … and writes nothing (S9)`, `PATCH … >
+rejects a distribution that does not sum the new total and writes nothing (S9)`; criterio de los $350.000/$650.000 →
+`saves 350.000 on activity 1.2 and 650.000 on 1.3 as one invoice, header on the first row's line (S9)` y `GET expenses
+> shows a distributed invoice as one document with its two rows (S9)`; mezcla rubro+repartos rechazada sin escribir;
+línea ajena o sin asignado rechazada sin escribir; cuerpo viejo sin `repartos` intacto (y sus 41 tests de POST y 29 de
+PATCH previos siguen verdes); ejecutado por fila → `loadGastosEjecutados > attributes each row to its own line: 350.000
+on 1.2 and 650.000 on 1.3, never 1.000.000 on the header's line (S9)` más el de regresión de la factura de una fila;
+duplicados → `keeps the duplicate control on the invoice, not on its rows (S9)`; sobregasto por fila → `checks the
+overspend against each row's own line and assigned amount (S9)`.
+
+**L40** Verificación propia: `tsc` 0, **244 tests** en las suites del reparto (13 archivos), **75** en los consumidores
+de la costura, **275** invariantes, y `knip`/`eslint` limpios. El worker corrió además una **prueba diferencial** contra
+el árbol base (`git archive` en un temporal): 8 archivos / 145 tests idénticos a los dos lados — sin diferencia no
+pedida en endpoints hermanos ni en el documento OpenAPI. El temporal se borró.
+
+**L41** Riesgo: **`Risk: none`** con dos huecos nombrados, ninguno corregible en esta rebanada:
+
+1. **Aviso de sobregasto.** La *comprobación* por fila está hecha, pero la aritmética previa del aviso
+   (`superaAsignado`, `nivelSobregasto`, `cargarSobregastos` de la importación) sigue agregando `gastos.linea_id` y
+   `monto_cop`, así que una línea que solo recibe dinero por una fila posterior de una factura repartida no lo cuenta
+   para el aviso. La ficha financiera sí lo cuenta. **Requisito para 2-B2:** antes de que la pantalla permita repartir,
+   el aviso tiene que agregar los repartos; si no, el hueco se vuelve visible al usuario.
+2. **Invariante global vs. semillas.** `prisma/gasto-reparto.invariant.test.ts` audita `sinReparto = 0` sobre toda la
+tabla, y la importación y los seeds escriben gastos sin filas. Comprobé en `.github/workflows/ci.yml` que el job de
+   invariantes (línea 74) **no** siembra —las semillas viven en el job de Playwright, línea 138— así que CI no falla
+   hoy. Cuando T14.3 escriba repartos en esos caminos hay que restaurar la auditoría estricta (tarea aparte).
