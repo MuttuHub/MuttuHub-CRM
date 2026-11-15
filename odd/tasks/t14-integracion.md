@@ -28,7 +28,7 @@ after fixing the review findings and the cross-lane debt. Branch: `t14-lineal`. 
 | I3 | S5 | inline | done | `1d93e94` |
 | I4 | S6 | inline | done | `34e69dc` |
 | I5 | S2 | inline | done | `b7c0d49` |
-| I6 | S7 | inline | done: approved, help text in the import dialog | (next commit) |
+| I6 | S7 | inline | done: approved, help text in the import dialog | `2e56586` |
 | I7 | S1 | inline | PRs open, waiting for the human merge | #196–#204 |
 
 ## Log
