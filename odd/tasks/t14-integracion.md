@@ -29,7 +29,7 @@ after fixing the review findings and the cross-lane debt. Branch: `t14-lineal`. 
 | I4 | S6 | inline | done | `34e69dc` |
 | I5 | S2 | inline | done | `b7c0d49` |
 | I6 | S7 | — | waiting for the user's decision | |
-| I7 | S1 | inline | pending (after I1–I5) | |
+| I7 | S1 | inline | PRs open, waiting for the human merge | #196–#204 |
 
 ## Log
 
@@ -57,3 +57,8 @@ after fixing the review findings and the cross-lane debt. Branch: `t14-lineal`. 
   writers comment in `financiera.ts`, refreshed. Still open: L49 (5) the import preview does not show `actividad`.
 - **L6** Full battery on `t14-lineal` after I1–I5: tsc 0, eslint 0, knip 0, 5150 unit tests (414 files) and 280
   live-DB invariants (37 files) green on muttu-hub local.
+- **L7** Chain opened, stacked to main, merge in order: #196 T14.1, #197 T14.2-A (migration), #198 T14.4-A,
+  #199 T14.4-B, #200 T14.2-B1, #201 T14.2-B2, #202 T14.3, #203 review fixes + S10 debts, #204 cross-lane debt.
+  Unit CI green on #196 and #204; e2e failed on both in `ficha-ejecucion.spec.ts` «Registrar avance…»: a date bomb
+  (seed activity 1.4 became overdue on 2026-11-15, its deliverables open by themselves). Fixed apart in #205
+  (test only, CI green) — merge it first; then each chain branch takes main and its e2e reruns.
