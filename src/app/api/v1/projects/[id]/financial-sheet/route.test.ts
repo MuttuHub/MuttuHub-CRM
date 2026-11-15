@@ -444,10 +444,24 @@ describe("GET financial-sheet: por actividad (S10)", () => {
       "umbral_rojo",
       "color",
       "saldo",
+      // S11/T14.5-B: el cierre de la actividad y lo que deriva de él.
+      "cerrada",
+      "cerrada_at",
+      "nota_cierre",
+      "ahorro",
+      "sobreejecucion",
       "rubros",
     ]);
     // 59.500.000 asignados menos 27.000.000 ejecutados.
-    expect(body.actividades[0]).toMatchObject({ asignado: "59500000.00", ejecutado: "27000000.00", saldo: "32500000.00" });
+    expect(body.actividades[0]).toMatchObject({
+      asignado: "59500000.00",
+      ejecutado: "27000000.00",
+      saldo: "32500000.00",
+      // Abierta: el ahorro no existe todavía, aunque haya sobrado (S11).
+      cerrada: false,
+      ahorro: null,
+      sobreejecucion: null,
+    });
   });
 
   it("cada actividad publica su detalle por rubro (S10)", async () => {
