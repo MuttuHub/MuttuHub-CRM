@@ -28,7 +28,7 @@ after fixing the review findings and the cross-lane debt. Branch: `t14-lineal`. 
 | I3 | S5 | inline | done | `1d93e94` |
 | I4 | S6 | inline | done | `34e69dc` |
 | I5 | S2 | inline | done | `b7c0d49` |
-| I6 | S7 | — | waiting for the user's decision | |
+| I6 | S7 | inline | done: approved, help text in the import dialog | (next commit) |
 | I7 | S1 | inline | PRs open, waiting for the human merge | #196–#204 |
 
 ## Log
@@ -62,3 +62,6 @@ after fixing the review findings and the cross-lane debt. Branch: `t14-lineal`. 
   Unit CI green on #196 and #204; e2e failed on both in `ficha-ejecucion.spec.ts` «Registrar avance…»: a date bomb
   (seed activity 1.4 became overdue on 2026-11-15, its deliverables open by themselves). Fixed apart in #205
   (test only, CI green) — merge it first; then each chain branch takes main and its e2e reruns.
+- **L8** (2026-11-15) User on L47: «dale apruebalo, con tal que cumpla los criterios de aceptacion, terminemos esos
+  pendientes ya». «Total» = document total, in the first row of a multi-row invoice, as lane B built it; the import
+  dialog now says so («su «Total» es el de la factura completa y va en la primera fila»).

@@ -107,6 +107,8 @@ describe("GastosImportDialog", () => {
   it("opens from the trigger, says the supports come apart and keeps Validar disabled without a file", async () => {
     const { dialogo } = await abrir()
     expect(within(dialogo).getByText(/soporte/i)).toBeInTheDocument()
+    // T14 (L47, approved 2026-11-15): the «Total» of a distributed invoice is the document's, in its first row.
+    expect(within(dialogo).getByText(/su «Total» es el de la factura completa y va en la primera fila/)).toBeInTheDocument()
     expect(within(dialogo).getByRole("button", { name: "Validar" })).toBeDisabled()
     expect(fetchMock).not.toHaveBeenCalled()
   })
