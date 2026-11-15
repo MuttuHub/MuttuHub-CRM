@@ -251,7 +251,7 @@ function ProgramacionGrid({
                       size="sm"
                       aria-expanded={abierto}
                       onClick={() => alternar(grupo.clave)}
-                      className="h-7 px-1.5 font-semibold text-ink-800"
+                      className="px-1.5 font-semibold text-ink-800"
                     >
                       {abierto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                       {grupo.titulo}
