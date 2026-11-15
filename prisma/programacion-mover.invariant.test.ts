@@ -222,6 +222,26 @@ describe("moverProgramacion (T13 S4, live DB)", () => {
     expect(r.auditoria).toBe(0)
   })
 
+  it("«Solo se pueden mover valores del mes en curso hacia meses futuros, o entre meses futuros»: never into the current month", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const f = await proyecto(tx)
+      const respuesta = await aborto(mover(tx, f, { origen: "2030-12", destino: "2030-11" }))
+      return {
+        status: respuesta.status,
+        json: await respuesta.json(),
+        despues: await estado(tx, f),
+        auditoria: await tx.auditoriaCambio.count({ where: { proyecto_id: f.proyecto.id, entidad: "programacion" } }),
+      }
+    })
+    expect(r.status).toBe(400)
+    expect(r.json).toEqual({
+      error: "El mes de destino debe ser un mes futuro: solo se mueven valores del mes en curso hacia meses futuros, o entre meses futuros.",
+      code: "VALIDATION_ERROR",
+    })
+    expect(r.despues).toEqual(ANTES)
+    expect(r.auditoria).toBe(0)
+  })
+
   it("refuses the same month, a value above what the origin month has, a zero value, a month outside the project and a line of another project", async () => {
     const r = await runAndRollback(async (tx) => {
       const f = await proyecto(tx)

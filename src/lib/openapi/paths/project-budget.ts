@@ -190,6 +190,7 @@ registry.registerPath({
     "futuros: los meses cerrados no se modifican, para no cambiar los semáforos pasados. Escribe la programación vigente (la " +
     "línea base no cambia) y registra en auditoría una fila `programacion` (campo `mover`) con la línea, los meses de origen y " +
     "destino con sus valores antes y después, el valor, el usuario y la fecha. 400 VALIDATION_ERROR: mismo mes, mes cerrado, " +
+    "el mes en curso como destino, " +
     "mes fuera del proyecto, valor mayor que lo programado en el origen o línea de otro proyecto. 409 INVALID_STATE fuera de " +
     "En ejecución (en Borrador se usa el PUT de la programación).",
   security: [{ sessionCookie: [] }],

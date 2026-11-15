@@ -103,7 +103,8 @@ function MoverValor({ proyectoId, data }: { proyectoId: string; data: ProjectPro
   const [origen, setOrigen] = useState("");
   const [destino, setDestino] = useState("");
   const [valor, setValor] = useState("");
-  const abiertos = periodosAbiertos(data.periodos, periodOf(todayInBogota()));
+  const mesEnCurso = periodOf(todayInBogota());
+  const abiertos = periodosAbiertos(data.periodos, mesEnCurso);
   const monto = valor.trim() === "" ? null : parseMontoInput(valor);
   const listo = linea !== "" && origen !== "" && destino !== "" && monto !== null && toCents(monto) > toCents("0");
 
@@ -151,7 +152,8 @@ function MoverValor({ proyectoId, data }: { proyectoId: string; data: ProjectPro
           Mes de destino
           <select aria-label="Mes de destino" value={destino} onChange={(event) => setDestino(event.target.value)} className={SELECT_CLASS}>
             <option value="">Elige un mes</option>
-            {abiertos.filter((periodo) => periodo !== origen).map((periodo) => (
+            {/* «… del mes en curso hacia meses futuros, o entre meses futuros»: the destination is always a future month. */}
+            {abiertos.filter((periodo) => periodo !== origen && periodo > mesEnCurso).map((periodo) => (
               <option key={periodo} value={periodo}>{mesLegible(periodo)}</option>
             ))}
           </select>

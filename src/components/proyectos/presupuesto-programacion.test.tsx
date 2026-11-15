@@ -337,6 +337,17 @@ describe("PresupuestoProgramacion", () => {
     })
     afterEach(() => vi.useRealTimers())
 
+    it("«… del mes en curso hacia meses futuros, o entre meses futuros»: the current month is never a destination", async () => {
+      const user = userEvent.setup()
+      enEjecucion()
+
+      const form = await screen.findByTestId("programacion-mover")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Línea" }), "lt")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de origen" }), "2026-12")
+      const destino = within(form).getByRole("combobox", { name: "Mes de destino" })
+      expect(within(destino).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([""])
+    })
+
     it("«El Gestor pasa $2.000.000 de Transporte de noviembre a diciembre en una actividad, sin aprobación»", async () => {
       const user = userEvent.setup()
       enEjecucion()

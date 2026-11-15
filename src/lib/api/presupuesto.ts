@@ -616,7 +616,8 @@ const moverInvalido = (message: string): never => {
  * la línea no cambie.» Runs in the caller's transaction under the project lock (the same row the modification
  * approval and the baseline take), re-checking EN_EJECUCION there. It writes the live `programacion_periodos`
  * (the semáforos and the curve read them); the approved versions stay as they are. A closed month (before
- * `periodoActual`) is neither origin nor destination, so past semáforos never change. One audit row in its own
+ * `periodoActual`) is neither origin nor destination, so past semáforos never change, and the current month is only an
+ * origin (the destination is always a future month). One audit row in its own
  * lote records the line, both months with their values before and after, and the value moved; who and when are
  * the row's own `usuario_id` and `created_at`.
  */
@@ -641,6 +642,13 @@ export async function moverProgramacion(
     if (periodo < input.periodoActual) {
       moverInvalido(`El mes ${periodo} ya cerró: no se pueden mover valores desde ni hacia un mes cerrado.`);
     }
+  }
+  // «Solo se pueden mover valores del mes en curso hacia meses futuros, o entre meses futuros»: the destination is
+  // always a future month.
+  if (destino === input.periodoActual) {
+    moverInvalido(
+      "El mes de destino debe ser un mes futuro: solo se mueven valores del mes en curso hacia meses futuros, o entre meses futuros.",
+    );
   }
   const linea = await tx.lineaPresupuestal.findFirst({
     where: { id: input.lineaId, proyecto_id: input.proyectoId },
