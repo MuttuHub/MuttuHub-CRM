@@ -34,6 +34,7 @@ import { programacionDelPlan } from "@/lib/proyectos/programacion-propuesta";
 import type { PlantillaInput } from "@/lib/proyectos/plantilla/generate";
 import type { PlanImportacion } from "@/lib/proyectos/plantilla/mapear";
 import type { ContextoValidacion } from "@/lib/proyectos/plantilla/validate";
+import { lineasTienenGastos } from "./lineas-con-gastos";
 
 /** Zip guard limits (a template is a few dozen KB; the 4 MB upload cap binds first). */
 export const ZIP_MAX_ENTRADAS = 200;
@@ -636,8 +637,7 @@ export async function importarPlantilla(
   );
   const quitadas = lineasExistentes.filter((linea) => !conservadas.has(linea.id));
   if (quitadas.length > 0) {
-    const conGastos = await tx.gasto.count({ where: { proyecto_id: id, linea_id: { in: quitadas.map((l) => l.id) } } });
-    if (conGastos > 0) throw new RespuestaAbortada(apiError(LINEA_CON_GASTOS_MESSAGE, 409, "CONFLICT"));
+    if (await lineasTienenGastos(tx, id, quitadas.map((l) => l.id))) throw new RespuestaAbortada(apiError(LINEA_CON_GASTOS_MESSAGE, 409, "CONFLICT"));
     await tx.programacionPeriodo.deleteMany({ where: { proyecto_id: id, linea_id: { in: quitadas.map((l) => l.id) } } });
     await tx.lineaPresupuestal.deleteMany({ where: { proyecto_id: id, id: { in: quitadas.map((l) => l.id) } } });
   }

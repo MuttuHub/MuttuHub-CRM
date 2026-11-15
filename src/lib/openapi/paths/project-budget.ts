@@ -218,6 +218,29 @@ const FichaRowSchema = z.object({
   color: z.enum(["verde", "amarillo", "rojo"]).nullable().openapi({ description: "Nulo mientras `ejecucion_disponible` es false." }),
 });
 
+// S10 (EV-06): una fila por actividad de la vista «Por actividad», con las mismas cifras que `rubros`
+// pasadas por la misma `computeFicha`, más el saldo y los datos de agrupación de la pantalla.
+const FichaActividadRowSchema = z.object({
+  actividad_id: z.string().uuid().nullable().openapi({ description: "Nulo en la fila «Sin actividad» (líneas cargadas antes de la Parte 2, D4)." }),
+  codigo: z.string().nullable().openapi({ description: "Nulo en la fila «Sin actividad»." }),
+  nombre: z.string().openapi({ example: "Sin actividad" }),
+  objetivo_id: z.string().uuid().nullable().openapi({ description: "Nulo en «Gestión del proyecto»: una actividad transversal no lleva objetivo (S6)." }),
+  objetivo_codigo: z.string().nullable(),
+  gestion: z.boolean().openapi({ description: "True en «Gestión del proyecto»: actividad TRANSVERSAL o fila «Sin actividad»." }),
+  asignado: z.string().openapi({ description: "A: la suma de las líneas de la actividad, Decimal(15,2) como string." }),
+  programado: z.string().openapi({ description: "P de esas líneas acumulado hasta el corte." }),
+  ejecutado: z.string().openapi({ description: "E de esas líneas hasta el corte: las mismas filas de gastos que la vista por rubro." }),
+  diferencia: z.string().openapi({ description: "D = E − P." }),
+  ep_decimas: z.number().int().nullable().openapi({ description: "E/P en décimas de punto porcentual; nulo si P = 0 o sin gastos." }),
+  ea_decimas: z.number().int().nullable().openapi({ description: "E/A en décimas de punto porcentual; nulo si A = 0 o sin gastos." }),
+  umbral_rojo: z.string().openapi({ description: "P × (1 + tolerancia): la misma frontera amarillo/rojo que la vista por rubro." }),
+  color: z.enum(["verde", "amarillo", "rojo"]).nullable().openapi({ description: "Nulo mientras `ejecucion_disponible` es false." }),
+  saldo: z.string().openapi({ description: "A − E: saldo mientras los gastos están abiertos (S11/T14.5 añade el ahorro)." }),
+  rubros: z.array(FichaRowSchema).openapi({
+    description: "S10: el detalle por rubro de la actividad, con la misma forma que `rubros` del nivel superior; sus sumas son la fila de la actividad.",
+  }),
+});
+
 const FinancialSheetSchema = registry.register(
   "FichaFinanciera",
   z.object({
@@ -227,6 +250,11 @@ const FinancialSheetSchema = registry.register(
     ejecucion_disponible: z.boolean().openapi({ description: "False hasta que existan gastos (S6): E es 0 y no hay colores ni alerta." }),
     rubros: z.array(FichaRowSchema),
     total: FichaRowSchema,
+    actividades: z.array(FichaActividadRowSchema).openapi({
+      description:
+        "S10: una fila por actividad (y una «Sin actividad») para el selector «Por actividad / Por rubro». " +
+        "El ejecutado total es el mismo que el de `total` porque ambas vistas suman las mismas filas de gastos.",
+    }),
     alerta_retraso: z.boolean().openapi({ description: "Sobre la fila de total: E/P bajo el umbral de retraso y semáforo técnico no verde." }),
     parametros: z.object({
       tolerancia: z.number(),
@@ -246,7 +274,11 @@ registry.registerPath({
     "del proyecto (por defecto el mes actual en Bogotá, acotado al rango; 400 si es inválido o queda fuera). `base=original` " +
     "calcula A y P desde la versión 0 congelada (con E vigente y los periodos de sus fechas) y responde 409 mientras " +
     "no exista; una base desconocida responde 400. Sin fechas de proyecto responde 409. El color financiero sale de " +
-    "`E > A` rojo, `E <= P` verde, tolerancia amarillo, si no rojo; la fila de total aplica las mismas fórmulas a las sumas.",
+    "`E > A` rojo, `E <= P` verde, tolerancia amarillo, si no rojo; la fila de total aplica las mismas fórmulas a las sumas. " +
+    "S10: `actividades` da las mismas cifras agrupadas por la actividad de cada línea, en el orden de los objetivos y " +
+    "después «Gestión del proyecto» (actividades transversales, sin objetivo, y la fila «Sin actividad» de las líneas sin " +
+    "actividad, D4); las dos vistas suman las mismas filas de gastos, así que el ejecutado total es idéntico. La vista por " +
+    "actividad lee siempre el presupuesto vigente: `base` sólo cambia `rubros` y `total`.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,

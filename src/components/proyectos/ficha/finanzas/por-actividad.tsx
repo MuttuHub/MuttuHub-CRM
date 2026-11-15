@@ -1,0 +1,416 @@
+// Finanzas › Resumen › «Por actividad» (S10, EV-06). La MISMA hoja financiera del «Por rubro», agrupada por
+// objetivo y, al final, por «Gestión del proyecto» (las actividades transversales y la fila «Sin actividad»).
+// Cada actividad pinta las cifras que el servidor ya calculó para ella (asignado, programado al corte,
+// ejecutado, saldo, umbral y semáforo) y abre su detalle por rubro, que es el arreglo `rubros` de esa misma
+// fila. El cliente NUNCA recalcula un umbral, un porcentaje ni un color: los pinta tal como llegan. El dinero
+// viaja como texto y solo se formatea (nunca `Number()`); mientras el proyecto es BORRADOR el servidor manda
+// `ejecucion_disponible: false` con porcentajes y colores nulos, y aquí no se inventa ninguno.
+//
+// L32 (S10): el título del objetivo lleva su descripción, que la hoja no publica, así que se lee de la misma
+// estructura que usa Actividades (`useProjectObjectives`); y debajo de `md` cada actividad y sus rubros se pintan
+// como tarjetas, el mismo patrón del «Por rubro» vecino, mientras la tabla de siempre se queda en escritorio.
+
+"use client";
+
+import { useId, useState, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
+import { useIsMobile } from "@/components/proyectos/capture-surface";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { mesLegible } from "@/components/proyectos/project-display";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
+import { EmptyBlock, InlineError } from "@/components/proyectos/ui";
+import { HelpHint } from "@/components/ui/help-hint";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  useProjectFinancialSheet,
+  useProjectObjectives,
+  type ProjectFinancialSheet,
+  type ProjectListRow,
+  type ProjectObjective,
+} from "@/hooks/projects";
+import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
+import { formatCOP, formatPercent, toCents } from "@/lib/proyectos/money";
+import { cn } from "@/lib/utils";
+
+const ACTIVIDAD_ERROR = "No pudimos cargar la vista por actividad. Inténtalo de nuevo.";
+const AYUDA_SALDO =
+  "Lo asignado a la actividad menos lo ejecutado. Mientras sus gastos están abiertos no se llama ahorro.";
+
+/** Una fila de `actividades` tal como la publica la hoja financiera (S10). */
+type ActividadRow = ProjectFinancialSheet["actividades"][number];
+type RubroRow = ProjectFinancialSheet["rubros"][number];
+
+/** Décimas de punto porcentual -> «90,8 %»; «—» cuando el servidor no manda porcentaje. */
+const porcentaje = (decimas: number | null) => formatPercent(decimas === null ? null : BigInt(decimas));
+/** Monto del servidor (texto decimal) -> «$ 59.500.000». Solo formato: nada de aritmética de dinero. */
+const monto = (valor: string) => formatCOP(toCents(valor));
+const nombreActividad = (fila: ActividadRow) => (fila.codigo ? `${fila.codigo} · ${fila.nombre}` : fila.nombre);
+const nombreRubro = (fila: RubroRow) => (fila.codigo ? `${fila.codigo} · ${fila.nombre}` : fila.nombre);
+
+const COLUMNA_SALDO = (
+  <span className="inline-flex items-center gap-1">
+    Saldo
+    <HelpHint label="Saldo">{AYUDA_SALDO}</HelpHint>
+  </span>
+);
+
+export function PorActividad({ proyecto }: { proyecto: ProjectListRow }) {
+  const query = useProjectFinancialSheet(proyecto.id, null, "vigente");
+  // L32.3: la hoja solo publica `objetivo_codigo`, así que la descripción del título se lee de la estructura, la
+  // misma fuente que usa la pantalla de Actividades. Mientras carga, si falla o si el objetivo no está en la
+  // lista, el título se queda como hoy («Objetivo 1»).
+  const objetivosQuery = useProjectObjectives(proyecto.id);
+
+  if (query.isError) return <InlineError message={errorMessage(query.error, ACTIVIDAD_ERROR)} />;
+  if (!query.data) return <Skeleton className="h-24 w-full rounded-[14px]" />;
+  return <Actividades ficha={query.data} objetivos={objetivosQuery.data ?? []} />;
+}
+
+function Actividades({ ficha, objetivos }: { ficha: ProjectFinancialSheet; objetivos: readonly ProjectObjective[] }) {
+  // BORRADOR: el servidor ya manda los nulos; el gate es el mismo de la vista por rubro, por si llegara
+  // un color o un porcentaje cuando no hay ejecución disponible.
+  const disponible = ficha.ejecucion_disponible;
+  // Debajo de `md` se montan las tarjetas y por encima la tabla: nunca las dos a la vez, como el «Por rubro».
+  const movil = useIsMobile();
+  const grupos = agrupar(ficha.actividades, objetivos);
+
+  return (
+    <div data-testid="finanzas-por-actividad" className="flex flex-col gap-4">
+      <Totales ficha={ficha} disponible={disponible} />
+      {ficha.actividades.length === 0 ? (
+        <EmptyBlock>Aún no hay presupuesto asignado a este proyecto.</EmptyBlock>
+      ) : (
+        grupos.map((grupo) => (
+          <GrupoActividades
+            key={grupo.clave}
+            grupo={grupo}
+            disponible={disponible}
+            corte={ficha.corte}
+            movil={movil}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+/* ── Totales de la hoja ─────────────────────────────────────────────────── */
+
+function Cifra({ etiqueta, valor, testId, children }: { etiqueta: string; valor: string; testId?: string; children?: ReactNode }) {
+  return (
+    <div data-testid={testId} className="flex min-w-0 flex-col gap-1">
+      <dt className="text-[11px] font-semibold tracking-[0.06em] text-ink-600 uppercase">{etiqueta}</dt>
+      <dd className="font-display text-[17px] leading-tight font-bold text-ink-950 tabular-nums">{valor}</dd>
+      {children && <dd className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-600">{children}</dd>}
+    </div>
+  );
+}
+
+/**
+ * El total de la hoja, del mismo payload que pinta el «Por rubro»: S10 pide que el ejecutado total sea igual
+ * en las dos vistas, y lo es porque ninguna de las dos lo recalcula.
+ */
+function Totales({ ficha, disponible }: { ficha: ProjectFinancialSheet; disponible: boolean }) {
+  const total = ficha.total;
+  return (
+    <dl data-testid="actividad-totales" className="surface-tile grid grid-cols-1 gap-3 p-3.5 sm:grid-cols-2 md:grid-cols-4">
+      <Cifra etiqueta="Asignado" valor={monto(total.asignado)} />
+      <Cifra etiqueta="Programado al corte" valor={monto(total.programado)}>
+        <span>{mesLegible(ficha.corte)}</span>
+      </Cifra>
+      <Cifra testId="actividad-total-ejecutado" etiqueta="Ejecutado total" valor={monto(total.ejecutado)} />
+      <Cifra etiqueta="% de lo programado" valor={disponible ? porcentaje(total.ep_decimas) : "—"}>
+        {disponible && total.color && <SemaforoChip color={total.color} />}
+      </Cifra>
+    </dl>
+  );
+}
+
+/* ── Agrupación por objetivo y «Gestión del proyecto» ───────────────────── */
+
+type Grupo = { clave: string; titulo: string; testId: string; filas: ActividadRow[] };
+
+/**
+ * Agrupa en el orden del servidor (objetivos en su orden y «Gestión del proyecto» al final) y deja «Gestión
+ * del proyecto» de último siempre, que es el orden que nombra S10; no reordena las filas dentro del grupo.
+ */
+function agrupar(actividades: readonly ActividadRow[], objetivos: readonly ProjectObjective[]): Grupo[] {
+  const grupos = new Map<string, Grupo>();
+  for (const fila of actividades) {
+    const clave = fila.gestion ? "gestion" : `objetivo:${fila.objetivo_id ?? fila.objetivo_codigo ?? ""}`;
+    const existente = grupos.get(clave);
+    if (existente) {
+      existente.filas.push(fila);
+      continue;
+    }
+    grupos.set(clave, {
+      clave,
+      titulo: tituloObjetivo(fila, objetivos),
+      testId: fila.gestion ? "actividad-grupo-gestion" : `actividad-grupo-${fila.objetivo_codigo ?? "sin-codigo"}`,
+      filas: [fila],
+    });
+  }
+  const todos = [...grupos.values()];
+  return [...todos.filter((grupo) => grupo.clave !== "gestion"), ...todos.filter((grupo) => grupo.clave === "gestion")];
+}
+
+/** El objetivo de la fila: por id y, si la lista todavía no lo trae, por el código que publica la hoja. */
+function objetivoDe(fila: ActividadRow, objetivos: readonly ProjectObjective[]): ProjectObjective | undefined {
+  const porId = fila.objetivo_id ? objetivos.find((objetivo) => objetivo.id === fila.objetivo_id) : undefined;
+  return porId ?? (fila.objetivo_codigo ? objetivos.find((objetivo) => objetivo.codigo === fila.objetivo_codigo) : undefined);
+}
+
+/**
+ * «Objetivo 1» de siempre, o «Objetivo 1. Ferias» cuando la lista de objetivos ya trae su descripción (el mismo
+ * texto de Actividades). Sin descripción —cargando, con error o un objetivo ausente de la lista— no cambia nada.
+ */
+function tituloObjetivo(fila: ActividadRow, objetivos: readonly ProjectObjective[]): string {
+  if (fila.gestion) return GRUPO_GESTION;
+  const objetivo = objetivoDe(fila, objetivos);
+  const codigo = fila.objetivo_codigo ?? objetivo?.codigo ?? null;
+  if (!codigo) return "Objetivo";
+  return objetivo?.descripcion ? `Objetivo ${codigo}. ${objetivo.descripcion}` : `Objetivo ${codigo}`;
+}
+
+function GrupoActividades({
+  grupo,
+  disponible,
+  corte,
+  movil,
+}: {
+  grupo: Grupo;
+  disponible: boolean;
+  corte: string;
+  movil: boolean;
+}) {
+  const tituloId = useId();
+  return (
+    <section data-testid={grupo.testId} aria-labelledby={tituloId} className="flex min-w-0 flex-col gap-2">
+      <h3 id={tituloId} className="font-display text-[15px] font-bold text-ink-950">
+        {grupo.titulo}
+      </h3>
+      {movil ? (
+        <ul data-testid="actividad-lista" className="surface flex flex-col divide-y divide-border">
+          {grupo.filas.map((fila) => (
+            <TarjetaActividad
+              key={fila.actividad_id ?? "sin-actividad"}
+              fila={fila}
+              disponible={disponible}
+              corte={corte}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div className="surface overflow-x-auto">
+          <Table data-testid="actividad-tabla" className="min-w-[46rem]">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Actividad</TableHead>
+                <TableHead scope="col" numeric>Asignado</TableHead>
+                <TableHead scope="col" numeric>Programado al corte</TableHead>
+                <TableHead scope="col" numeric>Ejecutado</TableHead>
+                <TableHead scope="col" numeric>{COLUMNA_SALDO}</TableHead>
+                <TableHead scope="col" numeric>% de lo programado</TableHead>
+                <TableHead scope="col" numeric>Pasa a rojo desde</TableHead>
+                <TableHead scope="col">Semáforo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {grupo.filas.map((fila) => (
+                <FilaActividad key={fila.actividad_id ?? "sin-actividad"} fila={fila} disponible={disponible} corte={corte} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FilaActividad({ fila, disponible, corte }: { fila: ActividadRow; disponible: boolean; corte: string }) {
+  const [abierta, setAbierta] = useState(false);
+  const detalleId = useId();
+  const conDetalle = fila.rubros.length > 0;
+  const pct = disponible ? fila.ep_decimas : null;
+  const color = disponible ? fila.color : null;
+
+  return (
+    <>
+      <TableRow data-testid="actividad-fila">
+        <TableCell className="font-semibold whitespace-normal text-ink-900">
+          <span data-testid="actividad-nombre" className="flex min-h-11 items-center">
+            {conDetalle ? (
+              <button
+                type="button"
+                aria-expanded={abierta}
+                aria-controls={detalleId}
+                onClick={() => setAbierta((valor) => !valor)}
+                className="flex min-h-11 w-full items-center gap-1.5 rounded-12 text-left outline-none hover:text-ink-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <ChevronRight
+                  className={cn("size-4 shrink-0 transition-transform", abierta && "rotate-90")}
+                  strokeWidth={2}
+                  aria-hidden
+                />
+                {nombreActividad(fila)}
+              </button>
+            ) : (
+              nombreActividad(fila)
+            )}
+          </span>
+        </TableCell>
+        <TableCell numeric>{monto(fila.asignado)}</TableCell>
+        <TableCell numeric>{monto(fila.programado)}</TableCell>
+        <TableCell numeric>{monto(fila.ejecutado)}</TableCell>
+        <TableCell numeric>{monto(fila.saldo)}</TableCell>
+        <TableCell numeric>{porcentaje(pct)}</TableCell>
+        <TableCell numeric>{monto(fila.umbral_rojo)}</TableCell>
+        <TableCell>{color ? <SemaforoChip color={color} /> : "—"}</TableCell>
+      </TableRow>
+      {conDetalle && abierta && (
+        <TableRow data-testid="actividad-detalle">
+          <TableCell id={detalleId} colSpan={8} className="bg-ink-100/40 p-3">
+            <p className="text-[12px] font-semibold text-ink-700">Detalle por rubro</p>
+            <Table data-testid="actividad-rubros" className="mt-1 min-w-[38rem] text-[12.5px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Rubro</TableHead>
+                  <TableHead scope="col" numeric>Asignado</TableHead>
+                  <TableHead scope="col" numeric>Programado al corte</TableHead>
+                  <TableHead scope="col" numeric>Ejecutado</TableHead>
+                  <TableHead scope="col" numeric>% de lo programado</TableHead>
+                  <TableHead scope="col" numeric>Pasa a rojo desde</TableHead>
+                  <TableHead scope="col">Semáforo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fila.rubros.map((row) => (
+                  <FilaRubro key={row.rubro_id ?? row.nombre} row={row} disponible={disponible} />
+                ))}
+              </TableBody>
+            </Table>
+            <p className="mt-1 text-[12px] text-ink-600">{`Programado al corte de ${mesLegible(corte)}.`}</p>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+/** Una fila hija del detalle: el mismo color, umbral y porcentaje del servidor, solo pintados. */
+function FilaRubro({ row, disponible }: { row: RubroRow; disponible: boolean }) {
+  const color = disponible ? row.color : null;
+  return (
+    <TableRow data-testid="actividad-rubro">
+      <TableCell className="whitespace-normal text-ink-800">{nombreRubro(row)}</TableCell>
+      <TableCell numeric>{monto(row.asignado)}</TableCell>
+      <TableCell numeric>{monto(row.programado)}</TableCell>
+      <TableCell numeric>{monto(row.ejecutado)}</TableCell>
+      <TableCell numeric>{porcentaje(disponible ? row.ep_decimas : null)}</TableCell>
+      <TableCell numeric>{monto(row.umbral_rojo)}</TableCell>
+      <TableCell>{color ? <SemaforoChip color={color} /> : "—"}</TableCell>
+    </TableRow>
+  );
+}
+
+/* ── Tarjetas (teléfono) ────────────────────────────────────────────────── */
+
+/** Un dato de la tarjeta, con la MISMA etiqueta de la columna que sustituye. */
+function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-[12px] text-ink-500">{etiqueta}</dt>
+      <dd className="font-mono text-[12.5px] text-ink-900">{children}</dd>
+    </div>
+  );
+}
+
+/** El porcentaje en la esquina, como en la tarjeta del «Por rubro», con su etiqueta de columna. */
+function PorcentajeTarjeta({ valor }: { valor: string }) {
+  return (
+    <span className="shrink-0 text-right">
+      <span className="block text-[12px] text-ink-500">% de lo programado</span>
+      <span className="text-[13px] font-bold text-ink-900 tabular-nums">{valor}</span>
+    </span>
+  );
+}
+
+/**
+ * La actividad como tarjeta en el teléfono: las mismas cifras, etiquetas, color y porcentaje que la fila de la
+ * tabla, y el mismo botón que abre su detalle por rubro.
+ */
+function TarjetaActividad({ fila, disponible, corte }: { fila: ActividadRow; disponible: boolean; corte: string }) {
+  const [abierta, setAbierta] = useState(false);
+  const detalleId = useId();
+  const conDetalle = fila.rubros.length > 0;
+  const pct = disponible ? fila.ep_decimas : null;
+  const color = disponible ? fila.color : null;
+
+  return (
+    <li data-testid="actividad-fila" className="flex flex-col gap-2 p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span data-testid="actividad-nombre" className="min-w-0 text-[14px] font-semibold text-ink-900">
+          {conDetalle ? (
+            <button
+              type="button"
+              aria-expanded={abierta}
+              aria-controls={detalleId}
+              onClick={() => setAbierta((valor) => !valor)}
+              className="flex min-h-11 items-center gap-1.5 rounded-12 text-left outline-none hover:text-ink-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <ChevronRight
+                className={cn("size-4 shrink-0 transition-transform", abierta && "rotate-90")}
+                strokeWidth={2}
+                aria-hidden
+              />
+              {nombreActividad(fila)}
+            </button>
+          ) : (
+            <span className="flex min-h-11 items-center">{nombreActividad(fila)}</span>
+          )}
+        </span>
+        <PorcentajeTarjeta valor={porcentaje(pct)} />
+      </div>
+      <dl className="grid grid-cols-2 gap-2">
+        <Dato etiqueta="Asignado">{monto(fila.asignado)}</Dato>
+        <Dato etiqueta="Programado al corte">{monto(fila.programado)}</Dato>
+        <Dato etiqueta="Ejecutado">{monto(fila.ejecutado)}</Dato>
+        <Dato etiqueta="Saldo">{monto(fila.saldo)}</Dato>
+        <Dato etiqueta="Pasa a rojo desde">{monto(fila.umbral_rojo)}</Dato>
+        <Dato etiqueta="Semáforo">{color ? <SemaforoChip color={color} /> : "—"}</Dato>
+      </dl>
+      {conDetalle && abierta && (
+        <div id={detalleId} data-testid="actividad-detalle" className="rounded-inner bg-ink-100/40 p-3">
+          <p className="text-[12px] font-semibold text-ink-700">Detalle por rubro</p>
+          <ul data-testid="actividad-rubros" className="mt-1 flex flex-col divide-y divide-border">
+            {fila.rubros.map((row) => (
+              <TarjetaRubro key={row.rubro_id ?? row.nombre} row={row} disponible={disponible} />
+            ))}
+          </ul>
+          <p className="mt-1 text-[12px] text-ink-600">{`Programado al corte de ${mesLegible(corte)}.`}</p>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Un rubro hijo en tarjeta: el mismo color, umbral y porcentaje del servidor, solo pintados. */
+function TarjetaRubro({ row, disponible }: { row: RubroRow; disponible: boolean }) {
+  const color = disponible ? row.color : null;
+  return (
+    <li data-testid="actividad-rubro" className="flex flex-col gap-2 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 text-[13px] font-semibold text-ink-800">{nombreRubro(row)}</span>
+        <PorcentajeTarjeta valor={porcentaje(disponible ? row.ep_decimas : null)} />
+      </div>
+      <dl className="grid grid-cols-2 gap-2">
+        <Dato etiqueta="Asignado">{monto(row.asignado)}</Dato>
+        <Dato etiqueta="Programado al corte">{monto(row.programado)}</Dato>
+        <Dato etiqueta="Ejecutado">{monto(row.ejecutado)}</Dato>
+        <Dato etiqueta="Pasa a rojo desde">{monto(row.umbral_rojo)}</Dato>
+        <Dato etiqueta="Semáforo">{color ? <SemaforoChip color={color} /> : "—"}</Dato>
+      </dl>
+    </li>
+  );
+}

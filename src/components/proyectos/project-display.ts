@@ -219,6 +219,8 @@ const CAMPO_AUDITORIA_META: Record<string, string> = {
   actividad_id: "Actividad",
   // T12 (S6): el tipo de la actividad se audita como cualquier otro campo.
   tipo: "Tipo",
+  // T14: la distribución de una factura repartida, línea por línea.
+  reparto: "Distribución",
 };
 
 /** Etiqueta de un `campo` (o de una clave de un valor JSON) en español; sin traducción, el nombre en sentence case. */

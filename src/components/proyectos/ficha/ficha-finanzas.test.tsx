@@ -21,6 +21,9 @@ vi.mock("@/components/proyectos/project-gastos", () => ({
     <div data-testid="segmento-gastos" />
   ),
 }))
+vi.mock("@/components/proyectos/ficha/finanzas/cambios-del-periodo", () => ({
+  CambiosDelPeriodo: () => <div data-testid="cambios-del-periodo" />,
+}))
 vi.mock("@/components/proyectos/project-presupuesto", () => ({
   ProjectPresupuesto: () => <div data-testid="segmento-presupuesto" />,
 }))
@@ -34,6 +37,9 @@ vi.mock("@/hooks/projects", () => ({
     gastos.ids.push(id)
     return gastos.consulta
   },
+  // La vista «Por actividad» no se monta en estas pruebas (el segmento arranca en «Por rubro»), pero el
+  // módulo se importa al cargar el componente y debe existir.
+  useProjectFinancialSheet: () => ({ data: undefined, isLoading: true, isError: false }),
 }))
 
 // Who may request a modification is decided by the shared hook (covered in project-modificaciones.test.tsx).
@@ -114,11 +120,24 @@ describe("FichaFinanzas", () => {
     expect(screen.getByRole("tab", { name: "Gastos" })).toBeInTheDocument()
   })
 
+  // T7: the period's edited and annulled expenses sit in the Resumen, under the financial views.
+  it("shows the period changes in the Resumen and nowhere else (T7)", async () => {
+    const user = userEvent.setup()
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.getByTestId("cambios-del-periodo")).toBeInTheDocument()
+    await user.click(tab(/^Gastos/))
+    expect(screen.queryByTestId("cambios-del-periodo")).not.toBeInTheDocument()
+  })
+
   it("opens on Resumen for a project that is not BORRADOR and mounts only that segment", () => {
     render(<FichaFinanzas proyecto={PROYECTO} />)
 
     expect(tab(/^Resumen$/)).toHaveAttribute("aria-selected", "true")
     expect(screen.getByTestId("segmento-resumen")).toBeInTheDocument()
+    // S10: el Resumen ofrece el selector de vista, en «Por rubro» y con los dos nombres.
+    const vista = screen.getByRole("group", { name: "Vista de finanzas" })
+    expect(within(vista).getByRole("radio", { name: "Por rubro" })).toBeChecked()
+    expect(within(vista).getByRole("radio", { name: "Por actividad" })).not.toBeChecked()
     expect(screen.queryByTestId("segmento-gastos")).not.toBeInTheDocument()
     expect(screen.queryByTestId("segmento-presupuesto")).not.toBeInTheDocument()
   })

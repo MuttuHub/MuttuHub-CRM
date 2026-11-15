@@ -371,6 +371,35 @@ export function useProject(id: string): UseQueryResult<ProjectListRow> {
  * tras crear o convertir un proyecto también lo refresca. `enabled` repite el
  * guard de `useProject`: con un id vacío no se dispara la petición.
  */
+/** T7: one edited or annulled expense of the period, as `GET /projects/:id/expense-changes` answers it. */
+export type CambioGasto = {
+  id: string;
+  accion: "EDITAR" | "ANULAR";
+  fecha: string;
+  usuario_nombre: string | null;
+  motivo: string | null;
+  gasto: { id: string; numero_documento: string; tercero_nombre: string; estado: string } | null;
+  detalle: { campo: string; antes: unknown; despues: unknown }[];
+};
+
+/**
+ * T7: the period's edited and annulled expenses, for the Gerente. Keyed under the audit key, so every expense
+ * mutation (which already invalidates `["projects", "audit", id]`) refreshes it too. `enabled` lets the caller skip
+ * the request for a role the API would answer with a 403.
+ */
+export function useProjectExpenseChanges(id: string, periodo: string, enabled = true): UseQueryResult<CambioGasto[]> {
+  return useQuery({
+    queryKey: [...projectQueryKeys.audit(id), "expense-changes", periodo],
+    enabled: enabled && id !== "" && periodo !== "",
+    queryFn: async () => {
+      const res = await apiGet<{ cambios: CambioGasto[] }>(
+        `/api/v1/projects/${id}/expense-changes?periodo=${encodeURIComponent(periodo)}`,
+      );
+      return res.cambios;
+    },
+  });
+}
+
 export function useProjectAudit(id: string): UseQueryResult<ProjectAuditEntry[]> {
   return useQuery({
     queryKey: projectQueryKeys.audit(id),
@@ -1633,6 +1662,34 @@ export type ProjectFinancialRow = {
   color: ColorSemaforo | null;
 };
 
+/** S10: fila por actividad de la hoja financiera («Por actividad»), agrupable por objetivo o por «Gestión del proyecto». Se exportará cuando la pantalla de T14.4-B la necesite como tipo de prop. */
+type ProjectFinancialActivityRow = {
+  /** Nulo en la fila «Sin actividad» (líneas cargadas antes de la Parte 2). */
+  actividad_id: string | null;
+  codigo: string | null;
+  /** «Sin actividad» en esa fila. */
+  nombre: string;
+  /** Nulo en «Gestión del proyecto»: una actividad transversal no lleva objetivo. */
+  objetivo_id: string | null;
+  objetivo_codigo: string | null;
+  /** True en «Gestión del proyecto»: actividad TRANSVERSAL o fila «Sin actividad». */
+  gestion: boolean;
+  asignado: string;
+  programado: string;
+  ejecutado: string;
+  diferencia: string;
+  /** Asignado − ejecutado: saldo mientras los gastos están abiertos (S11). */
+  saldo: string;
+  /** E/P en décimas de punto porcentual (300 = 30 %); nulo si P = 0 o sin gastos. */
+  ep_decimas: number | null;
+  ea_decimas: number | null;
+  umbral_rojo: string;
+  /** Nulo mientras `ejecucion_disponible` es false. */
+  color: ColorSemaforo | null;
+  /** S10: el detalle por rubro que se abre al elegir la actividad, con la forma del nivel superior. */
+  rubros: ProjectFinancialRow[];
+};
+
 export type ProjectFinancialSheet = {
   base: ProjectBase;
   /** Periodo AAAA-MM. */
@@ -1641,6 +1698,8 @@ export type ProjectFinancialSheet = {
   ejecucion_disponible: boolean;
   rubros: ProjectFinancialRow[];
   total: ProjectFinancialRow;
+  /** S10: las mismas cifras por actividad, con el mismo ejecutado total que `total`. */
+  actividades: ProjectFinancialActivityRow[];
   alerta_retraso: boolean;
   parametros: { tolerancia: number; retraso: number; confirmado: boolean };
 };
@@ -1684,6 +1743,16 @@ type ProjectExpenseSoporte = {
   created_at: string;
 };
 
+/** S9/T14.2-B1: una fila del reparto de la factura (una actividad y un rubro con su valor). */
+type ProjectExpenseReparto = {
+  linea_id: string;
+  /** Actividad de la línea; null en una línea heredada («Sin actividad»). */
+  actividad_id: string | null;
+  rubro: { id: string; codigo: string | null; nombre: string };
+  /** Decimal como string. */
+  valor: string;
+};
+
 export type ProjectExpense = {
   id: string;
   proyecto_id: string;
@@ -1723,6 +1792,11 @@ export type ProjectExpense = {
   soportes?: ProjectExpenseSoporte[];
   /** Soportes vigentes; ausente sin acceso a soportes financieros (RNF-03). */
   soportes_count?: number;
+  /**
+   * S9/T14.2-B1: el reparto de la factura; la primera fila es la línea que guarda la cabecera y las filas suman
+   * `valor`. El servidor lo devuelve siempre; opcional para que una fila vieja en caché no rompa la pantalla.
+   */
+  repartos?: ProjectExpenseReparto[];
 };
 
 type ProjectExpensesResumen = {
@@ -1754,8 +1828,26 @@ export type ExpenseDuplicateQuery = {
   numero_documento: string;
 };
 
+/** Una fila del reparto que se envía al registrar o corregir una factura distribuida (S9/T14.2-B1). */
+type ProjectExpenseRepartoInput = {
+  linea_id: string;
+  /** Decimal como string. */
+  valor: string;
+};
+
 export type ProjectExpenseInput = {
-  rubro_id: string;
+  /** Obligatorio salvo que se envíe `repartos`: en una factura distribuida la cabecera no lleva rubro. */
+  rubro_id?: string;
+  /**
+   * S9/T14.1: la línea exacta del presupuesto (actividad + rubro) que el formulario elige en ese orden. Opcional:
+   * sin ella el servidor usa la línea del rubro, como antes.
+   */
+  linea_id?: string;
+  /**
+   * S9/T14.2-B1: la factura distribuida, una fila por actividad + rubro. Con `repartos` no se envían `rubro_id` ni
+   * `linea_id` (mezclarlos es un 400) y las filas tienen que sumar exactamente el total (subtotal + IVA).
+   */
+  repartos?: ProjectExpenseRepartoInput[];
   fecha_documento: string;
   /** Mes del proyecto AAAA-MM; el formulario lo rellena con el mes de la fecha del documento. */
   periodo: string;
@@ -1782,7 +1874,7 @@ export type ProjectExpenseInput = {
  * `motivo` solo es obligatorio cuando el Gestor corrige el gasto de otra persona, y el servidor lo audita como
  * `motivo_correccion`.
  */
-export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "tercero_numero_id"> & {
+export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "tercero_numero_id" | "linea_id"> & {
   /** Se omite cuando la API no envió la identificación (RNF-03), para no borrarla sin querer. */
   tercero_numero_id?: string | null;
   /** Obligatorio solo cuando el Gestor corrige el gasto de otra persona; lo decide y lo audita el servidor. */
@@ -2277,6 +2369,8 @@ export type ExpensesImportError = { fila: number | null; rubro: string | null; m
 type ExpensesImportRow = {
   fila: number;
   rubro: string | null;
+  /** S9/T14.3: el código de actividad tal como está escrito en el archivo; nulo si la celda va vacía. */
+  actividad: string | null;
   tercero: string | null;
   numero_documento: string | null;
   /** Decimal como string; nulo si la fila es inválida. */
@@ -2294,7 +2388,9 @@ export type ExpensesImportPreview = {
   filas: ExpensesImportRow[];
 };
 
-/** `POST /expenses/import` aplicado: solo se crearon las filas válidas. */
+/** `POST /expenses/import` aplicado: solo se crearon las filas de las facturas válidas. Las filas de un mismo
+ * tercero y número de documento son UNA factura distribuida, así que `creados` cuenta documentos y cada `gastos[]`
+ * lleva la primera fila de su documento (S9/T14.3). */
 export type ExpensesImportApplied = {
   importado: true;
   creados: number;

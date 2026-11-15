@@ -91,13 +91,24 @@ export function puedeTransicionar(estado: EstadoGasto, accion: AccionGasto): Est
 }
 
 type DuplicadoKey = {
+  /**
+   * S9: the unit of the control is the whole invoice, not its distribution rows. A `gasto` is one document —
+   * one tercero, one number, its supports — however many rows of `gastos_reparto` it carries, so two rows of
+   * the same invoice are never duplicates of each other.
+   */
+  factura_id: string
   tercero_id_norm: string | null
   numero_documento_norm: string
   estado: EstadoGasto
 }
 
-/** Same normalized id and document number, both counting as executed (REGISTRADO or VALIDADO). Never blocks. */
+/**
+ * Same normalized id and document number, both counting as executed (REGISTRADO or VALIDADO), on two different
+ * invoices. Never blocks. The duplicate check of the Excel import groups its rows into one invoice per document
+ * before asking this, so a distributed invoice is flagged once, not once per row.
+ */
 export function esDuplicado(a: DuplicadoKey, b: DuplicadoKey): boolean {
+  if (a.factura_id === b.factura_id) return false
   if (a.tercero_id_norm == null || b.tercero_id_norm == null) return false
   if (!cuentaComoEjecutado(a.estado) || !cuentaComoEjecutado(b.estado)) return false
   return a.tercero_id_norm === b.tercero_id_norm && a.numero_documento_norm === b.numero_documento_norm

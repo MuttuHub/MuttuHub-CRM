@@ -1,17 +1,23 @@
 /**
  * Server side of the expenses import (touches the database; `parse.ts` and `template.ts` are pure).
  *
- * `aplicarGastosImport` runs inside the caller's transaction and writes each row exactly as
- * `POST /expenses` writes a single expense (same fields, same normalized keys, same early-overspend
- * flag, same `CREAR`/`gasto` audit shape with the id masked), with ONE shared `lote_id` for the whole
- * import (S7). The single-expense route writes inline and is deliberately not refactored from here: a
- * change to its write must be mirrored in this function (the route tests of both pin the same fields).
+ * `aplicarGastosImport` runs inside the caller's transaction and writes each DOCUMENT of the file exactly as
+ * `POST /expenses` writes an invoice: one `Gasto` header — SUM of the subtotals, SUM of the IVA and the total of
+ * its rows — plus its rows in `gastos_reparto`, created in the SAME transaction, with the header on the line of
+ * the first row (S9/T14.2-B1). One row per document has one distribution row with its whole total, so a
+ * single-row file imports exactly as before. Every imported invoice carries the same early-overspend flag, the
+ * same `CREAR`/`gasto` audit shape with the id masked, and ONE shared `lote_id` for the whole import (S7).
  *
- * AJ-06 (S2, S3): a row's «Enlace del soporte» links (already split and http(s)-validated by
- * `parse.ts`) become one `SoporteProyecto` per link, created in the SAME transaction right after the
- * gasto it belongs to — so a row with two links creates a gasto with exactly two soportes atomically.
- * A row with no links keeps the previous behaviour: the gasto is created with zero soportes and still
- * needs one attached by hand (B8, unaffected).
+ * S9/T14.3: before this, the import was the writer that left `gastos_reparto` empty; with the header and its
+ * rows written together, the strict audit of `prisma/gasto-reparto.invariant.test.ts` (`sinReparto = 0`) has no
+ * exception left. The single-expense route writes inline and is deliberately not refactored from here: a change
+ * to its write must be mirrored in this function (the route tests of both pin the same fields).
+ *
+ * AJ-06 (S2, S3): the «Enlace del soporte» links of every row of the document (already split and http(s)-validated
+ * by `parse.ts`, joined and deduplicated there) become one `SoporteProyecto` per link, created in the SAME
+ * transaction right after the gasto it belongs to — so a document with two links creates a gasto with exactly two
+ * soportes atomically. A document with no links keeps the previous behaviour: the gasto is created with zero
+ * soportes and still needs one attached by hand (B8, unaffected).
  */
 import type { Prisma, Usuario } from "@prisma/client"
 import { db } from "@/lib/db"
@@ -31,17 +37,17 @@ import {
 } from "@/lib/api/gastos"
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto"
 import { toCents } from "../money"
-import type { ContextoImportGastos, DatosGastoImport, FilaGastoImport } from "./parse"
+import type { ContextoImportGastos, DatosFacturaImport, FacturaGastoImport, LineaPresupuestoImport } from "./parse"
 
 export type ContextoServidor = {
   contexto: ContextoImportGastos
-  /** Budget line of each rubro of the project (only those with an assigned value take expenses). */
+  /** The budget line of each line id of the project: the row of the file resolves by its activity and rubro. */
   lineas: Map<string, LineaGasto>
 }
 
 /**
- * The rubros a file may name (the ACTIVE catalog plus the project's own lines, so a line of a rubro
- * suspended later still matches) and, per rubro, the line that can take expenses.
+ * The rubros a file may name (the ACTIVE catalog plus the project's own lines, so a line of a rubro suspended
+ * later still matches) and, per budget line, the line with its assigned amount.
  */
 export async function cargarContextoImport(proyecto: {
   id: string
@@ -52,73 +58,115 @@ export async function cargarContextoImport(proyecto: {
     db.rubro.findMany({ where: { activo: true }, select: { id: true, codigo: true, nombre: true } }),
     db.lineaPresupuestal.findMany({
       where: { proyecto_id: proyecto.id },
-      select: { id: true, monto_proyectado_cop: true, rubro: { select: { id: true, codigo: true, nombre: true } } },
+      select: {
+        id: true,
+        monto_proyectado_cop: true,
+        rubro: { select: { id: true, codigo: true, nombre: true } },
+        actividad: { select: { codigo: true, nombre: true } },
+      },
     }),
   ])
 
   const rubros = new Map(catalogo.map((r) => [r.id, r]))
   const lineas = new Map<string, LineaGasto>()
+  const delProyecto: LineaPresupuestoImport[] = []
   for (const linea of lineasRows) {
     rubros.set(linea.rubro.id, linea.rubro)
-    if (tieneAsignado(linea.monto_proyectado_cop)) {
-      lineas.set(linea.rubro.id, { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro })
-    }
+    const asignado = tieneAsignado(linea.monto_proyectado_cop)
+    delProyecto.push({
+      id: linea.id,
+      rubro_id: linea.rubro.id,
+      actividad_codigo: linea.actividad?.codigo ?? null,
+      actividad_nombre: linea.actividad?.nombre ?? null,
+      asignado,
+    })
+    if (asignado) lineas.set(linea.id, { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro })
   }
   return {
     contexto: {
       proyecto,
       rubros: [...rubros.values()],
-      rubrosConAsignado: new Set(lineas.keys()),
+      lineas: delProyecto,
     },
     lineas,
   }
 }
 
-/** The alerts of one row: the overspend level (critical or programmed) and live duplicates of any project. Never blocking. */
-export async function alertasDeFila(
+/** The third-party identity of a document: the key of the duplicate lookup, shared by every row of it. */
+type TerceroDeFactura = Pick<DatosFacturaImport, "tercero_tipo_id" | "tercero_numero_id" | "numero_documento">
+
+/**
+ * RF-21 on the whole invoice (S9: «El control de duplicados … se aplica a la factura completa»): one lookup per
+ * document, never one per distribution row. The id is the invoice (`Gasto`) — the parser grouped its rows, so
+ * the same document written twice in one file is one invoice and cannot be reported as its own duplicate.
+ */
+export async function duplicadosDeFactura(
   usuario: Usuario,
   proyectoId: string,
-  gasto: { id: string; datos: DatosGastoImport; nivel: NivelSobregasto },
+  factura: { id: string; datos: TerceroDeFactura },
+): Promise<AlertaGasto[]> {
+  const { datos } = factura
+  return buscarDuplicados(usuario, {
+    id: factura.id,
+    proyecto_id: proyectoId,
+    estado: "REGISTRADO",
+    ...clavesNormalizadas({
+      tercero_tipo_id: datos.tercero_tipo_id,
+      tercero_numero_id: datos.tercero_numero_id,
+      numero_documento: datos.numero_documento,
+    }),
+  })
+}
+
+/** The alerts of one written invoice: the overspend level of its rows and the live duplicates of the document. */
+export async function alertasDeFactura(
+  usuario: Usuario,
+  proyectoId: string,
+  factura: { id: string; datos: DatosFacturaImport; nivel: NivelSobregasto },
 ): Promise<AlertaGasto[]> {
   const alertas: AlertaGasto[] = []
-  const alerta = alertaSobregasto(gasto.nivel)
+  const alerta = alertaSobregasto(factura.nivel)
   if (alerta) alertas.push(alerta)
-  const { datos } = gasto
-  alertas.push(
-    ...(await buscarDuplicados(usuario, {
-      id: gasto.id,
-      proyecto_id: proyectoId,
-      estado: "REGISTRADO",
-      ...clavesNormalizadas({
-        tercero_tipo_id: datos.tercero_tipo_id,
-        tercero_numero_id: datos.tercero_numero_id,
-        numero_documento: datos.numero_documento,
-      }),
-    })),
-  )
+  alertas.push(...(await duplicadosDeFactura(usuario, proyectoId, factura)))
   return alertas
 }
 
 export type AplicarGastosInput = {
   proyectoId: string
   usuarioId: string
-  /** The valid rows (with `datos`), in file order. */
-  filas: readonly (FilaGastoImport & { datos: DatosGastoImport })[]
+  /** The valid documents of the file (with `datos`), in file order. */
+  facturas: readonly (FacturaGastoImport & { datos: DatosFacturaImport })[]
+  /** The budget line of each line id of the project, with its assigned amount. */
   lineas: ReadonlyMap<string, LineaGasto>
   loteId: string
 }
 
-export type GastoCreadoImport = { fila: number; id: string; datos: DatosGastoImport; nivel: NivelSobregasto }
+export type GastoCreadoImport = { fila: number; id: string; datos: DatosFacturaImport; nivel: NivelSobregasto }
+
+/** The level of the invoice as a whole, read row by row: the critical one wins, as `nivelSobregastoDeFactura`. */
+function nivelDeFactura(niveles: readonly NivelSobregasto[]): NivelSobregasto {
+  if (niveles.includes("ASIGNADO")) return "ASIGNADO"
+  if (niveles.includes("PROGRAMADO")) return "PROGRAMADO"
+  return null
+}
 
 export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: AplicarGastosInput): Promise<GastoCreadoImport[]> {
   const creados: GastoCreadoImport[] = []
   const auditoria: CambioInput[] = []
-  // One grouped load for the whole batch; every row after this reads the same memory.
+  // One grouped load for the whole batch; every document after this reads the same memory.
   const lote = await cargarSobregastos(tx, [...input.lineas.values()])
 
-  for (const { fila, datos } of input.filas) {
-    const linea = input.lineas.get(datos.rubro_id) as LineaGasto
-    const sobregasto = lote.critico(linea, datos.cents)
+  for (const factura of input.facturas) {
+    const { datos } = factura
+    const repartos = datos.repartos.map((fila) => ({
+      linea: input.lineas.get(fila.linea_id) as LineaGasto,
+      valor: fila.valor,
+    }))
+    // The overspend is checked against each row's own line and assigned amount, never the header's (S9).
+    const criticos = repartos.map((reparto) => lote.critico(reparto.linea, reparto.valor))
+    const sobregasto = criticos.some(Boolean)
+    const cabecera = repartos[0].linea
+    const primeraFila = factura.filas[0]
     const claves = clavesNormalizadas({
       tercero_tipo_id: datos.tercero_tipo_id,
       tercero_numero_id: datos.tercero_numero_id,
@@ -127,7 +175,7 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
     const created = await tx.gasto.create({
       data: {
         proyecto_id: input.proyectoId,
-        linea_id: linea.id,
+        linea_id: cabecera.id,
         fecha_documento: normalizeProjectDate(datos.fecha_documento),
         periodo: datos.periodo,
         tipo_soporte: datos.tipo_soporte,
@@ -144,6 +192,17 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
         registrado_por_id: input.usuarioId,
       },
     })
+
+    // The header and its distribution land in the same transaction: a failure leaves nothing written.
+    await tx.gastoReparto.createMany({
+      data: repartos.map((reparto) => ({
+        proyecto_id: input.proyectoId,
+        gasto_id: created.id,
+        linea_id: reparto.linea.id,
+        valor: decimalFromCents(reparto.valor),
+      })),
+    })
+
     for (let i = 0; i < datos.enlaces.length; i++) {
       await tx.soporteProyecto.create({
         data: {
@@ -159,9 +218,9 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
       })
     }
 
-    // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
-    const nivel = lote.nivel(linea, { periodo: datos.periodo, monto: datos.cents })
-    lote.registrar(linea.id, datos.periodo, datos.cents)
+    // S2/L16: after saving, each line tells its level; the critical one also rings the Gerencia bell.
+    const nivel = nivelDeFactura(repartos.map((reparto) => lote.nivel(reparto.linea, { periodo: datos.periodo, monto: reparto.valor })))
+    for (const reparto of repartos) lote.registrar(reparto.linea.id, datos.periodo, reparto.valor)
     if (sobregasto) await notificarSobregasto(tx, { gastoId: created.id, proyectoId: input.proyectoId })
 
     auditoria.push({
@@ -172,12 +231,16 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
       proyecto_id: input.proyectoId,
       lote_id: input.loteId,
       valor_nuevo: {
-        ...gastoAuditable({ ...created, rubro_id: linea.rubro.id }),
+        ...gastoAuditable({
+              ...created,
+              rubro_id: cabecera.rubro.id,
+              repartos: repartos.map((reparto) => ({ linea_id: reparto.linea.id, valor: reparto.valor })),
+            }),
         estado: created.estado,
         soportes: datos.enlaces.length,
       },
     })
-    creados.push({ fila, id: created.id, datos, nivel })
+    creados.push({ fila: primeraFila, id: created.id, datos, nivel })
   }
 
   await logChanges(tx, auditoria)

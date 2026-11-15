@@ -158,15 +158,24 @@ type EjecutadoReader = Pick<Prisma.TransactionClient, "gasto">;
  * write. AJ-08: REGISTRADO already counts.
  */
 export async function loadEjecutadoPorLinea(client: EjecutadoReader, proyectoId: string): Promise<Map<string, Cents>> {
-  const filas = await client.gasto.findMany({
+  const lineaSelect = { select: { rubro: { select: { codigo: true } }, actividad: { select: { codigo: true } } } };
+  const gastos = await client.gasto.findMany({
     where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
-    select: { monto_cop: true, linea: { select: { rubro: { select: { codigo: true } }, actividad: { select: { codigo: true } } } } },
+    select: { monto_cop: true, linea: lineaSelect, repartos: { select: { valor: true, linea: lineaSelect } } },
   });
   const total = new Map<string, Cents>();
-  for (const fila of filas) {
-    const codigo = claveLineaDe(fila.linea.rubro.codigo, fila.linea.actividad?.codigo);
-    if (codigo === null) continue;
-    total.set(codigo, (total.get(codigo) ?? BigInt(0)) + toCents(fila.monto_cop));
+  for (const gasto of gastos) {
+    // T14: each distribution row is executed on its own line; a gasto without rows (written before
+    // `gastos_reparto`) is executed whole on its header line.
+    const filas =
+      gasto.repartos.length > 0
+        ? gasto.repartos.map((fila) => ({ linea: fila.linea, valor: toCents(fila.valor) }))
+        : [{ linea: gasto.linea, valor: toCents(gasto.monto_cop) }];
+    for (const fila of filas) {
+      const codigo = claveLineaDe(fila.linea.rubro.codigo, fila.linea.actividad?.codigo);
+      if (codigo === null) continue;
+      total.set(codigo, (total.get(codigo) ?? BigInt(0)) + fila.valor);
+    }
   }
   return total;
 }

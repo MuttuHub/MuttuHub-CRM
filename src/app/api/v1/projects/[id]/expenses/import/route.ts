@@ -1,12 +1,16 @@
-// POST /api/v1/projects/:id/expenses/import — register many expenses from one workbook (one row per
-// expense, no supports: they are attached afterwards, S2), feature `importar-gastos`.
+// POST /api/v1/projects/:id/expenses/import — register many expenses from one workbook (one row per distribution
+// line, no supports: they are attached afterwards, S2), feature `importar-gastos`.
 //
 // Multipart `archivo`, 4 MB cap, never stored. `modo=validar` answers the preview (every row valid or
-// invalid with its reason, plus the non-blocking alerts) without writing. Applying creates ONLY the
-// valid rows, in ONE transaction, as REGISTRADO, exactly as `POST /expenses` writes a single expense
-// (same rules, same audit shape) with one shared `lote_id`; the rejected rows come back with their
-// reason. File-level problems (not a workbook, missing headers, no rows, too many rows) reject the
+// invalid with its reason, plus the non-blocking alerts) without writing. Applying creates ONLY the valid
+// docs, in ONE transaction, as REGISTRADO, exactly as `POST /expenses` writes an invoice (header plus its
+// `gastos_reparto` rows, same rules, same audit shape) with one shared `lote_id`; the rejected rows come back
+// with their reason. File-level problems (not a workbook, missing headers, no rows, too many rows) reject the
 // whole file with the 400 report.
+//
+// S9/T14.3: the rows of one document — same tercero and número de documento — are ONE distributed invoice, not
+// duplicates; the invoice is written, alerted and checked for duplicates as a whole, and it is rejected as a
+// whole when its rows do not add up.
 //
 // Order: project (404) -> permission (403) -> estado (409), the gate of POST /expenses -> size (413)
 // -> body and file type (400) -> zip guard (400) -> file errors (400) -> preview or write.
@@ -21,10 +25,15 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { isAllowedNameAndMime } from "@/lib/api/files";
 import { gateEjecucionWrite } from "@/lib/api/ejecucion";
 import { inspeccionarZip } from "@/lib/api/plantilla-import";
-import { cargarSobregastos, type AlertaGasto, type LineaGasto } from "@/lib/api/gastos";
+import { alertaSobregasto, cargarSobregastos, type AlertaGasto, type LineaGasto } from "@/lib/api/gastos";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
-import { parseGastosImport, type DatosGastoImport, type FilaGastoImport } from "@/lib/proyectos/gastos-import/parse";
-import { alertasDeFila, aplicarGastosImport, cargarContextoImport } from "@/lib/proyectos/gastos-import/server";
+import {
+  parseGastosImport,
+  type DatosFacturaImport,
+  type FacturaGastoImport,
+  type FilaGastoImport,
+} from "@/lib/proyectos/gastos-import/parse";
+import { alertasDeFactura, aplicarGastosImport, cargarContextoImport, duplicadosDeFactura } from "@/lib/proyectos/gastos-import/server";
 import { fromCents, sumCents } from "@/lib/proyectos/money";
 
 export const dynamic = "force-dynamic";
@@ -41,8 +50,8 @@ const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 
 export type ErrorImportacionGastos = { fila: number | null; rubro: string | null; mensaje: string };
 
-type FilaValida = FilaGastoImport & { datos: DatosGastoImport };
-const esValida = (f: FilaGastoImport): f is FilaValida => f.error === null && f.datos !== null;
+type FacturaValida = FacturaGastoImport & { datos: DatosFacturaImport };
+const esFacturaValida = (f: FacturaGastoImport): f is FacturaValida => f.error === null && f.datos !== null;
 
 const errorDeFila = (f: FilaGastoImport): ErrorImportacionGastos => ({
   fila: f.fila,
@@ -94,22 +103,31 @@ export const POST = withApiErrorHandling(
       return apiError(GASTOS_CON_ERRORES, 400, "VALIDATION_ERROR", { reporte: { errores } });
     }
 
-    const validas = resultado.filas.filter(esValida);
+    const validas = resultado.filas.filter((f) => f.error === null);
+    const facturasValidas = resultado.facturas.filter(esFacturaValida);
+    // The rows that open a document: the alerts of the whole invoice are shown once, on its first row.
+    const primerasFilas = new Set(resultado.facturas.map((f) => f.filas[0]));
 
     if (soloValidar) {
       // Two grouped queries for the whole workbook, whatever the number of rows (R4-IMPORT-PREVIEW-NPLUS1).
       const lote = await cargarSobregastos(db, [...lineas.values()]);
       const vista = await Promise.all(
         resultado.filas.map(async (f) => {
-          let alertas: AlertaGasto[] = [];
-          if (esValida(f)) {
-            const linea = lineas.get(f.datos.rubro_id) as LineaGasto;
+          const alertas: AlertaGasto[] = [];
+          if (f.error === null && f.datos !== null) {
+            const linea = lineas.get(f.datos.linea_id) as LineaGasto;
             const nivel = lote.nivel(linea, { periodo: f.datos.periodo, monto: f.datos.cents });
-            alertas = await alertasDeFila(auth.usuario, id, { id: `previa-${f.fila}`, datos: f.datos, nivel });
+            const alerta = alertaSobregasto(nivel);
+            if (alerta) alertas.push(alerta);
+            // S9: the duplicate control is the document's, so it is asked (and shown) once per invoice.
+            if (primerasFilas.has(f.fila)) {
+              alertas.push(...(await duplicadosDeFactura(auth.usuario, id, { id: `previa-${f.fila}`, datos: f.datos })));
+            }
           }
           return {
             fila: f.fila,
             rubro: f.rubroTexto === "" ? null : f.rubroTexto,
+            actividad: f.actividadTexto === "" ? null : f.actividadTexto,
             tercero: f.datos?.tercero_nombre ?? null,
             numero_documento: f.datos?.numero_documento ?? null,
             valor: f.datos ? fromCents(f.datos.cents) : null,
@@ -126,13 +144,13 @@ export const POST = withApiErrorHandling(
           total: resultado.filas.length,
           validas: validas.length,
           invalidas: resultado.filas.length - validas.length,
-          valor_validas: fromCents(sumCents(validas.map((f) => f.datos.cents))),
+          valor_validas: fromCents(sumCents(validas.map((f) => f.datos?.cents ?? BigInt(0)))),
         },
         filas: vista,
       });
     }
 
-    if (validas.length === 0) {
+    if (facturasValidas.length === 0) {
       return apiError(GASTOS_SIN_FILAS_VALIDAS, 400, "VALIDATION_ERROR", {
         reporte: { errores: resultado.filas.map(errorDeFila) },
       });
@@ -140,12 +158,12 @@ export const POST = withApiErrorHandling(
 
     const loteId = randomUUID();
     const creados = await db.$transaction((tx) =>
-      aplicarGastosImport(tx, { proyectoId: id, usuarioId: auth.usuario.id, filas: validas, lineas, loteId }),
+      aplicarGastosImport(tx, { proyectoId: id, usuarioId: auth.usuario.id, facturas: facturasValidas, lineas, loteId }),
     );
 
     const alertas: { fila: number; alertas: AlertaGasto[] }[] = [];
     for (const creado of creados) {
-      const delFila = await alertasDeFila(auth.usuario, id, creado);
+      const delFila = await alertasDeFactura(auth.usuario, id, creado);
       if (delFila.length > 0) alertas.push({ fila: creado.fila, alertas: delFila });
     }
 
@@ -155,7 +173,7 @@ export const POST = withApiErrorHandling(
       lote_id: loteId,
       valor_total: fromCents(sumCents(creados.map((c) => c.datos.cents))),
       gastos: creados.map((c) => ({ fila: c.fila, id: c.id })),
-      rechazadas: resultado.filas.filter((f) => !esValida(f)).map(errorDeFila),
+      rechazadas: resultado.filas.filter((f) => f.error !== null).map(errorDeFila),
       alertas,
     });
   },

@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { Usuario } from "@prisma/client";
-import { toCents } from "@/lib/proyectos/money";
+import { sumCents, toCents } from "@/lib/proyectos/money";
 
 const mocks = vi.hoisted(() => ({
   parametros: {
@@ -51,10 +51,35 @@ const proyecto = (over: object = {}, miembro = false) =>
   }) as never;
 
 const rubro = (id: string, codigo: string, nombre: string, orden: number) => ({ codigo, nombre, orden, activo: true, id });
-// F-F1: R01 59.5M (14.875M x4), R12 24M (6M x4), project 2026-10..2027-01.
+// F-F1: R01 59.5M (14.875M x4), R12 24M (6M x4), project 2026-10..2027-01. Ninguna línea tiene
+// actividad: cargadas antes de la Parte 2 (D4), así que la vista por actividad las pone en
+// «Sin actividad». Los tests de S10 reemplazan esta fuente por una con objetivos y actividades.
+type ActividadDeLinea = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: "NORMAL" | "TRANSVERSAL";
+  objetivo: { id: string; codigo: string; orden: number } | null;
+};
+const lineaPresupuestal = (
+  id: string,
+  rubroId: string,
+  codigo: string,
+  nombre: string,
+  orden: number,
+  monto: string,
+  actividad: ActividadDeLinea | null = null,
+) => ({
+  id,
+  rubro_id: rubroId,
+  actividad_id: actividad?.id ?? null,
+  monto_proyectado_cop: new Prisma.Decimal(monto),
+  rubro: rubro(rubroId, codigo, nombre, orden),
+  actividad,
+});
 const lineas = [
-  { id: "l12", rubro_id: "r12", monto_proyectado_cop: new Prisma.Decimal("24000000"), rubro: rubro("r12", "R12", "Transporte", 12) },
-  { id: "l01", rubro_id: "r01", monto_proyectado_cop: new Prisma.Decimal("59500000"), rubro: rubro("r01", "R01", "Personal", 1) },
+  lineaPresupuestal("l12", "r12", "R12", "Transporte", 12, "24000000"),
+  lineaPresupuestal("l01", "r01", "R01", "Personal", 1, "59500000"),
 ];
 const PERIODOS = ["2026-10", "2026-11", "2026-12", "2027-01"];
 const celdas = [
@@ -193,7 +218,7 @@ describe("GET financial-sheet: BORRADOR keeps E unavailable (S6)", () => {
     mocks.loadGastos.mockResolvedValue({ disponible: true, gastos: [] });
     const body = await (await GET(get(), ctx)).json();
     expect(body.ejecucion_disponible).toBe(false);
-    for (const row of [...body.rubros, body.total]) {
+    for (const row of [...body.rubros, body.total, ...body.actividades]) {
       expect(row).toMatchObject({ color: null, ep_decimas: null, ea_decimas: null });
     }
     expect(mocks.loadTecnico).not.toHaveBeenCalled();
@@ -333,5 +358,135 @@ describe("GET financial-sheet: access", () => {
     expect((await GET(get(), ctx)).status).toBe(200);
     authAs({ ...visualizador, puede_ver_tablero_gerencial: false } as unknown as Usuario);
     expect((await GET(get(), ctx)).status).toBe(403);
+  });
+});
+
+// S10 (EV-06): la hoja financiera también responde por actividad, con el MISMO ejecutado total: las
+// dos vistas salen de las mismas filas de `loadGastosEjecutados`, agrupadas por línea (rubro) o por
+// la actividad de la línea. El payload por rubro y sus totales no cambian.
+describe("GET financial-sheet: por actividad (S10)", () => {
+  const objetivo = (codigo: string, orden: number) => ({ id: `obj-${codigo}`, codigo, orden });
+  const actividad = (
+    id: string,
+    codigo: string,
+    nombre: string,
+    objetivoDe: { id: string; codigo: string; orden: number } | null,
+    tipo: "NORMAL" | "TRANSVERSAL" = "NORMAL",
+  ): ActividadDeLinea => ({ id, codigo, nombre, tipo, objetivo: objetivoDe });
+  const O1 = objetivo("1", 1);
+
+  beforeEach(() => {
+    // R01 (l01) es de la actividad 1.1 y R12 (l12) de la 1.2, ambas del objetivo 1.
+    mocks.lineaFindMany.mockResolvedValue([
+      { ...lineas[1], actividad_id: "act-11", actividad: actividad("act-11", "1.1", "Talleres", O1) },
+      { ...lineas[0], actividad_id: "act-12", actividad: actividad("act-12", "1.2", "Ferias", O1) },
+    ]);
+  });
+
+  it("el ejecutado total es igual en las dos vistas (S10)", async () => {
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.actividades.map((fila: { codigo: string; ejecutado: string }) => [fila.codigo, fila.ejecutado])).toEqual([
+      ["1.1", "27000000.00"],
+      ["1.2", "13500000.00"],
+    ]);
+    const suma = (filas: { ejecutado: string }[]) => sumCents(filas.map((fila) => toCents(fila.ejecutado)));
+    expect(suma(body.actividades)).toBe(toCents(body.total.ejecutado));
+    expect(suma(body.actividades)).toBe(suma(body.rubros));
+  });
+
+  it("agrupa por objetivo y deja «Gestión del proyecto» para la transversal y «Sin actividad» (S10)", async () => {
+    mocks.lineaFindMany.mockResolvedValue([
+      { ...lineas[1], actividad_id: "act-11", actividad: actividad("act-11", "1.1", "Talleres", O1) },
+      // Una transversal no tiene objetivo y se agrupa aparte (S6/T12), aunque la fila traiga uno.
+      { ...lineas[0], actividad_id: "act-g", actividad: actividad("act-g", "G-1", "Coordinación", null, "TRANSVERSAL") },
+    ]);
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.actividades.map((fila: { objetivo_codigo: string | null; codigo: string; gestion: boolean }) => [
+      fila.objetivo_codigo,
+      fila.codigo,
+      fila.gestion,
+    ])).toEqual([
+      ["1", "1.1", false],
+      [null, "G-1", true],
+    ]);
+  });
+
+  it("sin actividades en el presupuesto queda una sola fila «Sin actividad» (D4)", async () => {
+    mocks.lineaFindMany.mockResolvedValue(lineas)
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.actividades).toHaveLength(1);
+    expect(body.actividades[0]).toMatchObject({
+      actividad_id: null,
+      codigo: null,
+      nombre: "Sin actividad",
+      objetivo_id: null,
+      objetivo_codigo: null,
+      gestion: true,
+      ejecutado: "40500000.00",
+    });
+  });
+
+  it("publica la fila por actividad con sus claves y su saldo (S10, S11)", async () => {
+    const body = await (await GET(get(), ctx)).json();
+    expect(Object.keys(body.actividades[0])).toEqual([
+      "actividad_id",
+      "codigo",
+      "nombre",
+      "objetivo_id",
+      "objetivo_codigo",
+      "gestion",
+      "asignado",
+      "programado",
+      "ejecutado",
+      "diferencia",
+      "ep_decimas",
+      "ea_decimas",
+      "umbral_rojo",
+      "color",
+      "saldo",
+      "rubros",
+    ]);
+    // 59.500.000 asignados menos 27.000.000 ejecutados.
+    expect(body.actividades[0]).toMatchObject({ asignado: "59500000.00", ejecutado: "27000000.00", saldo: "32500000.00" });
+  });
+
+  it("cada actividad publica su detalle por rubro (S10)", async () => {
+    const body = await (await GET(get(), ctx)).json();
+    const rubrosDe = (codigo: string) => {
+      const fila = body.actividades.find((candidata: { codigo: string }) => candidata.codigo === codigo);
+      return fila.rubros.map((rubro: { rubro_id: string; asignado: string; ejecutado: string }) => [rubro.rubro_id, rubro.asignado, rubro.ejecutado]);
+    };
+    expect(rubrosDe("1.1")).toEqual([["r01", "59500000.00", "27000000.00"]]);
+    expect(rubrosDe("1.2")).toEqual([["r12", "24000000.00", "13500000.00"]]);
+  });
+
+  it("mantiene intactos el payload por rubro y los totales (regresión S5)", async () => {
+    const body = await (await GET(get(), ctx)).json();
+    expect(Object.keys(body).sort()).toEqual([
+      "actividades",
+      "alerta_retraso",
+      "base",
+      "corte",
+      "ejecucion_disponible",
+      "estado",
+      "parametros",
+      "rubros",
+      "total",
+    ]);
+    expect(Object.keys(body.rubros[0])).toEqual([
+      "rubro_id",
+      "codigo",
+      "nombre",
+      "asignado",
+      "programado",
+      "ejecutado",
+      "diferencia",
+      "ep_decimas",
+      "ea_decimas",
+      "umbral_rojo",
+      "color",
+    ]);
+    expect(body.rubros.map((fila: { codigo: string }) => fila.codigo)).toEqual(["R01", "R12"]);
+    expect(body.total).toMatchObject({ asignado: "83500000.00", programado: "41750000.00", ejecutado: "40500000.00" });
   });
 });

@@ -11,6 +11,12 @@
 // with the same live E (S8); its periods come from the v0 dates and the delay alert still reads
 // the vigente technical color. Aggregates only: no per-gasto or support data (P04). Readable in any estado by
 // whoever can read the project (404 -> 403 -> 409 -> 400).
+//
+// S10 (EV-06): the payload also carries `actividades`, one row per activity with A / P / E, the balance
+// (A - E), the threshold and the color, plus the objective and «Gestión del proyecto» grouping. It is the
+// same sheet read the other way: both the per-rubro rows and the per-activity rows are built from the same
+// `loadGastosEjecutados` rows through `computeFicha`, so the executed total is identical in both views.
+// The activity view always reads the live budget; `base` only changes `rubros`/`total`.
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";

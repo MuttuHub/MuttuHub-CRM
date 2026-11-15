@@ -85,17 +85,33 @@ describe("puedeTransicionar", () => {
 })
 
 describe("esDuplicado", () => {
-  const base = { tercero_id_norm: "900123456", numero_documento_norm: "FE0123", estado: "REGISTRADO" as const }
+  const base = {
+    factura_id: "gas-1",
+    tercero_id_norm: "900123456",
+    numero_documento_norm: "FE0123",
+    estado: "REGISTRADO" as const,
+  }
 
   it("matches the same third party and document number among live expenses", () => {
-    expect(esDuplicado(base, { ...base, estado: "VALIDADO" })).toBe(true)
+    expect(esDuplicado(base, { ...base, factura_id: "gas-2", estado: "VALIDADO" })).toBe(true)
   })
 
   it("ignores RECHAZADO and ANULADO, other documents and missing ids", () => {
-    expect(esDuplicado(base, { ...base, estado: "RECHAZADO" })).toBe(false)
-    expect(esDuplicado(base, { ...base, estado: "ANULADO" })).toBe(false)
-    expect(esDuplicado(base, { ...base, numero_documento_norm: "FE123" })).toBe(false)
-    expect(esDuplicado({ ...base, tercero_id_norm: null }, { ...base, tercero_id_norm: null })).toBe(false)
+    expect(esDuplicado(base, { ...base, factura_id: "gas-2", estado: "RECHAZADO" })).toBe(false)
+    expect(esDuplicado(base, { ...base, factura_id: "gas-2", estado: "ANULADO" })).toBe(false)
+    expect(esDuplicado(base, { ...base, factura_id: "gas-2", numero_documento_norm: "FE123" })).toBe(false)
+    expect(
+      esDuplicado(
+        { ...base, factura_id: "gas-2", tercero_id_norm: null },
+        { ...base, factura_id: "gas-3", tercero_id_norm: null },
+      ),
+    ).toBe(false)
+  })
+
+  // S9: «El control de duplicados y la anulación se aplican a la factura completa.» La unidad es la factura: las
+  // filas del reparto de un mismo documento no son duplicados suyos.
+  it("never takes two rows of one invoice as duplicates of each other (S9)", () => {
+    expect(esDuplicado(base, { ...base, estado: "VALIDADO" })).toBe(false)
   })
 })
 

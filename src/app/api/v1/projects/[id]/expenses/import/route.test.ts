@@ -22,6 +22,11 @@ const mocks = vi.hoisted(() => ({
   notificar: vi.fn(),
   create: vi.fn(),
   soporteCreate: vi.fn(),
+  // S9/T14.2-B2: el lote del importador suma las filas del reparto; estas filas de plantilla se escriben sin
+  // reparto (el modelo es de la importación, T14.3), así que la lectura llega vacía y los importes no cambian.
+  repartoFindMany: vi.fn(),
+  // S9/T14.3: la importación escribe la cabecera y sus filas del reparto en la misma transacción.
+  repartoCreateMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -33,6 +38,7 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
 vi.mock("@/lib/db", () => {
   const tx = {
     gasto: { aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy, create: mocks.create },
+    gastoReparto: { findMany: mocks.repartoFindMany, createMany: mocks.repartoCreateMany },
     soporteProyecto: { create: mocks.soporteCreate },
     programacionPeriodo: { aggregate: mocks.programadoAggregate, groupBy: mocks.programadoGroupBy },
     usuario: { findMany: mocks.gerentes },
@@ -44,6 +50,7 @@ vi.mock("@/lib/db", () => {
       rubro: { findMany: mocks.rubroFindMany },
       lineaPresupuestal: { findMany: mocks.lineaFindMany },
       gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy },
+      gastoReparto: { findMany: mocks.repartoFindMany },
       programacionPeriodo: { aggregate: mocks.programadoAggregate, groupBy: mocks.programadoGroupBy },
       proyectoMiembro: { findMany: mocks.proyectoMiembroFindMany },
       $transaction: mocks.transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
@@ -53,7 +60,7 @@ vi.mock("@/lib/db", () => {
 
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChanges } from "@/lib/api/audit-cambios";
-import { RUBRO_SIN_ASIGNADO_MESSAGE } from "@/lib/api/gastos";
+import { RUBRO_SIN_ASIGNADO_MESSAGE, REPARTO_SUMA_MESSAGE } from "@/lib/api/gastos";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { ENCABEZADOS_GASTOS, MAX_FILAS_GASTOS } from "@/lib/proyectos/gastos-import/parse";
 import { POST } from "./route";
@@ -94,6 +101,7 @@ const fila = (data: Partial<Record<(typeof ENCABEZADOS_GASTOS)[number], Celda>> 
     Total: null,
     Periodo: null,
     "Enlace del soporte": "https://drive.google.com/soporte",
+    "Código de actividad": null,
     ...data,
   };
   return ENCABEZADOS_GASTOS.map((h) => base[h] ?? null);
@@ -152,7 +160,9 @@ beforeEach(() => {
     { id: "lin-2", monto_proyectado_cop: new Prisma.Decimal("5000000"), rubro: rubroViaticos },
     { id: "lin-3", monto_proyectado_cop: new Prisma.Decimal("0"), rubro: rubroSinAsignar },
   ]);
+  mocks.repartoCreateMany.mockResolvedValue({ count: 1 });
   mocks.gastoFindMany.mockResolvedValue([]);
+  mocks.repartoFindMany.mockResolvedValue([]);
   mocks.proyectoMiembroFindMany.mockResolvedValue([]);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
   // The fixture lines have a full monthly programming, so only the tests that say so warn.
@@ -292,11 +302,48 @@ describe("POST expenses/import — validate-only preview", () => {
     expect(logChanges).not.toHaveBeenCalled();
   });
 
-  it("flags the second row of an in-file duplicate as invalid", async () => {
-    const res = await POST(subida(await libro([fila(), fila()]), { modo: "validar" }), ctx);
+  // S9/T14.3: dos filas del mismo documento son UNA factura distribuida, no un duplicado dentro del archivo.
+  it("reads two rows of the same document as one invoice, not as an in-file duplicate (S9)", async () => {
+    const res = await POST(
+      subida(await libro([fila({ Total: 3000001 }), fila({ Total: 3000001 })]), { modo: "validar" }),
+      ctx,
+    );
     const body = await res.json();
-    expect(body.filas.map((f: { valida: boolean }) => f.valida)).toEqual([true, false]);
-    expect(body.filas[1].mensaje).toContain("Duplicado dentro del archivo");
+    expect(body.filas.map((f: { valida: boolean; mensaje: string | null }) => [f.valida, f.mensaje])).toEqual([
+      [true, null],
+      [true, null],
+    ]);
+    expect(body.resumen).toMatchObject({ total: 2, validas: 2 });
+  });
+
+  // S9: el control de duplicados es de la factura completa, así que se consulta UNA vez por documento.
+  it("checks the duplicate control once for the whole invoice, not once per row (S9)", async () => {
+    mocks.gastoFindMany.mockResolvedValue([{ id: "gas-viejo", proyecto_id: "pry-1", proyecto: { codigo: "P-001" } }]);
+    const body = await (
+      await POST(subida(await libro([fila({ Total: 3000001 }), fila({ Total: 3000001 })]), { modo: "validar" }), ctx)
+    ).json();
+    expect(mocks.gastoFindMany).toHaveBeenCalledTimes(1);
+    expect(body.filas[0].alertas).toEqual([expect.objectContaining({ tipo: "DUPLICADO", gasto_id: "gas-viejo" })]);
+    expect(body.filas[1].alertas).toEqual([]);
+  });
+
+  it("rejects the whole invoice when its rows do not add up and writes nothing (S9)", async () => {
+    const res = await POST(
+      subida(
+        await libro([fila({ Subtotal: 350000, Total: 1000000 }), fila({ Subtotal: 640000, Total: 1000000 })]),
+      ),
+      ctx,
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("VALIDATION_ERROR");
+    expect(body.reporte.errores.map((e: { fila: number; mensaje: string }) => [e.fila, e.mensaje])).toEqual([
+      [2, REPARTO_SUMA_MESSAGE],
+      [3, REPARTO_SUMA_MESSAGE],
+    ]);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreateMany).not.toHaveBeenCalled();
   });
 
   it("adds a non-blocking DUPLICADO alert when a live expense already has the same id and document number", async () => {
@@ -377,6 +424,84 @@ describe("POST expenses/import — validate-only preview", () => {
 });
 
 describe("POST expenses/import — apply", () => {
+  // S9/T14.3: la factura de 1.000.000 con 350.000 en la 1.2 y 650.000 en la 1.3 se escribe como UN gasto con sus
+  // dos filas del reparto, en la misma transacción, con la cabecera en la línea de la primera fila.
+  it("writes a document of two rows as ONE invoice with its two distribution rows (S9)", async () => {
+    mocks.lineaFindMany.mockResolvedValue([
+      {
+        id: "lin-12",
+        monto_proyectado_cop: new Prisma.Decimal("24000000"),
+        actividad: { codigo: "1.2", nombre: "Talleres" },
+        rubro: rubroTransporte,
+      },
+      {
+        id: "lin-13",
+        monto_proyectado_cop: new Prisma.Decimal("10000000"),
+        actividad: { codigo: "1.3", nombre: "Ferias" },
+        rubro: rubroTransporte,
+      },
+    ]);
+    mocks.programadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-12", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("24000000") } },
+      { linea_id: "lin-13", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("10000000") } },
+    ]);
+    const res = await POST(
+      subida(
+        await libro([
+          fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: 1000000, "Enlace del soporte": "https://drive.google.com/a" }),
+          fila({ "Código de actividad": "1.3", Subtotal: 650000, Total: 1000000, "Enlace del soporte": "https://drive.google.com/b" }),
+        ]),
+      ),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      importado: true,
+      creados: 1,
+      gastos: [{ fila: 2, id: "gas-1" }],
+      valor_total: "1000000.00",
+      rechazadas: [],
+    });
+    expect(mocks.transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    const data = mocks.create.mock.calls[0][0].data;
+    expect([String(data.subtotal_cop), String(data.iva_cop), String(data.monto_cop)]).toEqual(["1000000", "0", "1000000"]);
+    expect(data.linea_id).toBe("lin-12");
+    const repartos = mocks.repartoCreateMany.mock.calls[0][0].data as { linea_id: string; valor: Prisma.Decimal }[];
+    expect(repartos.map((fila) => [fila.linea_id, String(fila.valor)])).toEqual([
+      ["lin-12", "350000"],
+      ["lin-13", "650000"],
+    ]);
+    // Los dos soportes de la factura, una sola vez cada uno.
+    expect(mocks.soporteCreate.mock.calls.map(([args]) => args.data.url_externa)).toEqual([
+      "https://drive.google.com/a",
+      "https://drive.google.com/b",
+    ]);
+    const auditoria = vi.mocked(logChanges).mock.calls[0][1];
+    expect(auditoria).toHaveLength(1);
+    expect(auditoria[0].valor_nuevo).toMatchObject({ valor: "1000000.00", soportes: 2 });
+  });
+
+  it("keeps the same document of another third party as a second invoice, not a duplicate (S9)", async () => {
+    const body = await (
+      await POST(
+        subida(
+          await libro([
+            fila({ Total: 1500000.5 }),
+            fila({ Total: 1500000.5, "Número de identificación": "800.000.001-1" }),
+          ]),
+        ),
+        ctx,
+      )
+    ).json();
+    expect(body.creados).toBe(2);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect(mocks.gastoFindMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tercero_id_norm: null }) }),
+    );
+  });
+
   it("creates only the valid rows in one transaction, as REGISTRADO with one link support each, and returns the rejected ones", async () => {
     const res = await POST(
       subida(await libro([fila(), fila({ Rubro: "Inventado", "Número de documento": "FE-2" }), fila({ "Número de documento": "FE-3", Descripción: "Otro viaje" })])),
@@ -395,6 +520,9 @@ describe("POST expenses/import — apply", () => {
     });
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.create).toHaveBeenCalledTimes(2);
+    // Cada fila válida es un documento de una fila: una cabecera con una fila del reparto por su total.
+    expect(mocks.repartoCreateMany).toHaveBeenCalledTimes(2);
+    expect(String(mocks.repartoCreateMany.mock.calls[0][0].data[0].valor)).toBe("1500000.5");
     // S2/T6: the template has no file column, so every imported row lands with its one link support.
     expect(mocks.soporteCreate).toHaveBeenCalledTimes(2);
     expect(mocks.create.mock.calls[0][0].data).toMatchObject({

@@ -411,8 +411,9 @@ describe("E seam (live DB)", () => {
     expect(fuente.fuente.gastos).toEqual(
       expect.arrayContaining([
         // T10: each expense also carries its line, so two lines of one rubro do not share expenses.
-        { rubroId: fuente.rubroId, lineaId: fuente.lineaId, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
-        { rubroId: fuente.rubroId, lineaId: fuente.lineaId, periodo: "2026-10", valor: toCents("40"), estado: "REGISTRADO" },
+        // S10: and the activity of that line; this fixture's line has none, so it is the null row.
+        { rubroId: fuente.rubroId, lineaId: fuente.lineaId, actividadId: null, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
+        { rubroId: fuente.rubroId, lineaId: fuente.lineaId, actividadId: null, periodo: "2026-10", valor: toCents("40"), estado: "REGISTRADO" },
       ]),
     )
   })

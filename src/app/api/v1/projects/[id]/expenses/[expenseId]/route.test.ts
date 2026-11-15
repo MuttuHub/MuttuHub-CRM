@@ -7,6 +7,11 @@ import type { Usuario } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({
   updateMany: vi.fn(),
+  repartoCreate: vi.fn(),
+  repartoDelete: vi.fn(),
+  // S9/T14.2-B2: el aviso de sobregasto suma las filas del reparto; los casos de este archivo son gastos de una
+  // sola fila, así que la suma de repartos se queda en 0 y los importes del test no cambian.
+  repartoAggregate: vi.fn(),
   reread: vi.fn(),
   aggregate: vi.fn(),
   programadoAggregate: vi.fn(),
@@ -26,12 +31,13 @@ vi.mock("@/lib/permissions", async (importOriginal) => {
 vi.mock("@/lib/db", () => ({
   db: {
     proyecto: { findFirst: vi.fn() },
-    lineaPresupuestal: { findFirst: vi.fn() },
+    lineaPresupuestal: { findFirst: vi.fn(), findMany: vi.fn() },
     gasto: { findFirst: vi.fn(), findMany: vi.fn() },
     proyectoMiembro: { findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         gasto: { aggregate: mocks.aggregate, updateMany: mocks.updateMany, findFirstOrThrow: mocks.reread },
+        gastoReparto: { createMany: mocks.repartoCreate, deleteMany: mocks.repartoDelete, aggregate: mocks.repartoAggregate },
         programacionPeriodo: { aggregate: mocks.programadoAggregate },
         usuario: { findMany: mocks.gerentes },
         notificacion: { createMany: mocks.notificar },
@@ -91,9 +97,45 @@ const existente = (data: Record<string, unknown> = {}) => ({
   anulado_at: null,
   motivo_anulacion: null,
   linea: { id: "lin-1", monto_proyectado_cop: new Prisma.Decimal("24000000"), rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+  repartos: [repartoRow()],
   soportes: [],
   ...data,
 });
+
+/** One distribution row as `GASTO_INCLUDE` selects it. */
+function repartoRow(data: Record<string, unknown> = {}) {
+  return {
+    linea_id: "lin-1",
+    valor: new Prisma.Decimal("1500000.50"),
+    linea: {
+      id: "lin-1",
+      actividad_id: "act-12",
+      monto_proyectado_cop: new Prisma.Decimal("24000000"),
+      rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+    },
+    ...data,
+  };
+}
+
+/** A split invoice: the header points at 1.2 and the rows add up to its total. */
+function repartida() {
+  return existente({
+    linea_id: "lin-12",
+    repartos: [
+      repartoRow({ linea_id: "lin-12", valor: new Prisma.Decimal("1000000.50") }),
+      repartoRow({
+        linea_id: "lin-13",
+        valor: new Prisma.Decimal("500000"),
+        linea: {
+          id: "lin-13",
+          actividad_id: "act-13",
+          monto_proyectado_cop: new Prisma.Decimal("5000000"),
+          rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+        },
+      }),
+    ],
+  });
+}
 
 function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario, supabaseUser: {} as never });
@@ -122,7 +164,22 @@ beforeEach(() => {
     monto_proyectado_cop: new Prisma.Decimal("24000000"),
     rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
   } as never);
+  vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([
+    {
+      id: "lin-12",
+      actividad_id: "act-12",
+      monto_proyectado_cop: new Prisma.Decimal("10000000"),
+      rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+    },
+    {
+      id: "lin-13",
+      actividad_id: "act-13",
+      monto_proyectado_cop: new Prisma.Decimal("10000000"),
+      rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+    },
+  ] as never);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  mocks.repartoAggregate.mockResolvedValue({ _sum: { valor: null } });
   mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
   mocks.gerentes.mockResolvedValue([{ id: "ger-1" }, { id: "ger-2" }]);
   mocks.notificar.mockResolvedValue({ count: 2 });
@@ -171,6 +228,168 @@ describe("PATCH expenses/:expenseId overspend check (AJ-08)", () => {
       { tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." },
     ]);
     expect(mocks.notificar).not.toHaveBeenCalled();
+  });
+});
+
+// S9 / T14.2-B1: la corrección reescribe el reparto entero dentro de la misma transacción y conserva lo que la
+// auditoría ya registraba.
+describe("PATCH expenses/:expenseId: the distributed invoice (S9, T14.2-B1)", () => {
+  it("rewrites the distribution and the header's first line in one transaction, auditing the same fields (S9)", async () => {
+    const res = await PATCH(
+      patch({
+        subtotal: "1000000",
+        iva: "0",
+        repartos: [
+          { linea_id: "lin-12", valor: "350000" },
+          { linea_id: "lin-13", valor: "650000" },
+        ],
+      }),
+      ctx,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mocks.repartoDelete).toHaveBeenCalledWith({ where: { gasto_id: "gas-1" } });
+    expect(mocks.repartoCreate).toHaveBeenCalledWith({
+      data: [
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-12", valor: new Prisma.Decimal("350000") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-13", valor: new Prisma.Decimal("650000") },
+      ],
+    });
+    expect(updatedData()).toMatchObject({ linea_id: "lin-12", monto_cop: new Prisma.Decimal("1000000") });
+    expect(json.gasto.repartos).toEqual([
+      {
+        linea_id: "lin-12",
+        actividad_id: "act-12",
+        rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+        valor: "350000.00",
+      },
+      {
+        linea_id: "lin-13",
+        actividad_id: "act-13",
+        rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+        valor: "650000.00",
+      },
+    ]);
+    // The audit keeps recording the changed header fields, exactly as before.
+    expect(vi.mocked(logChanges).mock.calls[0][1]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accion: "EDITAR", campo: "valor", valor_nuevo: "1000000.00" }),
+        expect.objectContaining({ accion: "EDITAR", campo: "subtotal", valor_nuevo: "1000000.00" }),
+      ]),
+    );
+  });
+
+  // Review of T14: money that moves between activities with the same total and first rubro must leave a trail.
+  it("audits a re-split that keeps the total and the first rubro (S9)", async () => {
+    current = repartida();
+    const res = await PATCH(
+      patch({
+        repartos: [
+          { linea_id: "lin-12", valor: "500000.50" },
+          { linea_id: "lin-13", valor: "1000000" },
+        ],
+      }),
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(logChanges).mock.calls[0][1]).toEqual([
+      expect.objectContaining({
+        accion: "EDITAR",
+        entidad: "gasto",
+        entidad_id: "gas-1",
+        campo: "reparto",
+        valor_anterior: "lin-12=1000000.50; lin-13=500000.00",
+        valor_nuevo: "lin-12=500000.50; lin-13=1000000.00",
+      }),
+    ]);
+  });
+
+  it("adds no distribution audit row to an ordinary edit of a one-line invoice (S9, regression)", async () => {
+    const res = await PATCH(patch({ subtotal: "2000000" }), ctx);
+
+    expect(res.status).toBe(200);
+    const campos = vi.mocked(logChanges).mock.calls[0][1].map((fila: { campo?: string | null }) => fila.campo);
+    expect(campos).toEqual(expect.arrayContaining(["valor", "subtotal"]));
+    expect(campos).not.toContain("reparto");
+  });
+
+  it("rejects a distribution that does not sum the new total and writes nothing (S9)", async () => {
+    const res = await PATCH(
+      patch({
+        subtotal: "1000000",
+        iva: "0",
+        repartos: [
+          { linea_id: "lin-12", valor: "350000" },
+          { linea_id: "lin-13", valor: "640000" },
+        ],
+      }),
+      ctx,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Las líneas de la distribución deben sumar exactamente el total de la factura.",
+    });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.repartoDelete).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("rejects repartos next to rubro_id and writes nothing (S9)", async () => {
+    const res = await PATCH(
+      patch({ rubro_id: "rub-1", repartos: [{ linea_id: "lin-12", valor: "1500000.50" }] }),
+      ctx,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Una factura distribuida no lleva rubro ni línea en la cabecera.",
+    });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a distribution row on a line that is not of the project and writes nothing (S9)", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([]);
+    const res = await PATCH(patch({ repartos: [{ linea_id: "lin-ajena", valor: "1500000.50" }] }), ctx);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.",
+    });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a legacy single row in step with the corrected total (S9)", async () => {
+    const res = await PATCH(patch({ subtotal: "2000000" }), ctx);
+
+    expect(res.status).toBe(200);
+    expect(mocks.repartoDelete).toHaveBeenCalledWith({ where: { gasto_id: "gas-1" } });
+    expect(mocks.repartoCreate).toHaveBeenCalledWith({
+      data: [{ proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-1", valor: new Prisma.Decimal("2000000") }],
+    });
+    expect(updatedData().linea_id).toBe("lin-1");
+  });
+
+  it("refuses a bare total change on a split invoice and leaves its rows untouched (S9)", async () => {
+    current = repartida();
+    expect((await PATCH(patch({ subtotal: "3000000" }), ctx)).status).toBe(400);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.repartoDelete).not.toHaveBeenCalled();
+
+    // A correction that does not touch the amount keeps the split exactly as it is.
+    const res = await PATCH(patch({ descripcion: "Tiquetes corregidos" }), ctx);
+    expect(res.status).toBe(200);
+    expect(mocks.repartoDelete).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+    const json = await res.json();
+    expect(json.gasto).toMatchObject({ id: "gas-1", descripcion: "Tiquetes corregidos" });
   });
 });
 
@@ -435,6 +654,31 @@ describe("PATCH expenses/:expenseId", () => {
     } as never);
     expect((await PATCH(patch({ rubro_id: "rub-9" }), ctx)).status).toBe(200);
     expect(updatedData().linea_id).toBe("lin-9");
+  });
+
+  // S9 / T14.1: the expense keeps the exact line it already has when the correction does not change the
+  // rubro (the form always re-sends it), even when that rubro is budgeted in more than one activity.
+  it("keeps the expense on its own line when the correction re-sends the same rubro", async () => {
+    vi.mocked(db.lineaPresupuestal.findFirst).mockImplementation((async ({ where }: { where: { id?: string } }) =>
+      where.id === "lin-1"
+        ? {
+            id: "lin-1",
+            monto_proyectado_cop: new Prisma.Decimal("24000000"),
+            rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+          }
+        : {
+            id: "lin-otra",
+            monto_proyectado_cop: new Prisma.Decimal("1000000"),
+            rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
+          }) as never);
+
+    const res = await PATCH(patch({ rubro_id: "rub-1", descripcion: "Tiquetes corregidos" }), ctx);
+
+    expect(res.status).toBe(200);
+    expect(db.lineaPresupuestal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "lin-1", proyecto_id: "pry-1", rubro_id: "rub-1" } }),
+    );
+    expect(updatedData().linea_id).toBe("lin-1");
   });
 
   it("validates the periodo, the subtotal, the IVA and an empty body", async () => {

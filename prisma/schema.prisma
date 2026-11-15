@@ -1189,6 +1189,7 @@ model LineaPresupuestal {
   actividad    Actividad?             @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   programacion ProgramacionPeriodo[]
   gastos       Gasto[]
+  repartos     GastoReparto[]
 
   // La unicidad es de dos índices parciales escritos en SQL (`20261112120000_t10_linea_por_actividad`),
   // porque la clave depende de si la línea es heredada: (proyecto, actividad, rubro) cuando tiene
@@ -1284,6 +1285,7 @@ model Gasto {
   linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   soportes SoporteProyecto[]
   notificaciones Notificacion[]
+  repartos GastoReparto[]
 
   @@unique([id, proyecto_id])
   @@index([proyecto_id, estado, periodo])
@@ -1291,6 +1293,30 @@ model Gasto {
   @@index([tercero_id_norm, numero_documento_norm])
   @@index([estado, created_at])
   @@map("gastos")
+}
+
+// T14 (S9, EV-05) — factura distribuida: una fila por actividad+rubro. La suma de las filas de un
+// gasto es el total de la factura (`monto_cop`); la cabecera (tercero, documento, soportes,
+// periodo, estado) sigue en `Gasto`. `proyecto_id` se repite a propósito: es lo que permite las dos
+// claves compuestas y garantiza que la línea del reparto sea del mismo proyecto que el gasto.
+// `Gasto.linea_id` sigue siendo obligatorio: es el puntero heredado que leen el ejecutado y sus
+// consumidores hasta T14.2-B.
+model GastoReparto {
+  id          String   @id @default(uuid())
+  proyecto_id String
+  gasto_id    String
+  linea_id    String
+  valor       Decimal  @db.Decimal(15, 2)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  gasto Gasto             @relation(fields: [gasto_id, proyecto_id], references: [id, proyecto_id], onDelete: Cascade)
+  linea LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([gasto_id])
+  @@index([linea_id])
+  @@index([proyecto_id])
+  @@map("gastos_reparto")
 }
 
 // v2 projects module (S6, RNF-04) — append-only log of every issued download of an expense
