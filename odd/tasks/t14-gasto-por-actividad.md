@@ -544,3 +544,36 @@ en `src/lib/api` + `expenses` + `activities`, **283 invariantes** y 48 migracion
 **L60** Lo que 5-B necesita y esta rebanada no pudo tocar: los hooks `useCloseActivityExpenses` /
 `useReopenActivityExpenses` (van con su consumidor o `knip` los marca como export sin uso) y exponer el cierre en
 `GET /activities`, que vive en `src/lib/proyectos/actividad.ts`.
+
+---
+
+### Rebanada 5-B (T14.5-B) — la mitad visible de S11
+
+**L61** Commit `a5706e1d39d22eafc6ce2a4a89def688be583170` — 10 archivos. Cada fila de `actividades` de la hoja
+financiera publica ahora `cerrada`, `cerrada_at`, `nota_cierre`, `ahorro` y `sobreejecucion`, **derivados y no
+guardados**: `ahorro = max(A − E, 0)` y `sobreejecucion = max(E − A, 0)` solo cuando la actividad está cerrada, y
+`null` mientras está abierta, así que una corrección posterior no los puede dejar viejos. `GET /activities` publica el
+cierre y su schema OpenAPI ya lo lista (lo cerré yo, era un hueco de documentación). Los dos hooks entran aquí con su
+consumidor. La pantalla muestra «Saldo» y «Cerrar gastos de la actividad» con nota obligatoria mientras está abierta, y
+«Ahorro» o «Sobreejecución» con la nota más «Reabrir» con motivo cuando está cerrada, con el mismo permiso que
+registrar un gasto y con tabla en escritorio y tarjetas en móvil.
+
+**L62** Criterios de S11, ahora visibles, con su test: «Una actividad abierta con asignado $10.000.000 y ejecutado
+$7.000.000 muestra saldo $3.000.000» → `una actividad abierta con 10.000.000 asignados y 7.000.000 ejecutados muestra
+saldo 3.000.000 (S11)` (hoja y vista); «Al cerrarla con nota, muestra ahorro $3.000.000 y la nota» →
+`al cerrarla con nota muestra ahorro 3.000.000 y la nota (S11)` y `una actividad cerrada que gastó de más muestra
+sobreejecución, no ahorro (S11)`; «No se puede cerrar sin nota» → `no cierra sin nota: muestra el mensaje del servidor
+y no envía nada (S11)`; y la fila «Sin actividad» no lleva cierre porque no hay actividad que cerrar
+(`la fila «Sin actividad» no lleva cierre: no hay actividad que cerrar (S11, D4)`). El criterio 2 (traslado del ahorro)
+**no se reimplementa**: reutiliza el flujo de AJ-09/T13.6 con aprobación del Gerente, y esta rebanada no añade botón
+para él.
+
+**L63** Riesgo: **`Risk: none`** — sin migración, sin dato tocado, campos aditivos y sin cambio de contrato. Tres cosas
+que la revisión tiene que saber: (a) `toActividadV2View` es compartido, así que las respuestas de
+`/activities/:activityId` publican también el cierre (aditivo, no se tocó esa ruta); (b) los dos mensajes de nota y
+motivo se copian literalmente en el componente porque `cierre-gastos.ts` importa `@/lib/db` y no es importable desde
+cliente — el test fija el texto exacto y falla si el servidor cambia la copia; (c) el cierre no viaja en la fila
+«Sin actividad».
+
+**L64** Verificación propia: `tsc` 0, `eslint` 0, `knip` 0, **334 tests** en la rebanada, **83** en los consumidores del
+payload, **283 invariantes** y el documento OpenAPI validando (31 tests).
