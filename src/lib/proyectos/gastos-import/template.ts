@@ -25,6 +25,8 @@ export async function generarPlantillaGastos(rubros: readonly string[]): Promise
   hoja.getColumn(2).numFmt = "yyyy-mm-dd"
   // Subtotal, IVA and the optional Total.
   for (const columna of [9, 10, 11]) hoja.getColumn(columna).numFmt = "#,##0.00"
+  // «Código de actividad» stays text: Excel would turn "1.10" into the number 1.1, or "1.2" into a date.
+  hoja.getColumn(ENCABEZADOS_GASTOS.indexOf("Código de actividad") + 1).numFmt = "@"
 
   const lista = workbook.addWorksheet(HOJA_RUBROS_GASTOS)
   lista.columns = [{ header: "Rubro", key: "rubro", width: 40 }]

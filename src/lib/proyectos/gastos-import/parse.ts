@@ -332,6 +332,10 @@ type FilaCruda = { fila: number } & Record<Exclude<Campo, "valorAnterior">, Valo
 
 const enColumna = (campo: Campo, mensaje: string) => `«${ETIQUETA[campo]}»: ${mensaje}`
 const IVA_VACIO_MESSAGE = "Ingresa el IVA (puede ser 0)."
+const ACTIVIDAD_NO_TEXTO_MESSAGE = enColumna(
+  "actividad",
+  "escríbelo como texto (por ejemplo 1.10); Excel lo convirtió en número o fecha.",
+)
 
 type MontosFila =
   | { ok: true; subtotal: Cents; iva: Cents; total: Cents; totalDocumento: Cents | null }
@@ -480,6 +484,10 @@ function validarFila(
   if (rubroTexto === "") return falla("Falta el nombre del rubro.")
   const rubro = indice.get(normalizarTexto(rubroTexto))
   if (!rubro) return falla(`No encontramos el rubro «${rubroTexto}» en el catálogo.`)
+  // Review of T14: a code Excel turned into a number (1.10 → 1.1) or a date cannot be trusted to name an activity.
+  if (typeof cruda.actividad === "number" || cruda.actividad instanceof Date) {
+    return falla(ACTIVIDAD_NO_TEXTO_MESSAGE, rubro.id)
+  }
   const linea = lineaDeLaFila(rubro, actividadTexto, lineas)
   if (!linea.ok) return falla(linea.error, rubro.id)
 

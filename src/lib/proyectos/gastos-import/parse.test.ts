@@ -515,6 +515,21 @@ describe("parseGastosImport — una factura distribuida (S9, T14.3)", () => {
     expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1000000") }])
   })
 
+  // Review of T14: a code Excel turned into a number (1.10 → 1.1) or a date must never resolve to an activity.
+  it.each([
+    ["a number", 1.1],
+    ["a date", new Date(Date.UTC(2026, 1, 1))],
+  ])("rejects an activity code that arrives as %s instead of text (S9)", async (_caso, valor) => {
+    const r = await parseGastosImport(
+      await libro([fila({ "Código de actividad": valor, Subtotal: 1000000 })]),
+      contextoDistribuido,
+    )
+    expect(r.filas[0].error).toBe(
+      "«Código de actividad»: escríbelo como texto (por ejemplo 1.10); Excel lo convirtió en número o fecha.",
+    )
+    expect(r.facturas[0].datos).toBeNull()
+  })
+
   it("requires the invoice to state its «Total» before it can be distributed (S9)", async () => {
     const r = await parseGastosImport(await dosFilas(null), contextoDistribuido)
     expect(r.filas.map((f) => f.error)).toEqual([SIN_TOTAL_DISTRIBUCION_MESSAGE, SIN_TOTAL_DISTRIBUCION_MESSAGE])

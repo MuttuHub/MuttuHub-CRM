@@ -53,6 +53,15 @@ describe("generarPlantillaGastos", () => {
     expect(hoja.getColumn(encabezados.length).width).toBeGreaterThan(0)
   })
 
+  // Review of T14: activity codes such as "1.10" must stay text; Excel would turn them into 1.1 or a date.
+  it("formats the «Código de actividad» column as text (S9)", async () => {
+    const workbook = await cargar(await generarPlantillaGastos(["Transporte"]))
+    const hoja = workbook.getWorksheet(HOJA_PLANTILLA_GASTOS)!
+    const encabezados = hoja.getRow(1).values as unknown[]
+    // `values` is 1-based (index 0 is empty), so the index is already the column number.
+    expect(hoja.getColumn(encabezados.indexOf("Código de actividad")).numFmt).toBe("@")
+  })
+
   it("lists the rubros that take expenses in their own sheet", async () => {
     const workbook = await cargar(await generarPlantillaGastos(["Transporte", "Viáticos"]))
     const rubros = workbook.getWorksheet(HOJA_RUBROS_GASTOS)
