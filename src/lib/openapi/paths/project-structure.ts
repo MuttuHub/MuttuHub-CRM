@@ -269,10 +269,10 @@ registry.registerPath({
   summary: "Cierra los gastos de la actividad (Gestor)",
   description:
     `${CIERRE_GATE_NOTE} S11/EV-07: el cuerpo exige una \`nota\` no vacía de hasta 1000 caracteres que explica la ` +
-    "diferencia; la actividad pasa a mostrar ahorro o sobreejecución con esa nota y sus líneas dejan de admitir gastos " +
-    "nuevos (409 INVALID_STATE con el motivo y cómo deshacerlo). Audita `EDITAR` sobre \`actividad\` con " +
-    "`gastos_cerrados_at`, `gastos_cerrados_nota` y `gastos_cerrados_por`. Cerrar una actividad ya cerrada responde " +
-    "409 CONFLICT, nunca un éxito silencioso.",
+    `diferencia; la actividad pasa a mostrar ahorro o sobreejecución con esa nota y sus líneas dejan de admitir gastos ` +
+    `nuevos (409 INVALID_STATE con el motivo y cómo deshacerlo). Audita \`EDITAR\` sobre \`actividad\` con ` +
+    `\`gastos_cerrados_at\`, \`gastos_cerrados_nota\` y \`gastos_cerrados_por\`. Cerrar una actividad ya cerrada responde ` +
+    `409 CONFLICT, nunca un éxito silencioso.`,
   security: [{ sessionCookie: [] }],
   request: {
     params: ActividadParams,
