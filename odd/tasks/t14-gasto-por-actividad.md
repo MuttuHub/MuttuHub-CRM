@@ -443,3 +443,48 @@ escritores sin filas (archivo prohibido, solo desactualizado); (3) la pantalla d
 las suites de importación, **211** en el árbol de `expenses` (206 + 5 nuevos), **277** invariantes con la auditoría
 estricta restaurada y el documento OpenAPI validando. Riesgo: **`Risk: none`**; el único punto que pide decisión es el
 significado de «Total» descrito en L47.
+
+---
+
+### Deudas propias (L32.2 y L32.3) — cerradas
+
+**L51** Commit `8b0e1bcdf91ed877f669ffad50853a7cd6d00517` — `feat(finanzas): name the objective and use cards on a phone
+(S10 debts)`. Dos archivos, +344 / −32, solo UI. El título del grupo pasa a «Objetivo <código>. <descripción>» con
+`useProjectObjectives` (busca por `objetivo_id`, después por código, y cae al texto de siempre si la descripción no
+está); y por debajo del corte móvil cada actividad —y cada rubro de su detalle— se pinta como tarjeta, como su vecina
+por rubro, en vez de una tabla que se arrastra de lado. Los números siguen siendo los del servidor: ningún umbral,
+porcentaje ni color se recalcula en ninguno de los dos layouts.
+
+**L52** Verificación propia: `tsc` 0, `eslint` 0, `knip` 0, **193 tests** en ficha + a11y (189 + 4 nuevos) y 14 en la
+carpeta `finanzas`. Los 10 tests previos de S10 quedaron intactos y verdes.
+
+**L53** Deuda que **no** cierro y por qué: L32.1, el `corte = null` / `base = "vigente"` de la vista por actividad, vive
+en `src/components/proyectos/project-financiero.tsx`, que este carril tiene prohibido. Hoy no hay control de corte en
+Finanzas, así que el criterio de igualdad se cumple; cuando lo haya, esa vista tiene que tomar el mismo corte.
+
+---
+
+## Estado final del carril (2026-11-14, para la revisión de Claude)
+
+Rama `feat/t14-gasto-por-actividad`, 19 commits sobre `origin/main` más el merge de T13, **32 archivos fuera de `odd/`**
+y +6598 líneas de autoría contando tests. Sin push, sin PR, sin merge.
+
+| Rebanada | Commit | Estado |
+|---|---|---|
+| T14.1 formulario con la línea exacta | `466abb0` | cerrada, S9 |
+| T14.2-A schema y migración del reparto | `45e98f7` | cerrada y **aprobada** por Claude |
+| T14.4-A vistas por actividad (servidor) | `1a9c4fa` | cerrada, S10 |
+| T14.4-B selector de vistas | `1f85a18` | cerrada, S10 |
+| T14.2-B1 reparto en servidor | `f649a65` | cerrada, S9 |
+| T14.2-B2 pantalla y aviso por reparto | `16fb500` | cerrada, S9 |
+| T14.3 importación y duplicados | `57c3c7a` | cerrada, S9 |
+| Deudas L32.2 y L32.3 | `8b0e1bc` | cerradas |
+
+**Pendiente para quien revisa:** (1) el significado de «Total» como total del documento (L47); (2) las tres comprobaciones
+de «esta línea ya tiene gastos» del carril A tienen que contar `gastos_reparto` —ver L38 para la semántica de
+`gastos.linea_id`—; (3) `scripts/seed*.ts` sigue escribiendo gastos sin reparto, así que la auditoría estricta falla en
+una base sembrada a mano (CI no siembra en ese job); (4) el comentario de cabecera de `financiera.ts` que lista la
+importación entre los escritores sin filas; (5) la previsualización de importación no muestra el campo `actividad`.
+
+**Fuera de alcance por decisión del humano:** T14.5 (S11). Sus criterios ya están citados en la rebanada 5 de esta
+bitácora, con nota obligatoria, reapertura con motivo y auditoría, y traslado Gestor→Gerente.
