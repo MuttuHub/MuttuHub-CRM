@@ -290,25 +290,31 @@ Actividad | Entregables | Inicio (semana) | Fin (semana) | Cantidad | Unidad`). 
    **Presupuesto** sigue igual. **Historial** → **Cambios**: un lote `IMPORTAR` con una fila por objetivo, actividad,
    entregable e indicador, más la fila `reemplazo`.
 
-## B. Presupuesto y programación mensual (S5)
+## B. Presupuesto y programación mensual (S5, T11, T13)
 
-Pestaña **Financiero** de la ficha, sección **Presupuesto** (arriba; la **Ficha financiera** va debajo, §F). Se edita solo en **Borrador** y solo `admin@` o
-`gerencia@`; el resto lo ve en solo lectura.
+Pestaña **Financiero** de la ficha, sección **Presupuesto** (arriba; la **Ficha financiera** va debajo, §F). El
+presupuesto se edita solo en **Borrador**; la programación la editan los integrantes del proyecto (y `admin@` o
+`gerencia@`).
 
-1. Tabla por rubro con columna **Asignado**. Escribe montos (acepta coma o punto) y pulsa **Guardar presupuesto**.
-2. Debajo: **Total asignado**, **Valor total** ("Sin definir" si no hay) y **Diferencia** (total asignado menos
-   valor total).
-   Si el valor total estaba vacío, se fija con la suma al guardar.
-3. Si el total asignado no coincide con el valor total aparece **Usar la suma como valor total**: al pulsarlo el valor total pasa a
-   ser la suma guardada y la diferencia queda en $ 0. Es lo que exige la línea base.
-4. **Programación mensual**: una columna por mes del proyecto y una fila por rubro con monto. Escribe lo
-   programado y **Guardar programación**. Un rubro sin monto asignado no se puede programar ("Asigna un monto a
-   algún rubro para poder programarlo."). Mientras no cuadre, aparece **Programación pendiente**.
-5. La columna **Falta por programar** (asignado menos lo programado; negativa si se programó de más) es informativa
-   en borrador, pero deberá ser $ 0 para aprobar la línea base.
-6. Negativos: un monto inválido avisa antes de guardar ("Ingresa un valor válido..."); en un proyecto ya aprobado
-   la sección queda de solo lectura con "El presupuesto y la programación solo se editan mientras el proyecto está
-   en borrador."; `coordinador@` o `colaborador@` no ven controles de edición.
+1. El presupuesto va por **línea** (actividad + rubro). Asigna montos (acepta coma o punto) y pulsa **Guardar
+   presupuesto**. El **Valor total** es la suma de las líneas: no se digita.
+2. **Programación mensual:** arriba, la tabla **Rubro × meses + Total** con una fila **Total**; abajo, las líneas
+   agrupadas por actividad. Esperado: al escribir un mes, la tabla de arriba cambia antes de guardar; un grupo se pliega
+   y despliega con su botón y no pierde lo escrito.
+3. Proyecto importado desde la plantilla (`PRY-2026-002` del seed): la programación ya viene **propuesta** por días.
+   Ejemplo de la PO: actividad del 19 de octubre al 15 de noviembre con $10.000.000 → $4.642.857 y $5.357.143.
+4. **Confirmar programación:** deshabilitado mientras alguna línea tenga **Falta por programar** distinto de $ 0 o
+   haya cambios sin guardar. Con todo en $ 0 y guardado, al pulsarlo aparece **Programación confirmada**. Cambia un mes
+   y guarda: la confirmación desaparece.
+5. Negativos: un monto inválido avisa antes de guardar ("Ingresa un valor válido..."); `coordinador@` o
+   `colaborador@` que no son integrantes no ven controles de edición.
+6. **Borrar una actividad con presupuesto** (pestaña Estructura, en Borrador): el diálogo avisa «Si tiene presupuesto
+   asignado, se borra con su programación y hay que volver a cargarlo». Al confirmar, sus líneas desaparecen y el valor
+   total baja.
+7. **Mover valor entre meses** (proyecto **En ejecución**, `PRY-2026-001`): en Presupuesto aparece **Mover valor entre
+   meses**. Elige línea, mes de origen (el en curso o uno futuro), mes de destino (solo meses futuros) y valor. Esperado:
+   el total de la línea no cambia, no se crea una solicitud y el movimiento aparece en Historial › Auditoría. Un mes
+   cerrado no se ofrece; un valor mayor que lo programado en el origen se rechaza.
 
 ## C. Aprobar línea base (S8): cómo un proyecto llega a EN EJECUCIÓN
 
@@ -323,7 +329,8 @@ Es la única vía real para salir de Borrador. Solo `admin@` o `gerencia@`, solo
    - "El número de beneficiarios debe ser mayor que cero." (se fija al crear el proyecto, con la plantilla o desde «Editar datos generales»)
    - "El proyecto no tiene objetivos." / "El objetivo X no tiene actividades." / "La actividad X no tiene entregables."
    - "La suma del presupuesto (...) no es igual al valor total del proyecto (...); diferencia ..."
-   - "Programación pendiente." / "La programación del rubro X no coincide con lo asignado; control ..."
+   - "Programación pendiente." / "La programación del rubro X en la actividad Y no coincide con lo asignado; control ..."
+   - "La programación no está confirmada. El Gestor la confirma cuando «Falta por programar» queda en $0 en todas las líneas."
    - "El rubro suspendido X tiene un monto asignado pendiente de reasignación."
    - "El periodo AAAA-MM está fuera del rango del proyecto."
 3. Corrige (B, §4 o la plantilla) y vuelve a pulsar **Aprobar**. Esperado: el diálogo se cierra, el chip de estado
@@ -517,7 +524,9 @@ base esté aprobada." y "La línea base aún no está aprobada."
 2. Elige **Tipo de modificación**: Traslado entre rubros, Adición de recursos, Reducción de recursos,
    Reprogramación de periodos, Cronograma, Entregables e indicadores. Cambia solo lo necesario, escribe el
    **Motivo** y **Enviar solicitud**.
-   - Traslado: baja un rubro y sube otro por el mismo valor (Σ = 0).
+   - Traslado: baja una línea y sube otra por el mismo valor (Σ = 0). Cada lado indica **actividad y rubro** (T13): con
+     un rubro en dos actividades se elige la línea exacta. Una solicitud antigua hecha solo por rubro, sobre un rubro
+     con varias líneas, se rechaza con «El rubro «R..» tiene varias líneas (una por actividad)…».
    - Adición: sube rubros (el valor total pasa a ser la nueva suma). Reducción: lo contrario.
 3. La solicitud queda **Pendiente** en la lista. Como `admin@` o `gerencia@`: **Aprobar** o **Rechazar**
    (**Confirmar rechazo** con "Comentario del rechazo"). Aprobar crea la versión 1; la fila queda **Aprobada**,

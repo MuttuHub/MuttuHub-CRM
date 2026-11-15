@@ -53,12 +53,12 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | #188 `f1789f5` |
 | T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | #188 `f1789f5` |
 | T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | #188 `f1789f5` |
-| T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | done | `6089552` |
-| T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | delegated (writer, with T13.6) | done, verified | `aed85bc` |
-| T13.6 | S5 | Modification engine, control, forms and traslado by line | delegated (writer, parallel with T13.8) | done, verified | `82029c4` |
-| T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | done | `278074c` |
-| T13.8 | S7 | Template «Tipo» column | delegated (writer, parallel with T13.5/T13.6, disjoint surfaces) | done | `c239152` |
-| T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
+| T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | done | #190 `10b177f` |
+| T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | delegated (writer, with T13.6) | done | #194 `248d96d` |
+| T13.6 | S5 | Modification engine, control, forms and traslado by line | delegated (writer, parallel with T13.8) | done | #193 `5336fac` |
+| T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | done | #191 `20b8b0b` |
+| T13.8 | S7 | Template «Tipo» column | delegated (writer, parallel with T13.5/T13.6, disjoint surfaces) | done | #192 `60514a1` |
+| T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | #189 `09e2c00` |
 
 Route evidence: one agent, sequential units sharing `presupuesto.ts`/`hooks/projects.ts` → no Writer trigger; inline.
 Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T13.7 item 1 (re-import deletes rows).
@@ -139,3 +139,8 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   manera se cumplan los criterios de aceptacion»). S4 applied verbatim: the destination of a move is always a future
   month (`9adb877`; route 400 + screen filter; live test RED then GREEN). `diffSnapshots` now compares budget and
   programming per line (`8181017`). Open: lane B relay of the migration review; PR of this branch.
+- **L17** (2026-11-14) T13 merged to main by chained squash PRs: #189 `09e2c00` (T13.9), #190 `10b177f` (T13.4),
+  #191 `20b8b0b` (T13.7), #192 `60514a1` (T13.8), #193 `5336fac` (T13.6), #194 `248d96d` (T13.5, S4 literal rule,
+  per-line version diff). CI caught the T13.4 `h-7` toggle per slice (fixed in slice 2 `837a023` and merged into the
+  later slices), and #194's e2e failed to start its containers (infra; rerun green). User chose «Chained PRs
+  (Recommended)». Next: lane A waits for T14 to count `gastos_reparto`; plan in `docs/plan-trabajo-restante.md` §14.

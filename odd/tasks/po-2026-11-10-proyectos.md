@@ -303,7 +303,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
 | T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Hecha: `odd/tasks/po-2026-11-10-parte-2-diseno.md`; 5 preguntas abiertas para la PO (L21) |
-| T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
+| T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | T10–T13 en `main` (2026-11-14: #181–#194); T14 en curso (carril B); T15 pendiente |
 
 ### Orden y calendario sugerido
 
