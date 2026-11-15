@@ -40,18 +40,25 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 
 ### S7. Columna «Tipo» en la hoja Actividades de la plantilla (left by T12).
 
+### S8. Borrar una actividad con presupuesto (verifier advisory of T11, L12)
+- User (2026-11-14): «si tiene un presupuesto asignado se borra junto con la actividad, le toca hacerlo de cero».
+- Deleting an activity (BORRADOR only, as today) deletes its budget lines with their programming; `valor_total` is
+  recomputed as the sum of the remaining lines (T11 S2) and the programming confirmation is cleared (S3). A line with
+  expenses cannot be deleted (T11 A3): the deletion answers 409 and nothing changes.
+
 ## Tasks
 
 | ID | S# | Task | Route | Status | Commit |
 |---|---|---|---|---|---|
-| T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | `243e47d` |
-| T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | `0da52bf` |
-| T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | `461ff29` |
+| T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | #188 `f1789f5` |
+| T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | #188 `f1789f5` |
+| T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | #188 `f1789f5` |
 | T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | pending | |
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | pending | |
 | T13.8 | S7 | Template «Tipo» column | inline | pending | |
+| T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | done | `4ba1637` |
 
 Route evidence: one agent, sequential units sharing `presupuesto.ts`/`hooks/projects.ts` → no Writer trigger; inline.
 Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T13.7 item 1 (re-import deletes rows).
@@ -89,3 +96,18 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   Checks: live invariants linea-base + plantilla-import (22) on muttu-hub; 3058 unit tests in the touched suites; CI
   seed order on an empty DB (ci_t13); tsc, eslint, knip clean. Risk: item 1 (T13.1 migration) and item 3 (the baseline
   now requires a confirmation every existing BORRADOR project lacks).
+- **L9** (2026-11-14, user: «Deja el proyecto listo en un estado final para que comiencen los dos») #188 merged
+  `f1789f5` (T13.1–T13.3 + lane B prompt). First CI run failed: `prisma/modificaciones.invariant.test.ts` approved a
+  baseline without the T13 confirmation; fixed in its fixture (`263253d`) after running all 34 invariants file by file
+  on muttu-hub. Lesson: a baseline or schema change runs every `prisma/*.test.ts`, as CI does. Lane B (deepseek) started
+  on `feat/t14-gasto-por-actividad` from `220d544`; its step 0 merges main (with #188) before its migration. The main
+  worktree is on `docs/t14-prompt-carril-b` (another session's prompt branch): left untouched. Next: T13.4 on
+  `feat/t13-4-pantalla-programacion`.
+- **L10** (2026-11-14, user, on T13.7's open question): «si tiene un presupuesto asignado se borra junto con la
+  actividad, le toca hacerlo de cero» → S8, task T13.9.
+- **L11** T13.9 `4ba1637`: `borrarPresupuestoDeActividad` + shared `fijarValorTotal` (budget PUT reuses it);
+  dialog warns. Checks: live linea-base 14, presupuesto, plantilla-import, modificaciones, estructura; 2138 unit tests;
+  tsc/eslint/knip clean. Lane B migration `20261115120000_t14_gasto_reparto` reviewed and APPROVED
+  (`odd/tasks/t14-revision-migracion.md`, `45ba544`): six points verified on a seeded disposable DB. Cross-lane debt:
+  once T14.2-B writes multi-line repartos, the three «line has expenses» checks of lane A (budget PUT A3,
+  plantilla-import, borrarPresupuestoDeActividad) must count `gastos_reparto` — lane A does it when lane B reaches main.

@@ -114,6 +114,7 @@ export function EstructuraActividades({
                         <RowActions
                           nombre={`actividad ${actividad.codigo}`}
                           deleting={remove.isPending && remove.variables === actividad.id}
+                          aviso="Si tiene presupuesto asignado, se borra con su programación y hay que volver a cargarlo."
                           onEdit={() => setAbierto(actividad.id)}
                           onDelete={() => remove.mutate(actividad.id)}
                         />

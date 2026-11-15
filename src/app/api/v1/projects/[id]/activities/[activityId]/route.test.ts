@@ -4,9 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { Usuario } from "@prisma/client";
 
-const mocks = vi.hoisted(() => ({ lock: vi.fn(), txUpdate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ lock: vi.fn(), txUpdate: vi.fn(), borrarPresupuesto: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
+// T13 S8: the budget cascade is pinned live in prisma/linea-base.invariant.test.ts; here only its wiring.
+vi.mock("@/lib/api/presupuesto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/presupuesto")>();
+  return { ...actual, borrarPresupuestoDeActividad: mocks.borrarPresupuesto };
+});
 
 vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/audit-cambios")>();
@@ -263,6 +268,33 @@ describe("DELETE /api/v1/projects/:id/activities/:activityId", () => {
   it("returns 404 for a missing activity", async () => {
     vi.mocked(db.actividad.findFirst).mockResolvedValue(null);
     expect((await DELETE(del(), ctx)).status).toBe(404);
+  });
+
+  it("T13 S8: deletes the activity's budget in the same transaction, after the lock", async () => {
+    // «si tiene un presupuesto asignado se borra junto con la actividad, le toca hacerlo de cero»
+    expect((await DELETE(del(), ctx)).status).toBe(200);
+    expect(mocks.borrarPresupuesto).toHaveBeenCalledWith(expect.anything(), {
+      proyectoId: "pry-1",
+      actividadId: "act-1",
+      usuarioId: "ger-1",
+    });
+    expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(mocks.borrarPresupuesto.mock.invocationCallOrder[0]!);
+  });
+
+  it("T13 S8: answers the 409 of a budget with expenses and does not delete the activity", async () => {
+    const { RespuestaAbortada } = await import("@/lib/api/errors");
+    mocks.borrarPresupuesto.mockRejectedValueOnce(
+      new RespuestaAbortada(
+        Response.json(
+          { error: "No puedes eliminar una actividad cuyo presupuesto ya tiene gastos registrados.", code: "CONFLICT" },
+          { status: 409 },
+        ),
+      ),
+    );
+    const res = await DELETE(del(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("No puedes eliminar una actividad cuyo presupuesto ya tiene gastos registrados.");
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 });
 
