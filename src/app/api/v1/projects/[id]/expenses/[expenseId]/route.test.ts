@@ -280,6 +280,41 @@ describe("PATCH expenses/:expenseId: the distributed invoice (S9, T14.2-B1)", ()
     );
   });
 
+  // Review of T14: money that moves between activities with the same total and first rubro must leave a trail.
+  it("audits a re-split that keeps the total and the first rubro (S9)", async () => {
+    current = repartida();
+    const res = await PATCH(
+      patch({
+        repartos: [
+          { linea_id: "lin-12", valor: "500000.50" },
+          { linea_id: "lin-13", valor: "1000000" },
+        ],
+      }),
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(logChanges).mock.calls[0][1]).toEqual([
+      expect.objectContaining({
+        accion: "EDITAR",
+        entidad: "gasto",
+        entidad_id: "gas-1",
+        campo: "reparto",
+        valor_anterior: "lin-12=1000000.50; lin-13=500000.00",
+        valor_nuevo: "lin-12=500000.50; lin-13=1000000.00",
+      }),
+    ]);
+  });
+
+  it("adds no distribution audit row to an ordinary edit of a one-line invoice (S9, regression)", async () => {
+    const res = await PATCH(patch({ subtotal: "2000000" }), ctx);
+
+    expect(res.status).toBe(200);
+    const campos = vi.mocked(logChanges).mock.calls[0][1].map((fila: { campo?: string | null }) => fila.campo);
+    expect(campos).toEqual(expect.arrayContaining(["valor", "subtotal"]));
+    expect(campos).not.toContain("reparto");
+  });
+
   it("rejects a distribution that does not sum the new total and writes nothing (S9)", async () => {
     const res = await PATCH(
       patch({

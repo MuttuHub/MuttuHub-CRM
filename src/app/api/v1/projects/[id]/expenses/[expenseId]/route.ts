@@ -252,8 +252,15 @@ export const PATCH = withApiErrorHandling(
 
         const gasto = await tx.gasto.findFirstOrThrow({ where: { id: expenseId }, include: GASTO_INCLUDE });
 
-        const antes = gastoAuditable({ ...actual, rubro_id: rubroActual });
-        const despues = gastoAuditable({ ...gasto, rubro_id: rubroCabecera });
+        // A legacy invoice without rows reads as its single implicit row, so its first edit audits no phantom move.
+        const repartosAntes =
+          actual.repartos.length > 0 ? actual.repartos : [{ linea_id: actual.linea_id, valor: actual.monto_cop }];
+        const antes = gastoAuditable({ ...actual, rubro_id: rubroActual, repartos: repartosAntes });
+        const despues = gastoAuditable({
+          ...gasto,
+          rubro_id: rubroCabecera,
+          repartos: efectivos.map((reparto) => ({ linea_id: reparto.linea.id, valor: reparto.valor })),
+        });
         const cambios = diffFields(antes, despues, CAMPOS_AUDITABLES_GASTO);
         const filas: CambioInput[] = cambios.map((cambio) => ({
           usuario_id: auth.usuario.id,

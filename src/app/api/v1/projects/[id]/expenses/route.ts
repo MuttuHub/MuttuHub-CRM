@@ -190,7 +190,11 @@ export const POST = withApiErrorHandling(
           entidad_id: created.id,
           proyecto_id: id,
           valor_nuevo: {
-            ...gastoAuditable({ ...created, rubro_id: cabecera.rubro.id }),
+            ...gastoAuditable({
+              ...created,
+              rubro_id: cabecera.rubro.id,
+              repartos: repartos.map((reparto) => ({ linea_id: reparto.linea.id, valor: reparto.valor })),
+            }),
             estado: created.estado,
             soportes: soportesCreados.length,
           },

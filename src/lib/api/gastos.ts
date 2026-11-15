@@ -974,6 +974,11 @@ export type GastoAuditable = {
   subtotal: string;
   iva: string;
   valor: string;
+  /**
+   * Review of T14: a split invoice's distribution as `linea_id=valor; …`, so moving money between lines is audited
+   * too. Null for a one-line invoice, whose line and amount the other fields already record.
+   */
+  reparto: string | null;
 };
 
 export const CAMPOS_AUDITABLES_GASTO = [
@@ -989,6 +994,7 @@ export const CAMPOS_AUDITABLES_GASTO = [
   "subtotal",
   "iva",
   "valor",
+  "reparto",
 ] as const satisfies readonly (keyof GastoAuditable)[];
 
 export function gastoAuditable(input: {
@@ -1004,6 +1010,8 @@ export function gastoAuditable(input: {
   subtotal_cop: { toString(): string };
   iva_cop: { toString(): string };
   monto_cop: { toString(): string };
+  /** The distribution rows in write order; exact cents or a stored decimal. */
+  repartos: readonly { linea_id: string; valor: Cents | { toString(): string } }[];
 }): GastoAuditable {
   return {
     rubro_id: input.rubro_id,
@@ -1018,5 +1026,13 @@ export function gastoAuditable(input: {
     subtotal: fromCents(toCents(input.subtotal_cop)),
     iva: fromCents(toCents(input.iva_cop)),
     valor: fromCents(toCents(input.monto_cop)),
+    reparto:
+      input.repartos.length < 2
+        ? null
+        : input.repartos
+            .map(
+              (fila) => `${fila.linea_id}=${fromCents(typeof fila.valor === "bigint" ? fila.valor : toCents(fila.valor))}`,
+            )
+            .join("; "),
   };
 }

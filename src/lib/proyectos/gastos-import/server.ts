@@ -231,7 +231,11 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
       proyecto_id: input.proyectoId,
       lote_id: input.loteId,
       valor_nuevo: {
-        ...gastoAuditable({ ...created, rubro_id: cabecera.rubro.id }),
+        ...gastoAuditable({
+              ...created,
+              rubro_id: cabecera.rubro.id,
+              repartos: repartos.map((reparto) => ({ linea_id: reparto.linea.id, valor: reparto.valor })),
+            }),
         estado: created.estado,
         soportes: datos.enlaces.length,
       },
