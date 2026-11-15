@@ -374,3 +374,36 @@ pedida en endpoints hermanos ni en el documento OpenAPI. El temporal se borró.
 tabla, y la importación y los seeds escriben gastos sin filas. Comprobé en `.github/workflows/ci.yml` que el job de
    invariantes (línea 74) **no** siembra —las semillas viven en el job de Playwright, línea 138— así que CI no falla
    hoy. Cuando T14.3 escriba repartos en esos caminos hay que restaurar la auditoría estricta (tarea aparte).
+
+---
+
+### Rebanada 2-B2 (T14.2-B2) — la factura distribuida en pantalla y el aviso arreglado
+
+**L42** Commit `16fb500561e9922d62f29a517d1c6590e27d8b6b` — `feat(gastos): split an invoice on screen and count it in
+the alert (S9, T14.2b2)`. Cierra el hueco 1 de L41 **antes** de que la pantalla permita repartir: `ejecutadoDeLinea`
+(`src/lib/api/gastos.ts:453`) suma las filas del reparto de la línea más las cabeceras **sin** filas
+(`repartos: { none: {} }`), las dos filtradas por periodo y por la exclusión de la fila que se corrige; `superaAsignado`,
+`nivelSobregasto` y `cargarSobregastos` usan esa función. Sin eso, una línea que solo recibe dinero por una fila
+posterior de una factura repartida era invisible para el aviso.
+
+**L43** Pantalla: el formulario gana líneas de distribución (Objetivo → Actividad → Rubro + Valor por línea, la misma
+`cascadaDeGasto`), indicador «Suma de la distribución … de …» con «Faltan/Sobran …» comparado en centavos, rechazo con
+el texto del servidor y cuerpo `repartos` solo desde dos filas; la corrección de una factura repartida muestra sus filas
+bajo la misma regla; la lista marca «Distribuida en N líneas · total» sin convertir una factura en varias entradas; y
+sin `lineas` cargadas la corrección de una repartida se **niega** con el mensaje del servidor y no escribe (test
+`se niega a corregir una factura repartida mientras el presupuesto no trae sus líneas (S9)`).
+
+**L44** Ampliación de superficie aprobada por mí, con medida exacta: los dobles de `$transaction` de cuatro tests bajo
+`src/app/api/v1/projects/[id]/expenses/` (`route.test.ts`, `[expenseId]/route.test.ts`, `import/route.test.ts`,
+`import/route.rules.test.ts`) no conocían el modelo `gastoReparto`, y sin ellos la rama entraba con **73 tests rojos**
+(base: 4 archivos / 126 verdes). Se autorizó **solo** el doble, con valores por defecto vacíos que conservan los números
+actuales; ni un archivo de producción bajo `src/app/api/**` cambió. Se cambió **una** expectativa, con motivo:
+`route.test.ts` («flags the critical overspend alert…») lleva ahora `repartos: { none: {} }` en el `where` esperado
+porque la consulta de cabeceras excluye los gastos con reparto — es comportamiento, no forma del doble, y ningún importe
+cambió.
+
+**L45** Riesgo: **`Risk: none`**. Cobertura: el criterio del $990.000 desde el formulario (indicador + rechazo) y la
+factura 1.2/1.3 como un solo documento en formulario y lista; cuerpo viejo de una fila sin cambios; aviso por fila con
+test propio (`gastos.test.ts`: 350.000 en 1.2 y 650.000 en 1.3). Verificación propia: `tsc` 0, `eslint` 0, `knip` 0,
+**206 tests** en el árbol de `expenses`, **160** en las suites de UI y alerta, **275** invariantes. Tamaño: 857 líneas
+insertadas en 10 archivos, sobre la guía; el reparto ya venía de 2-B1 y el límite se anota para la revisión.
