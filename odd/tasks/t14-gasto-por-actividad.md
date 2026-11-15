@@ -296,3 +296,37 @@ rubro queda fijada por un test que la pinta completa.
 3. **Nombre del objetivo:** el payload trae `objetivo_codigo` pero no su descripción, así que el título dice
    «Objetivo 1» y no «Objetivo 1. Ferias» como en Actividades. Se arregla en la UI con `useProjectObjectives`; no
    necesita servidor.
+
+---
+
+### Revisión de la migración y arranque de la 2-B
+
+**L33** Merge de `origin/main` con T13 completo (#189–#194, 56 archivos): **sin un solo conflicto**. Merge en
+`e783ccb`. Con el merge llega `odd/tasks/t14-revision-migracion.md`, la revisión de Claude.
+
+**L34** **Revisión: APROBADA, sin bloqueantes.** La comprobó sobre su propia base `ci_t14` armada en el orden del CI:
+md5 idéntico de `gastos` y `lineas_presupuestales`, 5 gastos → 5 repartos, $34.265.000,00 = suma de repartos, 0
+facturas que no cuadran, CHECK presente, y vuelta atrás probada en una transacción con rollback. Dos avisos, ninguno
+bloqueante: (1) la suma = total la tiene que garantizar el servidor en 2-B, con un test por caso de S9; si quiero,
+un constraint trigger diferido la garantiza también en la base; (2) choque de carril a avisar: las tres comprobaciones
+de «esta línea ya tiene gastos» del carril A cuentan `gastos.linea_id`, y una línea podrá tener gastos solo por un
+reparto (los archivos del carril A no se tocan; Claude los ajusta cuando esta rama entre).
+
+**L35** Dos decisiones que tomo yo y que cambio de rumbo respecto del plan de 2-A:
+
+1. **`gastos.linea_id` se queda NOT NULL, para siempre, y significa «la línea del primer reparto».** Con esa regla
+   una factura repartida nunca deja la columna nula, así que **no hace falta el `DROP NOT NULL`** que habíamos
+   diferido: desaparecen de golpe la relación opcional y los siete accesos que rompían `tsc`, incluido
+   `src/lib/api/modificaciones.ts`, que era la decisión pendiente y ya no hace falta tocar. La nulabilidad deja de
+   ser deuda.
+2. **Sin constraint trigger diferido en la base.** La regla «la suma de los repartos es exactamente el total» se
+   garantiza en el servidor, en la única ruta que escribe facturas, con un test por caso de S9. Un trigger diferido
+   obliga a manejar el borrado en cascada y la escritura masiva de la importación con excepciones, y hoy no hay un
+   segundo escritor que lo justifique. Si T14.3 introduce otro, se añade con su propia migración.
+
+Las dos van en el reporte de 2-B para que Claude ajuste el ejecutado y «la línea tiene gastos».
+
+**L36** Resultado del post-merge, medido por mí: `npx prisma generate` sin cambios de cliente inesperados, `npx tsc
+--noEmit` **exit 0**, `npx prisma migrate deploy` → `47 migrations found`, `No pending migrations to apply`, y `npx
+vitest run prisma --no-file-parallelism` → **37 archivos / 275 tests** en verde sobre `localhost:55433`. El árbol de T13
+quedó incorporado sin una sola intervención manual.
