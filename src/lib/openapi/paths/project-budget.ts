@@ -235,7 +235,24 @@ const FichaActividadRowSchema = z.object({
   ea_decimas: z.number().int().nullable().openapi({ description: "E/A en décimas de punto porcentual; nulo si A = 0 o sin gastos." }),
   umbral_rojo: z.string().openapi({ description: "P × (1 + tolerancia): la misma frontera amarillo/rojo que la vista por rubro." }),
   color: z.enum(["verde", "amarillo", "rojo"]).nullable().openapi({ description: "Nulo mientras `ejecucion_disponible` es false." }),
-  saldo: z.string().openapi({ description: "A − E: saldo mientras los gastos están abiertos (S11/T14.5 añade el ahorro)." }),
+  saldo: z.string().openapi({
+    description:
+      "A − E. Mientras los gastos están abiertos es el saldo de la actividad y no se llama ahorro, porque pueden faltar facturas (S11).",
+  }),
+  cerrada: z.boolean().openapi({
+    description: "S11: el Gestor cerró los gastos de la actividad. Con la actividad cerrada no entran gastos nuevos.",
+  }),
+  cerrada_at: z.string().nullable().openapi({ description: "Instante del cierre (ISO); nulo mientras los gastos están abiertos." }),
+  nota_cierre: z.string().nullable().openapi({
+    description: "S11: la nota obligatoria que explica la diferencia; nula mientras los gastos están abiertos.",
+  }),
+  ahorro: z.string().nullable().openapi({
+    description:
+      "S11: max(A − E, 0) cuando los gastos están cerrados; nulo mientras están abiertos, para no llamar ahorro a un saldo.",
+  }),
+  sobreejecucion: z.string().nullable().openapi({
+    description: "S11: max(E − A, 0) cuando los gastos están cerrados y se gastó de más; nulo mientras están abiertos.",
+  }),
   rubros: z.array(FichaRowSchema).openapi({
     description: "S10: el detalle por rubro de la actividad, con la misma forma que `rubros` del nivel superior; sus sumas son la fila de la actividad.",
   }),
@@ -278,7 +295,10 @@ registry.registerPath({
     "S10: `actividades` da las mismas cifras agrupadas por la actividad de cada línea, en el orden de los objetivos y " +
     "después «Gestión del proyecto» (actividades transversales, sin objetivo, y la fila «Sin actividad» de las líneas sin " +
     "actividad, D4); las dos vistas suman las mismas filas de gastos, así que el ejecutado total es idéntico. La vista por " +
-    "actividad lee siempre el presupuesto vigente: `base` sólo cambia `rubros` y `total`.",
+    "actividad lee siempre el presupuesto vigente: `base` sólo cambia `rubros` y `total`." +
+    " S11: cada fila de `actividades` lleva además el cierre de la actividad (`cerrada`, `cerrada_at`, `nota_cierre`); " +
+    "con los gastos cerrados publica `ahorro` = max(A − E, 0) o `sobreejecucion` = max(E − A, 0), y mientras están " +
+    "abiertos los deja nulos y el saldo sigue siendo A − E. Nada de eso se guarda: se lee de la actividad y del ejecutado.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,

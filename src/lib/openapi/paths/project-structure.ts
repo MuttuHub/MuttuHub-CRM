@@ -187,6 +187,22 @@ const ActividadSchema = registry.register(
       description:
         "true cuando las semanas superan la duración actual del proyecto (el proyecto se acortó después). Solo se marca; no bloquea la edición del proyecto.",
     }),
+    gastos_cerrados: z.boolean().openapi({
+      description:
+        "S11/T14.5 (EV-07): true cuando el Gestor cerró los gastos de la actividad. Cerrada, no admite gastos nuevos y muestra ahorro o sobreejecución; se reabre con un motivo, que queda en auditoría.",
+      example: false,
+    }),
+    gastos_cerrados_at: z.string().nullable().openapi({
+      description: "Instante del cierre; null mientras los gastos están abiertos.",
+    }),
+    gastos_cerrados_nota: z.string().nullable().openapi({
+      description:
+        "Nota obligatoria del cierre: explica la diferencia (por qué no se va a gastar el resto). null mientras están abiertos.",
+    }),
+    gastos_cerrados_por: z.string().nullable().openapi({
+      description:
+        "Usuario que cerró los gastos, como id sin relación: el cierre sobrevive a un usuario borrado, igual que en la auditoría.",
+    }),
     created_at: z.string(),
     updated_at: z.string(),
   }),

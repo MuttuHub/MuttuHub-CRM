@@ -160,6 +160,16 @@ export type ActividadRow = {
   responsable_id: string | null
   created_at: Date
   updated_at: Date
+  /**
+   * S11/T14.5-B (EV-07): el cierre de los gastos de la actividad. Nulo en `gastos_cerrados_at` = gastos
+   * abiertos. La nota explica la diferencia entre lo asignado y lo ejecutado y la escribe el Gestor al cerrar;
+   * `gastos_cerrados_por` es el usuario que cerró (escalar suelto, como en la auditoría). Opcionales a
+   * propósito, como el `tipo` de `cuentaTecnico`: una fila que no los selecciona (un lector viejo, un doble de
+   * prueba anterior a S11) se lee como actividad abierta, que es el estado de toda actividad hasta 5-A.
+   */
+  gastos_cerrados_at?: Date | null
+  gastos_cerrados_nota?: string | null
+  gastos_cerrados_por?: string | null
 }
 
 export type ActividadV2View = {
@@ -180,6 +190,17 @@ export type ActividadV2View = {
   responsable_id: string | null
   /** True when the weeks exceed the project's current duration (it shrank after the activity was placed). */
   fuera_de_duracion: boolean
+  /**
+   * S11/T14.5-B: los gastos están cerrados. La pantalla lo usa para ofrecer «Cerrar» o «Reabrir» y para
+   * mostrar el ahorro o la sobreejecución; el monto lo publica la hoja financiera, nunca esta fila.
+   */
+  gastos_cerrados: boolean
+  /** Instante del cierre (ISO); nulo mientras los gastos están abiertos. */
+  gastos_cerrados_at: string | null
+  /** La nota obligatoria del cierre; nula mientras los gastos están abiertos. */
+  gastos_cerrados_nota: string | null
+  /** Quién cerró los gastos (id de usuario); nulo mientras están abiertos. */
+  gastos_cerrados_por: string | null
   created_at: string
   updated_at: string
 }
@@ -200,6 +221,8 @@ export function toActividadV2View(
   const duracion = tieneFechas
     ? durationWeeks(isoDay(proyecto.fecha_inicio!), isoDay(proyecto.fecha_fin!))
     : null
+  // S11: una fila sin las columnas del cierre se lee como abierta (ver `ActividadRow`).
+  const cierre = row.gastos_cerrados_at ?? null
 
   return {
     id: row.id,
@@ -215,6 +238,10 @@ export function toActividadV2View(
     peso: pesoActividad(row),
     responsable_id: row.responsable_id,
     fuera_de_duracion: duracion !== null && row.semana_fin > duracion,
+    gastos_cerrados: cierre !== null,
+    gastos_cerrados_at: cierre === null ? null : cierre.toISOString(),
+    gastos_cerrados_nota: row.gastos_cerrados_nota ?? null,
+    gastos_cerrados_por: row.gastos_cerrados_por ?? null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   }

@@ -167,6 +167,17 @@ export type ProjectActivity = {
   responsable_id: string | null;
   /** Las semanas superan la duración actual del proyecto (el proyecto se acortó). */
   fuera_de_duracion: boolean;
+  /**
+   * S11 (EV-07): los gastos de la actividad están cerrados. La API lo publica en `GET /activities`; opcional a
+   * propósito, como `tipo`: una fila anterior a S11 se lee como actividad abierta (`toActividadV2View`).
+   */
+  gastos_cerrados?: boolean;
+  /** Instante ISO del cierre; nulo o ausente mientras los gastos están abiertos. */
+  gastos_cerrados_at?: string | null;
+  /** La nota obligatoria del cierre; nula o ausente mientras los gastos están abiertos. */
+  gastos_cerrados_nota?: string | null;
+  /** Quién cerró los gastos (id de usuario); nulo o ausente mientras están abiertos. */
+  gastos_cerrados_por?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -1680,6 +1691,16 @@ type ProjectFinancialActivityRow = {
   diferencia: string;
   /** Asignado − ejecutado: saldo mientras los gastos están abiertos (S11). */
   saldo: string;
+  /** S11 (EV-07): el Gestor cerró los gastos de la actividad; con la actividad cerrada no entran gastos nuevos. */
+  cerrada: boolean;
+  /** Instante ISO del cierre; nulo mientras los gastos están abiertos. */
+  cerrada_at: string | null;
+  /** La nota obligatoria que explica la diferencia; nula mientras los gastos están abiertos. */
+  nota_cierre: string | null;
+  /** S11: `max(A − E, 0)` con los gastos cerrados; nulo mientras están abiertos, para no llamar ahorro a un saldo. */
+  ahorro: string | null;
+  /** S11: `max(E − A, 0)` con los gastos cerrados; nulo mientras están abiertos. */
+  sobreejecucion: string | null;
   /** E/P en décimas de punto porcentual (300 = 30 %); nulo si P = 0 o sin gastos. */
   ep_decimas: number | null;
   ea_decimas: number | null;
@@ -2007,6 +2028,66 @@ export function useVoidExpense(): UseMutationResult<
     mutationFn: ({ projectId, id, motivo }) =>
       apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/void`, { motivo }),
     onSettled: refresh,
+  });
+}
+
+/* ── Cierre de gastos de la actividad (S11, EV-07) ──────────────────────── */
+//
+// El Gestor cierra los gastos de una actividad con una nota obligatoria y la reabre con un motivo. El estado
+// que devuelven las dos rutas es el mismo que publica `GET /activities`; lo que puede cambiar en pantalla es la
+// hoja financiera (ahorro o sobreejecución) y la lista de actividades (el estado del cierre), así que las dos se
+// invalidan. La API es la autoridad: cerrar sin nota o reabrir lo abierto llega como 409 y se muestra en línea.
+
+/** Actividad con su cierre, tal como la devuelven las dos rutas del cierre (5-A). */
+type ProjectActivityClosure = {
+  id: string;
+  gastos_cerrados: boolean;
+  gastos_cerrados_at: string | null;
+  gastos_cerrados_nota: string | null;
+  gastos_cerrados_por: string | null;
+};
+
+/** Cuerpo de «Cerrar gastos de la actividad»: la nota es obligatoria y explica la diferencia. */
+export type ActivityExpensesCloseInput = { activityId: string; nota: string };
+
+/** Cuerpo de «Reabrir gastos de la actividad»: el motivo queda en la auditoría (D4). */
+export type ActivityExpensesReopenInput = { activityId: string; motivo: string };
+
+/** Respuesta de las dos rutas: la actividad con su cierre. */
+export type ActivityExpensesClosure = { actividad: ProjectActivityClosure };
+
+function useRefreshCierreActividad(projectId: string) {
+  const qc = useQueryClient();
+  return () => {
+    for (const key of [projectQueryKeys.activities(projectId), ["projects", "financial-sheet", projectId]]) {
+      void qc.invalidateQueries({ queryKey: key });
+    }
+  };
+}
+
+/** S11: cierra los gastos de la actividad con la nota obligatoria. */
+export function useCloseActivityExpenses(
+  projectId: string,
+): UseMutationResult<ActivityExpensesClosure, Error, ActivityExpensesCloseInput> {
+  const refresh = useRefreshCierreActividad(projectId);
+  return useMutation({
+    mutationFn: ({ activityId, nota }) =>
+      apiPost<ActivityExpensesClosure>(`/api/v1/projects/${projectId}/activities/${activityId}/close-expenses`, { nota }),
+    onSuccess: refresh,
+  });
+}
+
+/** S11/D4: reabre los gastos de la actividad con su motivo; la reapertura queda auditada. */
+export function useReopenActivityExpenses(
+  projectId: string,
+): UseMutationResult<ActivityExpensesClosure, Error, ActivityExpensesReopenInput> {
+  const refresh = useRefreshCierreActividad(projectId);
+  return useMutation({
+    mutationFn: ({ activityId, motivo }) =>
+      apiPost<ActivityExpensesClosure>(`/api/v1/projects/${projectId}/activities/${activityId}/reopen-expenses`, {
+        motivo,
+      }),
+    onSuccess: refresh,
   });
 }
 
