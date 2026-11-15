@@ -577,3 +577,26 @@ cliente — el test fija el texto exacto y falla si el servidor cambia la copia;
 
 **L64** Verificación propia: `tsc` 0, `eslint` 0, `knip` 0, **334 tests** en la rebanada, **83** en los consumidores del
 payload, **283 invariantes** y el documento OpenAPI validando (31 tests).
+
+**L65** **Incidente de build, y lo que enseña.** Con el PR abierto, Vercel falló el preview y el job `e2e` falló en su
+paso Build, con el mismo error que se reproducía en local, limpio de caché:
+
+```
+Error [ChunkLoadError]: Failed to load chunk server/chunks/_0wcq7t5._.js
+  for chunk server/app/api/openapi/route.js
+  [cause]: SyntaxError: Invalid or unexpected token
+```
+
+La causa estaba en `src/lib/openapi/paths/project-structure.ts`: la descripción de `close-expenses` unía una plantilla con
+cadenas de comillas dobles que conservaban backticks escapados (`` \`actividad\` ``) junto a otros crudos. JS acepta ese
+escape de identidad, así que `tsc`, eslint, `knip` y los 600 tests seguían verdes; pero Turbopack lo emite al chunk del
+documento y el archivo emitido deja de parsear (`Expecting Unicode escape sequence \uXXXX`). Se localizó parseando el
+chunk con `acorn` (Node no daba columna) y se bisecó hasta `1c1d815`, donde falla igual: **no era la edición del schema,
+era el bloque de S11**. Arreglo en `637ccf3`: ese bloque pasa a plantilla literal como sus vecinas; los demás `` \` `` del
+archivo están dentro de plantillas y no se tocaron.
+
+**L66** Consecuencia para el proceso, más importante que el bug: **el repo no tiene un check de build**. Hoy un PR puede
+llegar a `main` con `unit` y `e2e` verdes y el despliegue roto, porque el único lugar que compila la app es el paso Build
+dentro del job `e2e`, y no se corre como check propio. Propuesta para la revisión: agregar un job `build`
+(`npx next build`) al workflow, que es barato comparado con el `e2e` y cierra el agujero. No lo agrego en esta rama
+porque tocar el CI es entrega y no me corresponde decidirlo solo.
