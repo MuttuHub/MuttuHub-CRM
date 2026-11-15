@@ -6,6 +6,7 @@ import { z } from "zod";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { BUDGET_PUT_SCHEMA } from "@/app/api/v1/projects/[id]/budget/route";
 import { PROGRAMMING_PUT_SCHEMA } from "@/app/api/v1/projects/[id]/programming/route";
+import { PROGRAMMING_MOVE_SCHEMA } from "@/app/api/v1/projects/[id]/programming/move/route";
 
 const ProjectParams = z.object({ id: z.string().uuid() });
 
@@ -175,6 +176,31 @@ registry.registerPath({
   responses: {
     200: { description: "Programación confirmada.", content: { "application/json": { schema: ProgrammingViewSchema } } },
     ...standardErrorResponses([401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/programming/move",
+  tags: ["Projects"],
+  summary: "Mueve un valor entre meses de una misma línea de un proyecto en ejecución",
+  description:
+    "T13 (S4): el Gestor (quien puede editar los datos del proyecto) mueve un valor entre meses de UNA línea sin aprobación; " +
+    "el total de la línea no cambia, así que no hace falta un traslado. Solo del mes en curso hacia meses futuros o entre meses " +
+    "futuros: los meses cerrados no se modifican, para no cambiar los semáforos pasados. Escribe la programación vigente (la " +
+    "línea base no cambia) y registra en auditoría una fila `programacion` (campo `mover`) con la línea, los meses de origen y " +
+    "destino con sus valores antes y después, el valor, el usuario y la fecha. 400 VALIDATION_ERROR: mismo mes, mes cerrado, " +
+    "el mes en curso como destino, " +
+    "mes fuera del proyecto, valor mayor que lo programado en el origen o línea de otro proyecto. 409 INVALID_STATE fuera de " +
+    "En ejecución (en Borrador se usa el PUT de la programación).",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectParams,
+    body: { content: { "application/json": { schema: PROGRAMMING_MOVE_SCHEMA } } },
+  },
+  responses: {
+    200: { description: "Valor movido; la programación actualizada.", content: { "application/json": { schema: ProgrammingViewSchema } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
 

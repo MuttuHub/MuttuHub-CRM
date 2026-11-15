@@ -99,6 +99,28 @@ describe("diffSnapshots", () => {
     ])
   })
 
+  it("T11/T13: compares two activity lines of one rubro apart, by their line key", () => {
+    const conDosLineas = () => {
+      const live = clone(liveF_V1())
+      live.presupuesto = [
+        { rubro_codigo: "R12", codigo_linea: "1.1|R12", rubro_nombre: "Transporte", asignado: "10000000" },
+        { rubro_codigo: "R12", codigo_linea: "1.2|R12", rubro_nombre: "Transporte", asignado: "14000000" },
+      ]
+      live.programacion = [
+        { rubro_codigo: "R12", codigo_linea: "1.1|R12", periodo: "2026-11", valor: "10000000" },
+        { rubro_codigo: "R12", codigo_linea: "1.2|R12", periodo: "2026-11", valor: "14000000" },
+      ]
+      return live
+    }
+    const despues = conDosLineas()
+    despues.presupuesto[1]!.asignado = "13000000"
+    despues.programacion[1]!.valor = "13000000"
+    expect(diffSnapshots(buildSnapshot(conDosLineas()), buildSnapshot(despues))).toEqual([
+      { elemento: "presupuesto", clave: "1.2|R12", campo: "asignado", desde: "14000000.00", hasta: "13000000.00" },
+      { elemento: "programacion", clave: "1.2|R12|2026-11", campo: "valor", desde: "14000000.00", hasta: "13000000.00" },
+    ])
+  })
+
   it("lists changed project fields, weeks, weights and quantities", () => {
     const live = clone(liveF_V1())
     live.proyecto.fecha_fin = "2027-02-26"

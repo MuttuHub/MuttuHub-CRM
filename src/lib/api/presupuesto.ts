@@ -12,7 +12,8 @@ import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/p
 import type { GateResult } from "@/lib/api/estructura";
 import { logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { diferenciaValor } from "@/lib/proyectos/proyecto-general";
-import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
+import { formatCOP, fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
+import { projectPeriods } from "@/lib/proyectos/weeks";
 
 const PRESUPUESTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 const PRESUPUESTO_STATE_MESSAGE =
@@ -57,6 +58,24 @@ export async function gatePresupuestoWrite(
     return { ok: false, response: apiError(PRESUPUESTO_STATE_MESSAGE, 409, "INVALID_STATE") };
   }
   return { ok: true, value: proyecto };
+}
+
+const MOVER_ESTADO_MESSAGE = "Solo se pueden mover valores entre meses de un proyecto en ejecución.";
+
+/**
+ * 404 -> 403 -> 409 for T13 (S4) moving a value between months of a line: the same permission as the
+ * programming writes (who may edit the project's data), but only while the project is EN_EJECUCION.
+ */
+export async function gateProgramacionMover(usuario: Usuario, proyectoId: string): Promise<GateResult<PresupuestoProyecto>> {
+  const scoped = await loadProjectScoped(usuario, proyectoId, PRESUPUESTO_SELECT);
+  if (!scoped) return { ok: false, response: apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND") };
+  if (!canEditProjectData(projectReadActor(usuario, scoped.es_miembro))) {
+    return { ok: false, response: apiError(PRESUPUESTO_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
+  }
+  if (scoped.row.estado !== "EN_EJECUCION") {
+    return { ok: false, response: apiError(MOVER_ESTADO_MESSAGE, 409, "INVALID_STATE") };
+  }
+  return { ok: true, value: scoped.row };
 }
 
 /** 404 -> 403 for a read, with the membership-aware scope. */
@@ -586,4 +605,105 @@ export async function borrarPresupuestoDeActividad(
   if (valorTotal) cambios.push(valorTotal);
   await logChanges(tx, cambios);
   await limpiarConfirmacion(tx, { proyectoId: input.proyectoId, usuarioId: input.usuarioId });
+}
+
+const moverInvalido = (message: string): never => {
+  throw new RespuestaAbortada(apiError(message, 400, "VALIDATION_ERROR"));
+};
+
+/**
+ * T13 (S4): «El Gestor puede mover valores entre meses de una misma línea sin aprobación, siempre que el total de
+ * la línea no cambie.» Runs in the caller's transaction under the project lock (the same row the modification
+ * approval and the baseline take), re-checking EN_EJECUCION there. It writes the live `programacion_periodos`
+ * (the semáforos and the curve read them); the approved versions stay as they are. A closed month (before
+ * `periodoActual`) is neither origin nor destination, so past semáforos never change, and the current month is only an
+ * origin (the destination is always a future month). One audit row in its own
+ * lote records the line, both months with their values before and after, and the value moved; who and when are
+ * the row's own `usuario_id` and `created_at`.
+ */
+export async function moverProgramacion(
+  tx: Prisma.TransactionClient,
+  input: { proyectoId: string; usuarioId: string; lineaId: string; origen: string; destino: string; valor: Cents; periodoActual: string },
+): Promise<ProgrammingView> {
+  const proyecto = await lockProyecto(tx, input.proyectoId);
+  if (proyecto.estado !== "EN_EJECUCION") {
+    throw new RespuestaAbortada(apiError(MOVER_ESTADO_MESSAGE, 409, "INVALID_STATE"));
+  }
+  const periodos =
+    proyecto.fecha_inicio && proyecto.fecha_fin ? projectPeriods(proyecto.fecha_inicio, proyecto.fecha_fin) : [];
+
+  const { origen, destino, valor } = input;
+  if (valor <= BigInt(0)) moverInvalido("El valor a mover debe ser mayor que cero.");
+  if (origen === destino) moverInvalido("El mes de destino debe ser distinto del mes de origen.");
+  for (const periodo of [origen, destino]) {
+    if (!periodos.includes(periodo)) moverInvalido(`El periodo ${periodo} está fuera del rango del proyecto.`);
+  }
+  for (const periodo of [origen, destino]) {
+    if (periodo < input.periodoActual) {
+      moverInvalido(`El mes ${periodo} ya cerró: no se pueden mover valores desde ni hacia un mes cerrado.`);
+    }
+  }
+  // «Solo se pueden mover valores del mes en curso hacia meses futuros, o entre meses futuros»: the destination is
+  // always a future month.
+  if (destino === input.periodoActual) {
+    moverInvalido(
+      "El mes de destino debe ser un mes futuro: solo se mueven valores del mes en curso hacia meses futuros, o entre meses futuros.",
+    );
+  }
+  const linea = await tx.lineaPresupuestal.findFirst({
+    where: { id: input.lineaId, proyecto_id: input.proyectoId },
+    select: { id: true },
+  });
+  if (!linea) moverInvalido("La línea no está en el presupuesto del proyecto.");
+
+  const celdas = await tx.programacionPeriodo.findMany({
+    where: { linea_id: input.lineaId, periodo: { in: [origen, destino] } },
+    select: { periodo: true, valor: true },
+  });
+  const valorDe = (periodo: string) => toCents(celdas.find((c) => c.periodo === periodo)?.valor ?? "0");
+  const [origenAntes, destinoAntes] = [valorDe(origen), valorDe(destino)];
+  if (valor > origenAntes) {
+    moverInvalido(
+      `El mes ${origen} solo tiene ${formatCOP(origenAntes)} programados en esta línea: no se pueden mover ${formatCOP(valor)}.`,
+    );
+  }
+  const [origenDespues, destinoDespues] = [origenAntes - valor, destinoAntes + valor];
+
+  // A month left at $0 has no cell (the S5 pattern of the programming PUT).
+  if (origenDespues === BigInt(0)) {
+    await tx.programacionPeriodo.deleteMany({ where: { linea_id: input.lineaId, periodo: origen } });
+  } else {
+    await tx.programacionPeriodo.update({
+      where: { linea_id_periodo: { linea_id: input.lineaId, periodo: origen } },
+      data: { valor: decimalFromCents(origenDespues) },
+    });
+  }
+  await tx.programacionPeriodo.upsert({
+    where: { linea_id_periodo: { linea_id: input.lineaId, periodo: destino } },
+    create: { proyecto_id: input.proyectoId, linea_id: input.lineaId, periodo: destino, valor: decimalFromCents(destinoDespues) },
+    update: { valor: decimalFromCents(destinoDespues) },
+  });
+
+  await logChanges(tx, [
+    {
+      usuario_id: input.usuarioId,
+      accion: "EDITAR",
+      entidad: "programacion",
+      entidad_id: input.lineaId,
+      proyecto_id: input.proyectoId,
+      campo: "mover",
+      valor_anterior: {
+        linea_id: input.lineaId,
+        origen: { periodo: origen, valor: fromCents(origenAntes) },
+        destino: { periodo: destino, valor: fromCents(destinoAntes) },
+      },
+      valor_nuevo: {
+        linea_id: input.lineaId,
+        valor: fromCents(valor),
+        origen: { periodo: origen, valor: fromCents(origenDespues) },
+        destino: { periodo: destino, valor: fromCents(destinoDespues) },
+      },
+    },
+  ]);
+  return loadProgrammingView(tx, input.proyectoId, "EN_EJECUCION", periodos);
 }

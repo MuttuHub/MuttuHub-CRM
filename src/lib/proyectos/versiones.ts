@@ -187,12 +187,19 @@ export function diffSnapshots(a: SnapshotV1, b: SnapshotV1): Diferencia[] {
   const proyecto = (s: SnapshotV1) => new Map<string, Fila>([["proyecto", s.proyecto]])
   const diff = [
     ...compareRows("proyecto", ["valor_total", "fecha_inicio", "fecha_fin", "beneficiarios_meta"], proyecto(a), proyecto(b)),
-    ...compareRows("presupuesto", ["rubro_nombre", "asignado"], index(a.presupuesto, (r) => r.rubro_codigo), index(b.presupuesto, (r) => r.rubro_codigo)),
+    // T11: one rubro can have a line per activity, so budget and programming are compared per line
+    // (`ACT|RUBRO`); a version saved before T10 has no `codigo_linea` and keeps the rubro code.
+    ...compareRows(
+      "presupuesto",
+      ["rubro_nombre", "asignado"],
+      index(a.presupuesto, (r) => claveLinea(r) ?? ""),
+      index(b.presupuesto, (r) => claveLinea(r) ?? ""),
+    ),
     ...compareRows(
       "programacion",
       ["valor"],
-      index(a.programacion, (c) => `${c.rubro_codigo}|${c.periodo}`),
-      index(b.programacion, (c) => `${c.rubro_codigo}|${c.periodo}`),
+      index(a.programacion, (c) => `${claveLinea(c) ?? ""}|${c.periodo}`),
+      index(b.programacion, (c) => `${claveLinea(c) ?? ""}|${c.periodo}`),
     ),
     ...compareRows(
       "actividad",

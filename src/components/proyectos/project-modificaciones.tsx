@@ -191,7 +191,7 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
                 <ul className="mt-1.5 flex flex-col gap-0.5 text-[12px] text-ink-700">
                   {solicitud.detalle.map((item, indice) => (
                     <li key={`${item.elemento}-${item.clave}-${item.campo ?? ""}-${indice}`}>
-                      <span className="font-mono text-[11.5px] text-ink-500">{item.clave.replace("|", " · ")} </span>
+                      <span className="font-mono text-[11.5px] text-ink-500">{item.clave.replaceAll("|", " · ")} </span>
                       {CAMPO_LABEL[item.campo ?? (item.elemento === "presupuesto" ? "asignado" : "valor")] ?? item.campo}:{" "}
                       <span className="text-ink-500 line-through">{formatValor(item, item.antes)}</span>
                       {" → "}
