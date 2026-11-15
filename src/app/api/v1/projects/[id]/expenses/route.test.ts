@@ -454,6 +454,28 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
     expect(logChange).not.toHaveBeenCalled();
   });
 
+  // Review of T14: two rows on one line would each pass their own overspend check while the line overspends.
+  it("does not save an invoice with two rows on the same line and writes nothing (S9)", async () => {
+    const res = await POST(
+      post(facturaRepartida([
+        { linea_id: "lin-12", valor: "600000" },
+        { linea_id: "lin-12", valor: "400000" },
+      ])),
+      ctx,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Cada línea (actividad y rubro) puede aparecer una sola vez en la distribución de la factura.",
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(logChange).not.toHaveBeenCalled();
+  });
+
   it("saves 350.000 on activity 1.2 and 650.000 on 1.3 as one invoice, header on the first row's line (S9)", async () => {
     const res = await POST(
       post(facturaRepartida([

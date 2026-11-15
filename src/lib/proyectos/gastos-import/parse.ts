@@ -537,6 +537,17 @@ function validarFila(
 }
 
 /**
+ * Review of T14: rows of one document on the same line (two items of the same rubro and activity) become one
+ * distribution row with their sum, in first-appearance order, so the per-line overspend check sees the whole
+ * amount that line receives.
+ */
+function unirPorLinea(datos: readonly DatosGastoImport[]): { linea_id: string; valor: Cents }[] {
+  const porLinea = new Map<string, Cents>()
+  for (const cada of datos) porLinea.set(cada.linea_id, (porLinea.get(cada.linea_id) ?? BigInt(0)) + cada.cents)
+  return [...porLinea].map(([linea_id, valor]) => ({ linea_id, valor }))
+}
+
+/**
  * S9/T14.3: closes one document of the file. A row error rejects the whole invoice (half a document is worse
  * than none), its rows must agree on the date, the period and the support type of the single header they will
  * write, and their amounts must add up to the «Total» the document states. A one-row document keeps the rule it
@@ -598,7 +609,7 @@ function cerrarFactura(grupo: readonly FilaGastoImport[]): { filas: FilaGastoImp
         subtotal,
         iva,
         cents: total,
-        repartos: datos.map((cada) => ({ linea_id: cada.linea_id, valor: cada.cents })),
+        repartos: unirPorLinea(datos),
         enlaces: [...new Set(datos.flatMap((cada) => cada.enlaces))],
       },
     },

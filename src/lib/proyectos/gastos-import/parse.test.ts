@@ -503,6 +503,18 @@ describe("parseGastosImport — una factura distribuida (S9, T14.3)", () => {
     expect(r.resumen).toEqual({ validas: 0, errores: 2 })
   })
 
+  it("joins two rows of the same invoice on the same line into one distribution row with their sum (S9)", async () => {
+    const r = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2", Subtotal: 600000, Total: 1000000 }),
+        fila({ "Código de actividad": "1.2", Subtotal: 400000, Total: 1000000 }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(r.filas.map((f) => f.error)).toEqual([null, null])
+    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1000000") }])
+  })
+
   it("requires the invoice to state its «Total» before it can be distributed (S9)", async () => {
     const r = await parseGastosImport(await dosFilas(null), contextoDistribuido)
     expect(r.filas.map((f) => f.error)).toEqual([SIN_TOTAL_DISTRIBUCION_MESSAGE, SIN_TOTAL_DISTRIBUCION_MESSAGE])

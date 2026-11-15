@@ -12,6 +12,7 @@ import {
   REPARTO_LINEA_MESSAGE,
   REPARTO_MEZCLA_MESSAGE,
   REPARTO_SIN_FILAS_MESSAGE,
+  REPARTO_LINEA_REPETIDA_MESSAGE,
   REPARTO_SUMA_MESSAGE,
   REPARTO_VALOR_MESSAGE,
   SOBREGASTO_MENSAJE,
@@ -264,6 +265,18 @@ describe("periodo from the document date (AJ-05)", () => {
 
 // S9 / T14.2-B1: la suma del reparto es exactamente el total de la factura (subtotal + IVA), en centavos.
 describe("evaluarRepartos", () => {
+  // Review of T14: two rows on one line would each pass its own overspend check while the line overspends.
+  it("rejects two rows of the same invoice on the same line, even when they add up to the total (S9)", () => {
+    const result = evaluarRepartos(
+      [
+        { linea_id: "lin-12", valor: "600000" },
+        { linea_id: "lin-12", valor: "400000" },
+      ],
+      toCents("1000000"),
+    );
+    expect(result).toEqual({ ok: false, message: REPARTO_LINEA_REPETIDA_MESSAGE });
+  });
+
   it("does not save a distribution of 990.000 for a 1.000.000 invoice (S9)", () => {
     const result = evaluarRepartos(
       [

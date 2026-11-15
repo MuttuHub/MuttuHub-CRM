@@ -54,6 +54,9 @@ export const REPARTO_SUMA_MESSAGE = "Las líneas de la distribución deben sumar
 export const REPARTO_SIN_FILAS_MESSAGE = "Indica al menos una línea de la distribución.";
 export const REPARTO_VALOR_MESSAGE = "El valor de cada línea de la distribución debe ser mayor que cero.";
 export const REPARTO_LINEA_MESSAGE = "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.";
+/** Review of T14: one line appears once per invoice, so its overspend check sees the whole amount it receives. */
+export const REPARTO_LINEA_REPETIDA_MESSAGE =
+  "Cada línea (actividad y rubro) puede aparecer una sola vez en la distribución de la factura.";
 /** S9/T14.2-B1: a split invoice is re-split only with its full distribution; otherwise its rows stop summing. */
 export const REPARTO_REQUERIDO_MESSAGE = "Envía la distribución completa para corregir una factura repartida.";
 export const PERIODO_FUERA_MESSAGE = "El periodo debe corresponder a un mes del proyecto.";
@@ -261,6 +264,9 @@ export function evaluarRepartos(
       return { ok: false, message: REPARTO_VALOR_MESSAGE };
     }
     filas.push({ linea_id: fila.linea_id, valor: monto.cents });
+  }
+  if (new Set(filas.map((fila) => fila.linea_id)).size !== filas.length) {
+    return { ok: false, message: REPARTO_LINEA_REPETIDA_MESSAGE };
   }
   if (sumCents(filas.map((fila) => fila.valor)) !== total) return { ok: false, message: REPARTO_SUMA_MESSAGE };
   return { ok: true, value: filas };
