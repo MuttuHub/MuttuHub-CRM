@@ -58,7 +58,7 @@ Bitácora de la rebanada: reportes, evidencia y decisiones. Specs textuales de l
 | T14.3 | S9 | Importación con «Código de actividad», agrupación por documento y umbral de duplicados en tres capas | inline | pending | — |
 | T14.4A | S10 | Vistas por actividad, lado servidor: costura con `actividadId` y `actividades` con detalle por rubro | delegated (writer) | done | `1a9c4fa` |
 | T14.4B | S10 | Selector «Por actividad / Por rubro» en Finanzas y árbol de detalle | delegated (writer) | done | `1f85a18` |
-| T14.5 | S11 | Cierre de gastos de la actividad (solo con autorización explícita del humano) | inline | pending | — |
+| T14.5 | S11 | Cierre de gastos de la actividad: saldo/ahorro, nota obligatoria, reapertura con motivo y bloqueo de gastos | delegated (writer) | en curso | — |
 
 ## Log
 
@@ -488,3 +488,115 @@ importación entre los escritores sin filas; (5) la previsualización de importa
 
 **Fuera de alcance por decisión del humano:** T14.5 (S11). Sus criterios ya están citados en la rebanada 5 de esta
 bitácora, con nota obligatoria, reapertura con motivo y auditoría, y traslado Gestor→Gerente.
+
+---
+
+## Rebanada 5 (S11, EV-07) — cierre de gastos de la actividad
+
+**L54** (2026-11-15) El humano autoriza arrancarla: «dale». Deja de estar fuera de alcance; los cuatro criterios de S11
+citados en la rebanada 5 de este documento son los que hay que cumplir, con el test que prueba cada uno.
+
+**L55** Decisiones de diseño que tomo yo y que el worker no reabre:
+
+1. **El estado de cierre vive en la actividad**, no en la línea: `gastos_cerrados_at`, `gastos_cerrados_nota` y
+   `gastos_cerrados_por` en `Actividad`, más auditoría del cierre y de la reapertura. Es lo que la PO describe («la
+   actividad muestra saldo/ahorro», «no se pueden registrar gastos en una actividad cerrada»), y un cierre por línea no
+   tendría dónde mostrar la nota.
+2. **La reapertura limpia el cierre y exige motivo**, y queda en auditoría (propuesta de S11 aceptada en D4).
+3. **Un ahorro trasladado reutiliza el flujo de traslado de AJ-09/T13.6**, que ya es por línea (actividad + rubro de
+   origen y destino, aprobación del Gerente). No se reimplementa: si el botón necesita tocar archivos del carril A, se
+   anota y se frena ahí.
+4. **Migración `20261116…`**, posterior a la de T14.2, y sin tocar los modelos `Proyecto` ni `Usuario`.
+
+**L56** La rebanada se parte en dos: **5-A** schema, migración y servidor (cierre, reapertura, bloqueo de gastos
+nuevos e invariantes) y **5-B** hoja financiera (ahorro/sobreejecución por actividad) y pantalla.
+
+**L57** Commit `1c1d8152d4cd429ca55d0cf3d39471d3f1b04d75` — 5-A cerrada. Migración
+`20261116120000_t14_cierre_gastos_actividad`: **tres `ADD COLUMN` nulables, sin `DEFAULT`, sin backfill**, nada más
+tocado; toda actividad existente queda con los gastos abiertos, que es el estado de hoy. Revertir es `DROP COLUMN` de
+las tres. `gastos_cerrados_por` es escalar suelto (como `usuario_id` en la auditoría) para que el cierre sobreviva a un
+usuario borrado, y no se toca el modelo `Usuario`. Rutas nuevas `close-expenses` (nota obligatoria) y
+`reopen-expenses` (motivo obligatorio, auditado); las dos fijan el estado esperado en el `UPDATE`, así que cerrar dos
+veces o reabrir lo abierto responde 409 en vez de pisar. Un predicado único rechaza el gasto nuevo, la factura
+importada y la corrección que **mueve** un gasto hacia una actividad cerrada.
+
+**L58** Reglas de S11 probadas en esta rebanada, con su test: «No se puede cerrar sin nota» → `rejects the closure
+without a nota and changes nothing (S11)`; cierre con nota y auditoría → `sets the three closure fields, keeps the nota
+and audits the closure (S11)`; «no se pueden registrar gastos en una actividad cerrada» → `refuses an expense whose
+budget line belongs to a closed activity and writes nothing (S11)`, `rejects the invoice of a closed activity, imports
+the rest and writes nothing of the closed one (S11)`, `refuses a correction that moves the expense into a closed
+activity and writes nothing (S11)`; reapertura con motivo → `clears the closure, records the motivo and answers the open
+activity (S11, D4)` y `accepts the expense again once the activity is reopened (S11)`. Los criterios 1 y 3 (saldo y
+ahorro **visibles**) y el 2 (traslado del ahorro) se prueban en 5-B, donde están a la vista.
+
+**L59** Riesgo de 5-A: **`Risk: item 1`** (migración sobre tabla existente) y **probado aditivo**: tres columnas
+nulables, `migrate diff` vacío tras aplicar y el invariante afirma nulabilidad y ausencia de `DEFAULT` en
+`information_schema`. Cuatro cosas que la revisión tiene que mirar: (a) el schema declara ahora
+`@@index([actividad_id])` en `LineaPresupuestal`, cerrando el drift de T10 —el índice existe en SQL desde T10 y el
+schema nunca lo tuvo—, y se quitó el `DROP INDEX` que Prisma había generado, así que la migración no borra nada;
+(b) una expectativa preexistente cambió: el test del cuerpo viejo sin `repartos` exigía que no se consultara
+`lineaPresupuestal` y ahora la comprobación de cierre hace **una** consulta acotada — ningún monto, estado ni auditoría
+cambió; (c) la importación rechaza la factura entera si toca una actividad cerrada y la reporta por fila, dejando
+entrar el resto del archivo; (d) el PATCH solo bloquea líneas que **entran**, porque corregir en el lugar un gasto de
+una actividad cerrada no es registrar un gasto nuevo. Verificación propia: `tsc` 0, `eslint` 0, `knip` 0, **600 tests**
+en `src/lib/api` + `expenses` + `activities`, **283 invariantes** y 48 migraciones al día.
+
+**L60** Lo que 5-B necesita y esta rebanada no pudo tocar: los hooks `useCloseActivityExpenses` /
+`useReopenActivityExpenses` (van con su consumidor o `knip` los marca como export sin uso) y exponer el cierre en
+`GET /activities`, que vive en `src/lib/proyectos/actividad.ts`.
+
+---
+
+### Rebanada 5-B (T14.5-B) — la mitad visible de S11
+
+**L61** Commit `a5706e1d39d22eafc6ce2a4a89def688be583170` — 10 archivos. Cada fila de `actividades` de la hoja
+financiera publica ahora `cerrada`, `cerrada_at`, `nota_cierre`, `ahorro` y `sobreejecucion`, **derivados y no
+guardados**: `ahorro = max(A − E, 0)` y `sobreejecucion = max(E − A, 0)` solo cuando la actividad está cerrada, y
+`null` mientras está abierta, así que una corrección posterior no los puede dejar viejos. `GET /activities` publica el
+cierre y su schema OpenAPI ya lo lista (lo cerré yo, era un hueco de documentación). Los dos hooks entran aquí con su
+consumidor. La pantalla muestra «Saldo» y «Cerrar gastos de la actividad» con nota obligatoria mientras está abierta, y
+«Ahorro» o «Sobreejecución» con la nota más «Reabrir» con motivo cuando está cerrada, con el mismo permiso que
+registrar un gasto y con tabla en escritorio y tarjetas en móvil.
+
+**L62** Criterios de S11, ahora visibles, con su test: «Una actividad abierta con asignado $10.000.000 y ejecutado
+$7.000.000 muestra saldo $3.000.000» → `una actividad abierta con 10.000.000 asignados y 7.000.000 ejecutados muestra
+saldo 3.000.000 (S11)` (hoja y vista); «Al cerrarla con nota, muestra ahorro $3.000.000 y la nota» →
+`al cerrarla con nota muestra ahorro 3.000.000 y la nota (S11)` y `una actividad cerrada que gastó de más muestra
+sobreejecución, no ahorro (S11)`; «No se puede cerrar sin nota» → `no cierra sin nota: muestra el mensaje del servidor
+y no envía nada (S11)`; y la fila «Sin actividad» no lleva cierre porque no hay actividad que cerrar
+(`la fila «Sin actividad» no lleva cierre: no hay actividad que cerrar (S11, D4)`). El criterio 2 (traslado del ahorro)
+**no se reimplementa**: reutiliza el flujo de AJ-09/T13.6 con aprobación del Gerente, y esta rebanada no añade botón
+para él.
+
+**L63** Riesgo: **`Risk: none`** — sin migración, sin dato tocado, campos aditivos y sin cambio de contrato. Tres cosas
+que la revisión tiene que saber: (a) `toActividadV2View` es compartido, así que las respuestas de
+`/activities/:activityId` publican también el cierre (aditivo, no se tocó esa ruta); (b) los dos mensajes de nota y
+motivo se copian literalmente en el componente porque `cierre-gastos.ts` importa `@/lib/db` y no es importable desde
+cliente — el test fija el texto exacto y falla si el servidor cambia la copia; (c) el cierre no viaja en la fila
+«Sin actividad».
+
+**L64** Verificación propia: `tsc` 0, `eslint` 0, `knip` 0, **334 tests** en la rebanada, **83** en los consumidores del
+payload, **283 invariantes** y el documento OpenAPI validando (31 tests).
+
+**L65** **Incidente de build, y lo que enseña.** Con el PR abierto, Vercel falló el preview y el job `e2e` falló en su
+paso Build, con el mismo error que se reproducía en local, limpio de caché:
+
+```
+Error [ChunkLoadError]: Failed to load chunk server/chunks/_0wcq7t5._.js
+  for chunk server/app/api/openapi/route.js
+  [cause]: SyntaxError: Invalid or unexpected token
+```
+
+La causa estaba en `src/lib/openapi/paths/project-structure.ts`: la descripción de `close-expenses` unía una plantilla con
+cadenas de comillas dobles que conservaban backticks escapados (`` \`actividad\` ``) junto a otros crudos. JS acepta ese
+escape de identidad, así que `tsc`, eslint, `knip` y los 600 tests seguían verdes; pero Turbopack lo emite al chunk del
+documento y el archivo emitido deja de parsear (`Expecting Unicode escape sequence \uXXXX`). Se localizó parseando el
+chunk con `acorn` (Node no daba columna) y se bisecó hasta `1c1d815`, donde falla igual: **no era la edición del schema,
+era el bloque de S11**. Arreglo en `637ccf3`: ese bloque pasa a plantilla literal como sus vecinas; los demás `` \` `` del
+archivo están dentro de plantillas y no se tocaron.
+
+**L66** Consecuencia para el proceso, más importante que el bug: **el repo no tiene un check de build**. Hoy un PR puede
+llegar a `main` con `unit` y `e2e` verdes y el despliegue roto, porque el único lugar que compila la app es el paso Build
+dentro del job `e2e`, y no se corre como check propio. Propuesta para la revisión: agregar un job `build`
+(`npx next build`) al workflow, que es barato comparado con el `e2e` y cierra el agujero. No lo agrego en esta rama
+porque tocar el CI es entrega y no me corresponde decidirlo solo.

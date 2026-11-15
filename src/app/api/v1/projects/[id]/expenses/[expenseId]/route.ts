@@ -14,6 +14,8 @@
 // invoice inside the same transaction (header + rows), with the same sum rule as the create; the audit
 // keeps recording the header fields it always recorded. Audit: one EDITAR row per changed field, the
 // identification number only masked (RNF-04).
+// S11/T14.5: a correction that MOVES the expense into an activity with its expenses closed is refused and
+// writes nothing; correcting a row that already belongs to it stays possible.
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -53,6 +55,7 @@ import {
   type RepartoFactura,
 } from "@/lib/api/gastos";
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
+import { lineasQueEntran, rechazarGastosCerrados } from "@/lib/api/cierre-gastos";
 import { gateGastoGestion } from "@/lib/api/validacion-gastos";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { fromCents, toCents } from "@/lib/proyectos/money";
@@ -172,6 +175,16 @@ export const PATCH = withApiErrorHandling(
     // stored pointer, which the rows keep describing.
     const lineaCabecera = repartos ? repartos[0].linea.id : actual.linea_id;
     const rubroCabecera = repartos ? repartos[0].linea.rubro.id : rubroActual;
+
+    // S11/T14.5: a correction may not MOVE the expense into an activity whose expenses are closed, and the check
+    // is the same one the create and the import use. An expense that already sits in that activity is still
+    // correctable: the closure means «no recibe gastos nuevos», not «its history is frozen».
+    const entran = lineasQueEntran(
+      efectivos.map((reparto) => reparto.linea.id),
+      repartosActuales.map((reparto) => reparto.linea.id),
+    );
+    const cerrados = await rechazarGastosCerrados(entran);
+    if (cerrados) return cerrados;
 
     const fechaDocumento = input.fecha_documento ?? isoDate(actual.fecha_documento);
     const periodoPedido =

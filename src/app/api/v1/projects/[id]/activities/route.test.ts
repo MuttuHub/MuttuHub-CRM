@@ -59,6 +59,9 @@ const filaActividad = {
   created_at: new Date("2026-10-08T12:00:00.000Z"),
   updated_at: new Date("2026-10-08T12:00:00.000Z"),
   deleted_at: null,
+  gastos_cerrados_at: null,
+  gastos_cerrados_nota: null,
+  gastos_cerrados_por: null,
 };
 const cuerpo = { objetivo_id: "obj-1", codigo: "1.4", nombre: "Taller de costura", semana_inicio: 3, semana_fin: 6 };
 // S6: «en las transversales el objetivo va vacío».
@@ -131,6 +134,35 @@ describe("GET /api/v1/projects/:id/activities", () => {
         orderBy: [{ semana_inicio: "asc" }, { codigo: "asc" }],
       }),
     );
+  });
+
+  // S11/T14.5-B: la lista publica el cierre para que la pantalla sepa si ofrece «Cerrar» o muestra el ahorro.
+  it("publishes the closure of each activity: open by default, closed with its note and instant (S11)", async () => {
+    const res = await GET(get(), ctx);
+    expect((await res.json()).actividades[0]).toMatchObject({
+      gastos_cerrados: false,
+      gastos_cerrados_at: null,
+      gastos_cerrados_nota: null,
+      gastos_cerrados_por: null,
+    });
+
+    vi.mocked(db.actividad.findMany).mockResolvedValue([
+      {
+        ...filaActividad,
+        gastos_cerrados_at: new Date("2026-11-15T10:00:00.000Z"),
+        gastos_cerrados_nota: "No se requirió transporte porque el taller fue en el mismo municipio",
+        gastos_cerrados_por: "u-1",
+      },
+    ] as never);
+    const cerrada = await GET(get(), ctx);
+    expect(cerrada.status).toBe(200);
+    expect((await cerrada.json()).actividades[0]).toMatchObject({
+      id: "act-1",
+      gastos_cerrados: true,
+      gastos_cerrados_at: "2026-11-15T10:00:00.000Z",
+      gastos_cerrados_nota: "No se requirió transporte porque el taller fue en el mismo municipio",
+      gastos_cerrados_por: "u-1",
+    });
   });
 });
 

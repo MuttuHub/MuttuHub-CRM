@@ -8,8 +8,11 @@
 // distributed across lines — one row per activity + rubro, the header carrying neither `rubro_id` nor
 // `linea_id` — every line must be a line of this project with an assigned amount and the rows must add up to
 // exactly the invoice total (subtotal + IVA); `gastos.linea_id` is the line of the first row. Without `repartos`
-// the invoice gets a single row with its whole total, so the rows always add up. The period must be a month of
-// the project (default: the month of the document date); the estado is always REGISTRADO.
+// the invoice gets a single row with its whole total, so the rows always add up.
+// S11/T14.5: no line of an activity with its expenses closed (`gastos_cerrados_at`) is accepted, and nothing is
+// written — the Gestor reopens the activity with a motivo to register more.
+// The period must be a month of the project (default: the month of the document date); the estado is always
+// REGISTRADO.
 // Supports follow the confirm-mode flow (sign -> direct upload -> confirm) and are created in the same
 // transaction as the expense. Alerts never block: SOBREGASTO (critical, over the assigned amount, with
 // the «Solicita un traslado al Gerente» message and the Gerencia notification), SOBREGASTO_PROGRAMADO
@@ -52,6 +55,7 @@ import {
   type RepartoFactura,
 } from "@/lib/api/gastos";
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
+import { rechazarGastosCerrados } from "@/lib/api/cierre-gastos";
 import { normalizeProjectDate } from "@/lib/api/projects";
 
 export const dynamic = "force-dynamic";
@@ -120,6 +124,11 @@ export const POST = withApiErrorHandling(
     }
     // `gastos.linea_id` keeps its NOT NULL and means «the line of the first distribution row».
     const cabecera = repartos[0].linea;
+    // S11/T14.5: an activity with its expenses closed receives no new expenses. The check is the shared one the
+    // import and the correction also call, it runs before anything is written (supports included) and it names
+    // the reason and how to undo it.
+    const cerrados = await rechazarGastosCerrados(repartos.map((reparto) => reparto.linea.id));
+    if (cerrados) return cerrados;
     const periodo = resolverPeriodo(proyecto, input.fecha_documento, input.periodo);
     if (!periodo.ok) return periodo.response;
 

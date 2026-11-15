@@ -698,3 +698,38 @@ describe("PATCH expenses/:expenseId", () => {
     expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(409);
   });
 });
+
+describe("PATCH expenses/:expenseId: the activity's expenses are closed (S11, T14.5)", () => {
+  const CERRADA_AT = new Date("2026-11-16T15:00:00.000Z");
+  const CERRADOS = "Esta actividad tiene los gastos cerrados: no admite gastos nuevos. Reábrela con un motivo para registrar más.";
+
+  it("refuses a correction that moves the expense into a closed activity and writes nothing (S11)", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany)
+      .mockResolvedValueOnce([
+        {
+          id: "lin-13",
+          actividad_id: "act-13",
+          monto_proyectado_cop: new Prisma.Decimal("5000000"),
+          rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "lin-13", actividad: { gastos_cerrados_at: CERRADA_AT } }] as never);
+
+    const res = await PATCH(patch({ repartos: [{ linea_id: "lin-13", valor: "1500000.50" }] }), ctx);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: CERRADOS, code: "INVALID_STATE" });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  // The rule is «no recibe gastos nuevos»: an expense that already sits in the activity is still correctable,
+  // or closing would freeze every historical row.
+  it("still corrects in place an expense that already belongs to a closed activity (S11)", async () => {
+    const res = await PATCH(patch({ descripcion: "Tiquetes corregidos" }), ctx);
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.lineaPresupuestal.findMany).not.toHaveBeenCalled();
+  });
+});

@@ -928,6 +928,14 @@ model Actividad {
   // No `peso`: the activity's weight is always `semana_fin - semana_inicio + 1` (AJ-02),
   // derived in `src/lib/proyectos/weeks.ts`. A stored copy could only drift from the rule.
   responsable_id String?
+  // S11/T14.5 (EV-07): «Cerrar gastos de la actividad». With the expenses closed the activity shows ahorro or
+  // sobreejecución and admits no new expenses; the mandatory nota explains the difference and reopening (with a
+  // motivo, audited) clears the three. `gastos_cerrados_por` is the acting user id as a plain scalar on purpose —
+  // no relation, like the audit ledger's `usuario_id`, so the closure survives a deleted user. The spending and
+  // the saldo/ahorro numbers are never stored here: they are read, not copied.
+  gastos_cerrados_at   DateTime?
+  gastos_cerrados_nota String?
+  gastos_cerrados_por  String?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
   deleted_at     DateTime?
@@ -1197,6 +1205,10 @@ model LineaPresupuestal {
   // antiguo por rubro fuera del schema a propósito: ver la migración.
   @@unique([id, proyecto_id])
   @@index([proyecto_id])
+  // T14.5: declarado para que coincida con el índice que ya crea en SQL `20261112120000_t10_linea_por_actividad`
+  // (`lineas_presupuestales_actividad_id_idx`); sin esta línea `prisma migrate dev` intenta BORRARLO en la
+  // siguiente migración generada.
+  @@index([actividad_id])
   @@map("lineas_presupuestales")
 }
 

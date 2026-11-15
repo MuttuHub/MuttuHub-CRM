@@ -44,6 +44,9 @@ type ActividadDeLinea = {
   nombre: string
   tipo: "NORMAL" | "TRANSVERSAL"
   objetivo: { id: string; codigo: string; orden: number } | null
+  /** S11/T14.5-B: el cierre de la actividad, tal como lo lee la hoja (null = gastos abiertos). */
+  gastos_cerrados_at: Date | null
+  gastos_cerrados_nota: string | null
 }
 
 type Linea = {
@@ -313,7 +316,7 @@ describe("calcularFichaFinanciera — por actividad (S10)", () => {
     nombre: string,
     objetivo: { id: string; codigo: string; orden: number } | null,
     tipo: "NORMAL" | "TRANSVERSAL" = "NORMAL",
-  ): ActividadDeLinea => ({ id, codigo, nombre, tipo, objetivo })
+  ): ActividadDeLinea => ({ id, codigo, nombre, tipo, objetivo, gastos_cerrados_at: null, gastos_cerrados_nota: null })
 
   const O1 = objetivoDe("1", 1)
   const O2 = objetivoDe("2", 2)
@@ -509,5 +512,123 @@ describe("calcularFichaFinanciera — por actividad (S10)", () => {
     for (const fila of value.actividades) {
       expect(fila).toMatchObject({ ejecutado: "0.00", color: null, ep_decimas: null, ea_decimas: null, saldo: fila.asignado })
     }
+  })
+})
+
+// S11 (EV-07/T14.5-B): la hoja publica el cierre de la actividad. Abierta, el saldo (A − E) y ningún ahorro;
+// cerrada, el ahorro o la sobreejecución con su nota y su instante. Todo se LEE de `Actividad`: la hoja no
+// guarda un monto de ahorro, así que una corrección posterior no puede dejarlo desfasado.
+describe("calcularFichaFinanciera — cierre de gastos de la actividad (S11)", () => {
+  const O1 = { id: "obj-1", codigo: "1", orden: 1 }
+  const O2 = { id: "obj-2", codigo: "2", orden: 2 }
+  const A12: ActividadDeLinea = {
+    id: "act-12",
+    codigo: "1.2",
+    nombre: "Ferias",
+    tipo: "NORMAL",
+    objetivo: O1,
+    gastos_cerrados_at: null,
+    gastos_cerrados_nota: null,
+  }
+  const cerradaEl = new Date("2026-11-15T10:00:00.000Z")
+  const NOTA = "No se requirió transporte porque el taller fue en el mismo municipio"
+  const cerrar = (actividad: ActividadDeLinea, nota = NOTA): ActividadDeLinea => ({
+    ...actividad,
+    gastos_cerrados_at: cerradaEl,
+    gastos_cerrados_nota: nota,
+  })
+
+  /** El caso exacto de los criterios: una línea de 10.000.000 y un gasto de 7.000.000 al corte. */
+  const fichaS11 = async (
+    actividad: ActividadDeLinea = A12,
+    gastos = [gasto("r12", "2026-10", "7000000.00", "VALIDADO", "l12")],
+  ) => {
+    mocks.lineas.mockResolvedValue([linea("l12", "r12", "R12", "Transporte", 12, "10000000.00", actividad)])
+    mocks.celdas.mockResolvedValue(PERIODOS.map((periodo) => celda("l12", periodo, "2500000.00")))
+    mocks.gastos.mockResolvedValue(gastos)
+    return ficha()
+  }
+  const filaDe = (value: FinancialSheet, codigo: string) => {
+    const fila = value.actividades.find((candidata) => candidata.codigo === codigo)
+    if (!fila) throw new Error(`Falta la fila de la actividad ${codigo}`)
+    return fila
+  }
+
+  it("una actividad abierta con 10.000.000 asignados y 7.000.000 ejecutados muestra saldo 3.000.000 (S11)", async () => {
+    const value = await fichaS11()
+    expect(filaDe(value, "1.2")).toMatchObject({
+      asignado: "10000000.00",
+      ejecutado: "7000000.00",
+      saldo: "3000000.00",
+      cerrada: false,
+      cerrada_at: null,
+      nota_cierre: null,
+    })
+  })
+
+  it("al cerrarla con nota muestra ahorro 3.000.000 y la nota (S11)", async () => {
+    const value = await fichaS11(cerrar(A12))
+    expect(filaDe(value, "1.2")).toMatchObject({
+      saldo: "3000000.00",
+      cerrada: true,
+      cerrada_at: "2026-11-15T10:00:00.000Z",
+      nota_cierre: NOTA,
+      ahorro: "3000000.00",
+      sobreejecucion: "0.00",
+    })
+  })
+
+  it("una actividad cerrada que gastó de más muestra sobreejecución, no ahorro (S11)", async () => {
+    const value = await fichaS11(cerrar({ ...A12, id: "act-21", codigo: "2.1", nombre: "Ruedas", objetivo: O2 }), [
+      gasto("r12", "2026-10", "12000000.00", "VALIDADO", "l12"),
+    ])
+    expect(filaDe(value, "2.1")).toMatchObject({
+      asignado: "10000000.00",
+      ejecutado: "12000000.00",
+      saldo: "-2000000.00",
+      cerrada: true,
+      nota_cierre: NOTA,
+      ahorro: "0.00",
+      sobreejecucion: "2000000.00",
+    })
+  })
+
+  it("no inventa ahorro para una actividad abierta, aunque haya sobrado (S11)", async () => {
+    const value = await fichaS11()
+    const fila = filaDe(value, "1.2")
+    expect(fila.ahorro).toBeNull()
+    expect(fila.sobreejecucion).toBeNull()
+  })
+
+  it("no inventa ahorro ni sobreejecución para una actividad abierta que gastó de más (S11)", async () => {
+    const value = await fichaS11(A12, [gasto("r12", "2026-10", "12000000.00", "VALIDADO", "l12")])
+    expect(filaDe(value, "1.2")).toMatchObject({
+      saldo: "-2000000.00",
+      cerrada: false,
+      ahorro: null,
+      sobreejecucion: null,
+    })
+  })
+
+  it("la fila «Sin actividad» no lleva cierre: no hay actividad que cerrar (S11, D4)", async () => {
+    mocks.lineas.mockResolvedValue([
+      linea("l12", "r12", "R12", "Transporte", 12, "10000000.00", A12),
+      linea("lh", "r14", "R14", "Imprevistos", 14, "2000000.00"),
+    ])
+    mocks.celdas.mockResolvedValue(
+      PERIODOS.flatMap((periodo) => [celda("l12", periodo, "2500000.00"), celda("lh", periodo, "500000.00")]),
+    )
+    mocks.gastos.mockResolvedValue([gasto("r14", "2026-10", "300000.00", "VALIDADO", "lh")])
+    const value = await ficha()
+    const sinActividad = value.actividades[value.actividades.length - 1]
+    expect(sinActividad).toMatchObject({
+      actividad_id: null,
+      cerrada: false,
+      cerrada_at: null,
+      nota_cierre: null,
+      ahorro: null,
+      sobreejecucion: null,
+      saldo: "1700000.00",
+    })
   })
 })

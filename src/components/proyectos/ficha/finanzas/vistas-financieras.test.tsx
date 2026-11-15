@@ -3,7 +3,7 @@
 // la hoja financiera que llega es la MISMA en las dos vistas, que es lo que S10 exige.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, render, screen, within } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -72,6 +72,12 @@ const actividad = (over: Record<string, unknown>) => ({
   ejecutado: "0.00",
   diferencia: "0.00",
   saldo: "0.00",
+  // S11/T14.5-B: el cierre viaja en la fila; abierta y sin ahorro por defecto, como lo manda el servidor.
+  cerrada: false,
+  cerrada_at: null,
+  nota_cierre: null,
+  ahorro: null,
+  sobreejecucion: null,
   ep_decimas: null,
   ea_decimas: null,
   umbral_rojo: "0.00",
@@ -729,6 +735,150 @@ describe("VistasFinancieras", () => {
       expect(within(detalleEscritorio).getByTestId("actividad-rubros").tagName).toBe("TABLE")
       expect(within(detalleEscritorio).getAllByTestId("actividad-rubro")).toHaveLength(2)
       expect(detalleEscritorio).toHaveTextContent("R01 · Personal")
+    })
+  })
+
+  // S11/T14.5-B: saldo mientras los gastos están abiertos, ahorro o sobreejecución —con su nota— una vez
+  // cerrados, y el cierre y la reapertura desde la misma fila. Los montos son del payload: la UI no calcula
+  // ahorro ni sobreejecución, y sin nota (o sin motivo) no se manda nada.
+  describe("(i) cierre de gastos de la actividad (S11)", () => {
+    const NOTA = "No se requirió transporte porque el taller fue en el mismo municipio"
+    const NOTA_OBLIGATORIA = "La nota del cierre es obligatoria."
+    const MOTIVO_OBLIGATORIO = "El motivo de la reapertura es obligatorio."
+
+    const filaBase = {
+      actividad_id: "a1",
+      codigo: "1.1",
+      nombre: "Talleres",
+      objetivo_id: "o1",
+      objetivo_codigo: "1",
+      gestion: false,
+      rubros: [],
+    }
+    /** Abierta: 10.000.000 asignados y 7.000.000 ejecutados; el servidor manda saldo y ningún ahorro. */
+    const abierta = actividad({ ...filaBase, asignado: "10000000.00", ejecutado: "7000000.00", saldo: "3000000.00" })
+    const cerrada = (over: Record<string, unknown>) =>
+      actividad({
+        ...filaBase,
+        cerrada: true,
+        cerrada_at: "2026-11-15T10:00:00.000Z",
+        nota_cierre: NOTA,
+        ...over,
+      })
+
+    type Peticion = [input: unknown, init: RequestInit]
+    /** Las peticiones que la pantalla mandó a una de las dos rutas del cierre. */
+    const peticiones = (ruta: string): Peticion[] =>
+      (fetchMock.mock.calls as Peticion[]).filter(([url]) => String(url).includes(ruta))
+
+    async function abrirPorActividad() {
+      const user = userEvent.setup()
+      setup({ ficha: { ...FICHA, actividades: [abierta] } })
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+      return user
+    }
+
+    it("una actividad abierta con 10.000.000 asignados y 7.000.000 ejecutados muestra saldo 3.000.000 (S11)", async () => {
+      await abrirPorActividad()
+
+      const fila = within(await screen.findByTestId("actividad-grupo-1")).getAllByTestId("actividad-fila")[0]
+      expect(fila).toHaveTextContent("$ 3.000.000")
+      expect(fila).toHaveTextContent("$ 10.000.000")
+      expect(fila).toHaveTextContent("$ 7.000.000")
+      // Abierta no se llama ahorro (S11), y la fila ofrece cerrarla.
+      expect(fila).not.toHaveTextContent("Ahorro")
+      expect(fila).not.toHaveTextContent("Sobreejecución")
+      expect(within(fila).getByRole("button", { name: "Cerrar gastos de la actividad" })).toBeInTheDocument()
+      expect(within(fila).queryByRole("button", { name: "Reabrir" })).not.toBeInTheDocument()
+    })
+
+    it("una actividad cerrada muestra el ahorro con su nota y la sobreejecución cuando gastó de más (S11)", async () => {
+      const user = userEvent.setup()
+      setup({
+        ficha: {
+          ...FICHA,
+          actividades: [
+            cerrada({ asignado: "10000000.00", ejecutado: "7000000.00", saldo: "3000000.00", ahorro: "3000000.00", sobreejecucion: "0.00" }),
+            cerrada({
+              actividad_id: "a2",
+              codigo: "1.2",
+              nombre: "Ferias",
+              asignado: "10000000.00",
+              ejecutado: "12000000.00",
+              saldo: "-2000000.00",
+              ahorro: "0.00",
+              sobreejecucion: "2000000.00",
+            }),
+          ],
+        },
+      })
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+
+      const [talleres, ferias] = within(await screen.findByTestId("actividad-grupo-1")).getAllByTestId("actividad-fila")
+      // Ahorro con la nota del cierre (el criterio de S11), nunca el saldo de una actividad abierta.
+      expect(talleres).toHaveTextContent("Ahorro")
+      expect(talleres).toHaveTextContent("$ 3.000.000")
+      expect(talleres).not.toHaveTextContent("Sobreejecución")
+      expect(within(talleres).getByTestId("actividad-cierre-nota")).toHaveTextContent(NOTA)
+      // Gastó de más: sobreejecución, no ahorro.
+      expect(ferias).toHaveTextContent("Sobreejecución")
+      expect(ferias).toHaveTextContent("$ 2.000.000")
+      expect(ferias).not.toHaveTextContent("Ahorro")
+      expect(within(ferias).getByTestId("actividad-cierre-nota")).toHaveTextContent(NOTA)
+      // Cerrada: se puede reabrir, no volver a cerrar.
+      expect(within(talleres).getByRole("button", { name: "Reabrir" })).toBeInTheDocument()
+      expect(within(talleres).queryByRole("button", { name: "Cerrar gastos de la actividad" })).not.toBeInTheDocument()
+    })
+
+    it("no cierra sin nota: muestra el mensaje del servidor y no envía nada (S11)", async () => {
+      const user = await abrirPorActividad()
+
+      await user.click(screen.getByRole("button", { name: "Cerrar gastos de la actividad" }))
+      const dialogo = await screen.findByRole("dialog")
+      expect(within(dialogo).getByLabelText("Nota")).toBeInTheDocument()
+
+      await user.click(within(dialogo).getByRole("button", { name: "Cerrar gastos" }))
+      expect(await within(dialogo).findByText(NOTA_OBLIGATORIA)).toBeInTheDocument()
+      expect(peticiones("/close-expenses")).toHaveLength(0)
+
+      // Con la nota, el mismo botón cierra contra la ruta de la actividad.
+      await user.type(within(dialogo).getByLabelText("Nota"), NOTA)
+      await user.click(within(dialogo).getByRole("button", { name: "Cerrar gastos" }))
+      await waitFor(() => expect(peticiones("/close-expenses")).toHaveLength(1))
+      const [url, init] = peticiones("/close-expenses")[0]
+      expect(String(url)).toContain("/api/v1/projects/p1/activities/a1/close-expenses")
+      expect(JSON.parse(String(init.body))).toEqual({ nota: NOTA })
+    })
+
+    it("reabrir pide el motivo y no envía nada sin él (S11)", async () => {
+      const user = userEvent.setup()
+      setup({
+        ficha: {
+          ...FICHA,
+          actividades: [
+            cerrada({ asignado: "10000000.00", ejecutado: "7000000.00", saldo: "3000000.00", ahorro: "3000000.00", sobreejecucion: "0.00" }),
+          ],
+        },
+      })
+      await screen.findByTestId("financiero-rubros")
+      await irAActividad(user)
+
+      await user.click(screen.getByRole("button", { name: "Reabrir" }))
+      const dialogo = await screen.findByRole("dialog")
+      expect(within(dialogo).getByLabelText("Motivo")).toBeInTheDocument()
+
+      await user.click(within(dialogo).getByRole("button", { name: "Reabrir gastos" }))
+      expect(await within(dialogo).findByText(MOTIVO_OBLIGATORIO)).toBeInTheDocument()
+      expect(peticiones("/reopen-expenses")).toHaveLength(0)
+
+      await user.type(within(dialogo).getByLabelText("Motivo"), "Llegó una factura después del cierre")
+      await user.click(within(dialogo).getByRole("button", { name: "Reabrir gastos" }))
+      await waitFor(() => expect(peticiones("/reopen-expenses")).toHaveLength(1))
+      const [url, init] = peticiones("/reopen-expenses")[0]
+      expect(String(url)).toContain("/api/v1/projects/p1/activities/a1/reopen-expenses")
+      expect(JSON.parse(String(init.body))).toEqual({ motivo: "Llegó una factura después del cierre" })
     })
   })
 })

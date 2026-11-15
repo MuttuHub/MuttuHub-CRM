@@ -751,3 +751,71 @@ describe("modo (X2)", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 });
+
+// S11/T14.5: an activity with its expenses closed receives no new expenses, and the import is a writer of
+// expenses. `cargarContextoImport` asks the budget lines of the project; the closure check asks the same table
+// for the `actividad` of each named line, so the two calls are told apart by their `select`.
+describe("the activity's expenses are closed (S11, T14.5)", () => {
+  const CERRADA_AT = new Date("2026-11-16T15:00:00.000Z");
+  const CERRADOS =
+    "Esta actividad tiene los gastos cerrados: no admite gastos nuevos. Reábrela con un motivo para registrar más.";
+
+  // `cargarContextoImport` asks the budget lines with their `actividad` (codigo + nombre); the closure check asks
+  // the same table for `actividad.gastos_cerrados_at`, so the two calls are told apart by that select.
+  const conCierre = (closed: string[]) =>
+    mocks.lineaFindMany.mockImplementation((async (args: {
+      select?: { actividad?: { select?: Record<string, unknown> } };
+    }) =>
+      args?.select?.actividad?.select?.["gastos_cerrados_at"]
+        ? closed.map((id) => ({ id, actividad: { gastos_cerrados_at: CERRADA_AT } }))
+        : [
+            { id: "lin-1", monto_proyectado_cop: new Prisma.Decimal("24000000"), rubro: rubroTransporte },
+            { id: "lin-2", monto_proyectado_cop: new Prisma.Decimal("5000000"), rubro: rubroViaticos },
+          ]) as never);
+
+  it("rejects the invoice of a closed activity, imports the rest and writes nothing of the closed one (S11)", async () => {
+    conCierre(["lin-2"]);
+
+    const res = await POST(
+      subida(
+        await libro([
+          fila({ "Número de documento": "FE-1" }),
+          fila({ Rubro: "Viáticos", "Número de documento": "FE-2" }),
+        ]),
+      ),
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.creados).toBe(1);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.create.mock.calls[0][0].data.numero_documento).toBe("FE-1");
+    expect(body.rechazadas).toEqual([{ fila: 3, rubro: "Viáticos", mensaje: CERRADOS }]);
+  });
+
+  it("names the closure in the preview and counts the row as invalid, without writing (S11)", async () => {
+    conCierre(["lin-2"]);
+
+    const body = await (
+      await POST(
+        subida(
+          await libro([
+            fila({ "Número de documento": "FE-1" }),
+            fila({ Rubro: "Viáticos", "Número de documento": "FE-2" }),
+          ]),
+          { modo: "validar" },
+        ),
+        ctx,
+      )
+    ).json();
+
+    expect(body.importado).toBe(false);
+    expect(body.filas.map((f: { fila: number; valida: boolean; mensaje: string | null }) => [f.fila, f.valida, f.mensaje])).toEqual([
+      [2, true, null],
+      [3, false, CERRADOS],
+    ]);
+    expect(body.resumen).toMatchObject({ total: 2, validas: 1, invalidas: 1 });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+});

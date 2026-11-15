@@ -21,6 +21,9 @@
 // budget lines of that activity, so A, P, E, the threshold and the color follow the very same rules and the
 // executed total of both views is the same rows added up. Transversal activities carry no objective and are
 // grouped under «Gestión del proyecto», like the lines that have no activity at all.
+// S11 (EV-07/T14.5-B): each activity row also carries its closure (`cerrada`, `cerrada_at`, `nota_cierre`) and,
+// once the Gestor closed it, `ahorro` = max(A − E, 0) or `sobreejecucion` = max(E − A, 0). Neither is stored:
+// they are read from `Actividad` and the executed amount, so a later correction cannot leave them stale.
 
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
@@ -84,6 +87,9 @@ type ActividadDeLinea = {
   nombre: string;
   tipo: TipoActividad;
   objetivo: { id: string; codigo: string; orden: number } | null;
+  /** S11/T14.5-B: el cierre de los gastos de la actividad (nulo = abiertos). */
+  gastos_cerrados_at: Date | null;
+  gastos_cerrados_nota: string | null;
 };
 
 /** Una línea del presupuesto con su actividad: la unidad de la que salen las dos vistas. */
@@ -105,6 +111,8 @@ type GrupoActividad = {
   objetivo: { id: string; codigo: string; orden: number } | null;
   /** True en «Gestión del proyecto»: una actividad TRANSVERSAL o la fila «Sin actividad». */
   gestion: boolean;
+  /** S11/T14.5-B: el cierre de la actividad; ambos nulos mientras los gastos están abiertos. */
+  cierre: { at: Date | null; nota: string | null };
 };
 
 function compararCodigos(a: string, b: string): number {
@@ -137,6 +145,8 @@ function gruposDeActividad(lineas: readonly LineaConActividad[]): GrupoActividad
       nombre: actividad?.nombre ?? SIN_ACTIVIDAD,
       objetivo: actividad !== null && !gestion ? actividad.objetivo : null,
       gestion,
+      // D4: la fila «Sin actividad» no tiene actividad que cerrar, así que nunca lleva cierre.
+      cierre: { at: actividad?.gastos_cerrados_at ?? null, nota: actividad?.gastos_cerrados_nota ?? null },
     });
   }
   return [...grupos.values()].sort(compararGrupos);
@@ -168,6 +178,8 @@ function filasPorActividad(
 }
 
 function serializeActividadRow(grupo: GrupoActividad, fila: Ficha, disponible: boolean) {
+  const saldo = fila.total.asignado - fila.total.ejecutado;
+  const cerrada = grupo.cierre.at !== null;
   return {
     actividad_id: grupo.actividadId,
     codigo: grupo.codigo,
@@ -177,8 +189,16 @@ function serializeActividadRow(grupo: GrupoActividad, fila: Ficha, disponible: b
     gestion: grupo.gestion,
     // El total de la misma `computeFicha`: las mismas fórmulas aplicadas a las sumas de los hijos.
     ...serializeMoney(fila.total, disponible),
-    /** Asignado − ejecutado: saldo mientras los gastos están abiertos (S11/T14.5 añade el ahorro). */
-    saldo: fromCents(fila.total.asignado - fila.total.ejecutado),
+    /** Asignado − ejecutado. Mientras los gastos están abiertos es el saldo (S11); cerrada, la referencia. */
+    saldo: fromCents(saldo),
+    /** S11/T14.5-B: el cierre se LEE de la actividad; la hoja no guarda ningún monto de ahorro. */
+    cerrada,
+    cerrada_at: grupo.cierre.at === null ? null : grupo.cierre.at.toISOString(),
+    nota_cierre: grupo.cierre.nota,
+    /** A − E cuando sobró: `max(A − E, 0)`, y solo con los gastos cerrados. Null mientras están abiertos. */
+    ahorro: cerrada ? fromCents(saldo > BigInt(0) ? saldo : BigInt(0)) : null,
+    /** E − A cuando se gastó de más: `max(E − A, 0)`, y solo con los gastos cerrados. Null mientras están abiertos. */
+    sobreejecucion: cerrada ? fromCents(saldo < BigInt(0) ? -saldo : BigInt(0)) : null,
     /** S10: el detalle por rubro que se abre al elegir la actividad, con la forma del nivel superior. */
     rubros: fila.rubros.map((row) => serializeRow(row, disponible)),
   };
@@ -294,6 +314,9 @@ export async function calcularFichaFinanciera(
             nombre: true,
             tipo: true,
             objetivo: { select: { id: true, codigo: true, orden: true } },
+            // S11/T14.5-B: la hoja publica el cierre de cada actividad; no hay otra consulta ni un campo nuevo.
+            gastos_cerrados_at: true,
+            gastos_cerrados_nota: true,
           },
         },
       },

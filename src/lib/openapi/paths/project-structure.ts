@@ -13,6 +13,7 @@ import { ENTREGABLE_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/deliverable
 import { ENTREGABLE_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/route";
 import { INDICADOR_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/route";
 import { INDICADOR_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/[indicatorId]/route";
+import { CIERRE_GASTOS_SCHEMA, REAPERTURA_GASTOS_SCHEMA } from "@/lib/api/cierre-gastos";
 
 const WRITE_NOTE =
   "Administración, Gerencia o un integrante del equipo (`canEditProjectData`), y solo mientras el proyecto está en Borrador. El orden de " +
@@ -186,6 +187,22 @@ const ActividadSchema = registry.register(
       description:
         "true cuando las semanas superan la duración actual del proyecto (el proyecto se acortó después). Solo se marca; no bloquea la edición del proyecto.",
     }),
+    gastos_cerrados: z.boolean().openapi({
+      description:
+        "S11/T14.5 (EV-07): true cuando el Gestor cerró los gastos de la actividad. Cerrada, no admite gastos nuevos y muestra ahorro o sobreejecución; se reabre con un motivo, que queda en auditoría.",
+      example: false,
+    }),
+    gastos_cerrados_at: z.string().nullable().openapi({
+      description: "Instante del cierre; null mientras los gastos están abiertos.",
+    }),
+    gastos_cerrados_nota: z.string().nullable().openapi({
+      description:
+        "Nota obligatoria del cierre: explica la diferencia (por qué no se va a gastar el resto). null mientras están abiertos.",
+    }),
+    gastos_cerrados_por: z.string().nullable().openapi({
+      description:
+        "Usuario que cerró los gastos, como id sin relación: el cierre sobrevive a un usuario borrado, igual que en la auditoría.",
+    }),
     created_at: z.string(),
     updated_at: z.string(),
   }),
@@ -212,6 +229,86 @@ registerStructureResource({
     "vacía el objetivo y volver a `NORMAL` exige enviar uno.",
   deleteConflict:
     "Responde 409 CONFLICT mientras la actividad tenga entregables vivos o registros de beneficiarios no anulados.",
+});
+
+/**
+ * S11/T14.5 (EV-07): what the closure endpoints answer and what the financial screen reads (5-B). The state is a
+ * boolean plus the note, the instant and the actor; the ahorro or the sobreejecución are NOT here — they are
+ * derived from the executed amount by the financial sheet, never stored by the closure.
+ */
+const ActividadGastosSchema = registry.register(
+  "ActividadGastos",
+  z.object({
+    id: z.string().uuid(),
+    gastos_cerrados: z.boolean().openapi({
+      description: "true cuando el Gestor cerró los gastos de la actividad; desde entonces no admite gastos nuevos.",
+    }),
+    gastos_cerrados_at: z.string().nullable().openapi({ example: "2026-11-16T15:00:00.000Z" }),
+    gastos_cerrados_nota: z.string().nullable().openapi({
+      description: "La nota obligatoria del cierre, máx. 1000 caracteres: explica la diferencia entre lo asignado y lo ejecutado.",
+    }),
+    gastos_cerrados_por: z.string().nullable().openapi({
+      description:
+        "Usuario que cerró. Escalar suelto y sin relación, igual que `usuario_id` en la auditoría, para que el cierre " +
+        "sobreviva a un usuario borrado.",
+    }),
+  }),
+);
+
+const ActividadParams = z.object({ id: z.string().uuid(), activityId: z.string().uuid() });
+const ActividadGastosEnvelope = z.object({ actividad: ActividadGastosSchema });
+const CIERRE_GATE_NOTE =
+  "Mismo gate que registrar un gasto: ADMINISTRADOR/GERENCIA o un integrante del equipo con `canExecuteProject`, y el " +
+  "proyecto en `EN_EJECUCION` (404 -> 403 -> 409 INVALID_STATE -> 400). La escritura y sus filas de auditoría comparten " +
+  "una transacción.";
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/activities/{activityId}/close-expenses",
+  tags: ["Projects"],
+  summary: "Cierra los gastos de la actividad (Gestor)",
+  description:
+    `${CIERRE_GATE_NOTE} S11/EV-07: el cuerpo exige una \`nota\` no vacía de hasta 1000 caracteres que explica la ` +
+    `diferencia; la actividad pasa a mostrar ahorro o sobreejecución con esa nota y sus líneas dejan de admitir gastos ` +
+    `nuevos (409 INVALID_STATE con el motivo y cómo deshacerlo). Audita \`EDITAR\` sobre \`actividad\` con ` +
+    `\`gastos_cerrados_at\`, \`gastos_cerrados_nota\` y \`gastos_cerrados_por\`. Cerrar una actividad ya cerrada responde ` +
+    `409 CONFLICT, nunca un éxito silencioso.`,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ActividadParams,
+    body: { content: { "application/json": { schema: CIERRE_GASTOS_SCHEMA } } },
+  },
+  responses: {
+    200: {
+      description: "Gastos cerrados; devuelve el estado de cierre de la actividad.",
+      content: { "application/json": { schema: ActividadGastosEnvelope } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/activities/{activityId}/reopen-expenses",
+  tags: ["Projects"],
+  summary: "Reabre los gastos de la actividad (Gestor)",
+  description:
+    `${CIERRE_GATE_NOTE} S11 (propuesta aceptada en D4): el cuerpo exige un \`motivo\` no vacío de hasta 1000 ` +
+    "caracteres; las tres columnas del cierre vuelven a `null` (la actividad muestra saldo otra vez y sus líneas " +
+    "aceptan gastos) y el motivo queda en la auditoría como `motivo_reapertura`, en el mismo lote que los tres campos " +
+    "limpiados. Reabrir una actividad cuyos gastos están abiertos responde 409 CONFLICT.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ActividadParams,
+    body: { content: { "application/json": { schema: REAPERTURA_GASTOS_SCHEMA } } },
+  },
+  responses: {
+    200: {
+      description: "Gastos reabiertos; devuelve el estado abierto de la actividad.",
+      content: { "application/json": { schema: ActividadGastosEnvelope } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
 });
 
 const EntregableSchema = registry.register(

@@ -28,6 +28,9 @@ const fila = {
   responsable_id: null,
   created_at: new Date("2026-10-08T12:00:00.000Z"),
   updated_at: new Date("2026-10-08T12:00:00.000Z"),
+  gastos_cerrados_at: null,
+  gastos_cerrados_nota: null,
+  gastos_cerrados_por: null,
 }
 
 describe("pesoActividad (AJ-02)", () => {
@@ -152,6 +155,30 @@ describe("toActividadV2View", () => {
       proyecto,
     )
     expect(view.fuera_de_duracion).toBe(true)
+  })
+
+  // S11/T14.5-B: el cierre viaja en la fila para que la pantalla sepa si ofrece «Cerrar» o muestra el ahorro.
+  it("publishes the closure of the activity, open by default (S11)", () => {
+    const view = toActividadV2View(fila, proyecto)
+    expect(view).toMatchObject({ gastos_cerrados: false, gastos_cerrados_at: null, gastos_cerrados_nota: null })
+  })
+
+  it("publishes a closed activity with its note, its instant and who closed it (S11)", () => {
+    const view = toActividadV2View(
+      {
+        ...fila,
+        gastos_cerrados_at: new Date("2026-11-15T10:00:00.000Z"),
+        gastos_cerrados_nota: "No se requirió transporte porque el taller fue en el mismo municipio",
+        gastos_cerrados_por: "u-1",
+      },
+      proyecto,
+    )
+    expect(view).toMatchObject({
+      gastos_cerrados: true,
+      gastos_cerrados_at: "2026-11-15T10:00:00.000Z",
+      gastos_cerrados_nota: "No se requirió transporte porque el taller fue en el mismo municipio",
+      gastos_cerrados_por: "u-1",
+    })
   })
 })
 
