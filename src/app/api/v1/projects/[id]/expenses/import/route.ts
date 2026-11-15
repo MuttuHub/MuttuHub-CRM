@@ -11,6 +11,9 @@
 // S9/T14.3: the rows of one document — same tercero and número de documento — are ONE distributed invoice, not
 // duplicates; the invoice is written, alerted and checked for duplicates as a whole, and it is rejected as a
 // whole when its rows do not add up.
+// S11/T14.5: an invoice with a row on an activity whose expenses are closed (`gastos_cerrados_at`) is refused as
+// a whole and reported per row with the closure message — half an invoice cannot be written — while the rest of
+// the file still imports. With every invoice of the file blocked the answer is 409 and nothing is written.
 //
 // Order: project (404) -> permission (403) -> estado (409), the gate of POST /expenses -> size (413)
 // -> body and file type (400) -> zip guard (400) -> file errors (400) -> preview or write.
@@ -26,6 +29,7 @@ import { isAllowedNameAndMime } from "@/lib/api/files";
 import { gateEjecucionWrite } from "@/lib/api/ejecucion";
 import { inspeccionarZip } from "@/lib/api/plantilla-import";
 import { alertaSobregasto, cargarSobregastos, type AlertaGasto, type LineaGasto } from "@/lib/api/gastos";
+import { GASTOS_CERRADOS_MESSAGE, lineasEnActividadesCerradas } from "@/lib/api/cierre-gastos";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import {
   parseGastosImport,
@@ -53,10 +57,10 @@ export type ErrorImportacionGastos = { fila: number | null; rubro: string | null
 type FacturaValida = FacturaGastoImport & { datos: DatosFacturaImport };
 const esFacturaValida = (f: FacturaGastoImport): f is FacturaValida => f.error === null && f.datos !== null;
 
-const errorDeFila = (f: FilaGastoImport): ErrorImportacionGastos => ({
+const errorDeFila = (f: FilaGastoImport, mensaje?: string): ErrorImportacionGastos => ({
   fila: f.fila,
   rubro: f.rubroTexto === "" ? null : f.rubroTexto,
-  mensaje: f.error as string,
+  mensaje: mensaje ?? (f.error as string),
 });
 
 export const POST = withApiErrorHandling(
@@ -108,13 +112,28 @@ export const POST = withApiErrorHandling(
     // The rows that open a document: the alerts of the whole invoice are shown once, on its first row.
     const primerasFilas = new Set(resultado.facturas.map((f) => f.filas[0]));
 
+    // S11/T14.5: the closure is the document's rule. One bounded query for the whole file, and an invoice that
+    // touches a closed activity is refused as a whole (its rows must add up, so half of it cannot be written).
+    const lineasCerradas = await lineasEnActividadesCerradas(
+      facturasValidas.flatMap((factura) => factura.datos.repartos.map((reparto) => reparto.linea_id)),
+    );
+    const facturaCerrada = (factura: FacturaValida) =>
+      factura.datos.repartos.some((reparto) => lineasCerradas.has(reparto.linea_id));
+    const facturasAbiertas = facturasValidas.filter((factura) => !facturaCerrada(factura));
+    const filasCerradas = new Set(facturasValidas.filter(facturaCerrada).flatMap((factura) => factura.filas));
+    // Everything the file will not write, in file order: the rows the parser rejected and the closed ones.
+    const rechazadas: ErrorImportacionGastos[] = resultado.filas
+      .filter((f) => f.error !== null || filasCerradas.has(f.fila))
+      .map((f) => errorDeFila(f, filasCerradas.has(f.fila) ? GASTOS_CERRADOS_MESSAGE : undefined));
+    const validasAbiertas = validas.filter((f) => !filasCerradas.has(f.fila));
+
     if (soloValidar) {
       // Two grouped queries for the whole workbook, whatever the number of rows (R4-IMPORT-PREVIEW-NPLUS1).
       const lote = await cargarSobregastos(db, [...lineas.values()]);
       const vista = await Promise.all(
         resultado.filas.map(async (f) => {
           const alertas: AlertaGasto[] = [];
-          if (f.error === null && f.datos !== null) {
+          if (f.error === null && f.datos !== null && !filasCerradas.has(f.fila)) {
             const linea = lineas.get(f.datos.linea_id) as LineaGasto;
             const nivel = lote.nivel(linea, { periodo: f.datos.periodo, monto: f.datos.cents });
             const alerta = alertaSobregasto(nivel);
@@ -132,8 +151,8 @@ export const POST = withApiErrorHandling(
             numero_documento: f.datos?.numero_documento ?? null,
             valor: f.datos ? fromCents(f.datos.cents) : null,
             periodo: f.datos?.periodo ?? null,
-            valida: f.error === null,
-            mensaje: f.error,
+            valida: f.error === null && !filasCerradas.has(f.fila),
+            mensaje: filasCerradas.has(f.fila) ? GASTOS_CERRADOS_MESSAGE : f.error,
             alertas,
           };
         }),
@@ -142,9 +161,9 @@ export const POST = withApiErrorHandling(
         importado: false,
         resumen: {
           total: resultado.filas.length,
-          validas: validas.length,
-          invalidas: resultado.filas.length - validas.length,
-          valor_validas: fromCents(sumCents(validas.map((f) => f.datos?.cents ?? BigInt(0)))),
+          validas: validasAbiertas.length,
+          invalidas: resultado.filas.length - validasAbiertas.length,
+          valor_validas: fromCents(sumCents(validasAbiertas.map((f) => f.datos?.cents ?? BigInt(0)))),
         },
         filas: vista,
       });
@@ -152,13 +171,17 @@ export const POST = withApiErrorHandling(
 
     if (facturasValidas.length === 0) {
       return apiError(GASTOS_SIN_FILAS_VALIDAS, 400, "VALIDATION_ERROR", {
-        reporte: { errores: resultado.filas.map(errorDeFila) },
+        reporte: { errores: resultado.filas.map((f) => errorDeFila(f)) },
       });
+    }
+    // Nothing of the file can be written and the reason is the closure: the answer names it, with the report.
+    if (facturasAbiertas.length === 0) {
+      return apiError(GASTOS_CERRADOS_MESSAGE, 409, "INVALID_STATE", { reporte: { errores: rechazadas } });
     }
 
     const loteId = randomUUID();
     const creados = await db.$transaction((tx) =>
-      aplicarGastosImport(tx, { proyectoId: id, usuarioId: auth.usuario.id, facturas: facturasValidas, lineas, loteId }),
+      aplicarGastosImport(tx, { proyectoId: id, usuarioId: auth.usuario.id, facturas: facturasAbiertas, lineas, loteId }),
     );
 
     const alertas: { fila: number; alertas: AlertaGasto[] }[] = [];
@@ -173,7 +196,7 @@ export const POST = withApiErrorHandling(
       lote_id: loteId,
       valor_total: fromCents(sumCents(creados.map((c) => c.datos.cents))),
       gastos: creados.map((c) => ({ fila: c.fila, id: c.id })),
-      rechazadas: resultado.filas.filter((f) => f.error !== null).map(errorDeFila),
+      rechazadas,
       alertas,
     });
   },

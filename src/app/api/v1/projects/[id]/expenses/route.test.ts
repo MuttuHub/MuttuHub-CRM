@@ -579,7 +579,13 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(db.lineaPresupuestal.findMany).not.toHaveBeenCalled();
+    // S11/T14.5: the only `findMany` of a legacy write is the closure check of its line (one query, whatever the
+    // number of lines); the line itself is still resolved with `findFirst`, so the S9 rule is untouched.
+    expect(db.lineaPresupuestal.findMany).toHaveBeenCalledTimes(1);
+    expect(db.lineaPresupuestal.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["lin-1"] } },
+      select: { id: true, actividad: { select: { gastos_cerrados_at: true } } },
+    });
     expect(createdData().linea_id).toBe("lin-1");
     expect(mocks.repartoCreate).toHaveBeenCalledWith({
       data: [
@@ -790,6 +796,62 @@ describe("POST expenses: alerts", () => {
     expect(res.status).toBe(201);
     expect(createdData().tercero_id_norm).toBeNull();
     expect(db.gasto.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST expenses: the activity's expenses are closed (S11, T14.5)", () => {
+  const CERRADA_AT = new Date("2026-11-16T15:00:00.000Z");
+  const CERRADOS = "Esta actividad tiene los gastos cerrados: no admite gastos nuevos. Reábrela con un motivo para registrar más.";
+
+  it("refuses an expense whose budget line belongs to a closed activity and writes nothing (S11)", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([
+      { id: "lin-1", actividad: { gastos_cerrados_at: CERRADA_AT } },
+    ] as never);
+
+    const res = await POST(post(valido), ctx);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: CERRADOS, code: "INVALID_STATE" });
+    expect(db.lineaPresupuestal.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["lin-1"] } },
+      select: { id: true, actividad: { select: { gastos_cerrados_at: true } } },
+    });
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a distributed invoice that touches a closed activity, before any write (S11)", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany)
+      .mockResolvedValueOnce(lineas() as never)
+      .mockResolvedValueOnce([{ id: "lin-13", actividad: { gastos_cerrados_at: CERRADA_AT } }] as never);
+
+    const res = await POST(
+      post(
+        facturaRepartida([
+          { linea_id: "lin-12", valor: "400000" },
+          { linea_id: "lin-13", valor: "600000" },
+        ]),
+      ),
+      ctx,
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: CERRADOS, code: "INVALID_STATE" });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts the expense again once the activity is reopened (S11)", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([
+      { id: "lin-1", actividad: { gastos_cerrados_at: null } },
+    ] as never);
+
+    const res = await POST(post(valido), ctx);
+
+    expect(res.status).toBe(201);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
   });
 });
 
