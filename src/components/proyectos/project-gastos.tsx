@@ -40,7 +40,7 @@ import {
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
 import { cuentaComoEjecutado, esObservado } from "@/lib/proyectos/gastos";
-import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { formatCOP, sumCents, toCents } from "@/lib/proyectos/money";
 import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 // AJ-08: a legacy VALIDADO row reads «Registrado», because approval no longer exists on screen. RECHAZADO keeps its
@@ -367,6 +367,21 @@ function PeriodoModificado({ gasto, className }: { gasto: ProjectExpense; classN
   );
 }
 
+/**
+ * S9/T14.2-B2: una factura repartida se consulta como un solo documento: aquí se dice en cuántas líneas va y su
+ * total (la suma de esas líneas). Una factura de una sola línea no lleva marca alguna: se pinta como siempre.
+ */
+function RepartoDeFactura({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
+  const repartos = gasto.repartos ?? [];
+  if (repartos.length <= 1) return null;
+  const total = sumCents(repartos.map((reparto) => toCents(reparto.valor)));
+  return (
+    <span data-testid="gasto-distribuido" className={className}>
+      {`Distribuida en ${repartos.length} líneas · ${formatCOP(total)}`}
+    </span>
+  );
+}
+
 function GastoFila({ conAcciones, ...props }: FilaProps & { conAcciones: boolean }) {
   const { proyectoId, gasto, permisos } = props;
   const { error, ver } = useVerSoporte(proyectoId, gasto.id);
@@ -391,6 +406,7 @@ function GastoFila({ conAcciones, ...props }: FilaProps & { conAcciones: boolean
       </TableCell>
       <TableCell className="min-w-[120px] align-top whitespace-normal text-[13px] text-ink-900">
         {nombreRubro(gasto.rubro)}
+        <RepartoDeFactura gasto={gasto} className="block text-[11.5px] text-ink-600" />
       </TableCell>
       <TableCell className="align-top font-mono text-[12.5px] text-ink-700">
         <span title="Periodo contable">{gasto.periodo}</span>
@@ -436,6 +452,7 @@ function GastoTarjeta(props: FilaProps) {
         {" — "}
         {gasto.descripcion}
       </p>
+      <RepartoDeFactura gasto={gasto} className="text-[11.5px] text-ink-600" />
       <p className="text-[12px] text-ink-600">
         {[
           gasto.tercero_nombre,

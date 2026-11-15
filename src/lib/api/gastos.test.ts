@@ -17,6 +17,7 @@ import {
   SOBREGASTO_MENSAJE,
   SOBREGASTO_PROGRAMADO_ADVERTENCIA,
   alertaSobregasto,
+  cargarSobregastos,
   evaluarMontosGasto,
   evaluarPeriodo,
   evaluarRepartos,
@@ -341,13 +342,64 @@ describe("gastoAuditable", () => {
 
 describe("superaAsignado (AJ-08)", () => {
   it("counts every expense that counts as executed, not only VALIDADO", async () => {
-    // 9.000.000 already spent (a mix of REGISTRADO and VALIDADO) + 2.000.000 new > 10.000.000.
+    // 9.000.000 already spent (a mix of REGISTRADO and VALIDADO) + 2.000.000 new > 10.000.000. The money sits on
+    // the header line of gastos without rows, which is the legacy shape the alert must keep counting.
     const aggregate = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("9000000") } });
-    const tx = { gasto: { aggregate } } as never;
+    const repartido = vi.fn().mockResolvedValue({ _sum: { valor: null } });
+    const tx = { gasto: { aggregate }, gastoReparto: { aggregate: repartido } } as never;
     const excede = await superaAsignado(tx, { id: "lin-1", asignado: toCents("10000000") }, toCents("2000000"));
     expect(excede).toBe(true);
     expect(aggregate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ estado: { in: ["REGISTRADO", "VALIDADO"] } }) }),
+      expect.objectContaining({
+        where: expect.objectContaining({
+          estado: { in: ["REGISTRADO", "VALIDADO"] },
+          // Un gasto con filas cuenta por sus filas, no por su total en la línea de la cabecera.
+          repartos: { none: {} },
+        }),
+        _sum: { monto_cop: true },
+      }),
+    );
+  });
+
+  // S9 / T14.2-B2: la factura repartida mueve 350.000 en la actividad 1.2 (la de la cabecera) y 650.000 en la
+  // 1.3. El aviso tiene que ver las dos líneas: la 1.3 no aparece en `gastos.linea_id` en ninguna fila.
+  it("counts each distribution row on its own line, never the invoice total on the header line (S9)", async () => {
+    const sinFilas = vi.fn().mockResolvedValue({ _sum: { monto_cop: null } });
+    const porLinea = vi.fn(async ({ where }: { where: { linea_id: string } }) => ({
+      _sum: { valor: new Prisma.Decimal(where.linea_id === "lin-12" ? "350000" : "650000") },
+    }));
+    const tx = { gasto: { aggregate: sinFilas }, gastoReparto: { aggregate: porLinea } } as never;
+
+    // Cada línea ya tiene exactamente su asignado: un peso más en cualquiera de las dos supera el asignado.
+    await expect(superaAsignado(tx, { id: "lin-12", asignado: toCents("350000") }, toCents("1"))).resolves.toBe(true);
+    await expect(superaAsignado(tx, { id: "lin-13", asignado: toCents("650000") }, toCents("1"))).resolves.toBe(true);
+    // Y el total de la factura (1.000.000) no se cuenta en la línea de la cabecera.
+    await expect(superaAsignado(tx, { id: "lin-12", asignado: toCents("1000000") }, toCents("1"))).resolves.toBe(false);
+    expect(sinFilas).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ linea_id: "lin-12", repartos: { none: {} } }) }),
+    );
+    expect(porLinea).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          linea_id: "lin-13",
+          gasto: expect.objectContaining({ estado: { in: ["REGISTRADO", "VALIDADO"] } }),
+        }),
+        _sum: { valor: true },
+      }),
+    );
+  });
+
+  it("leaves the corrected invoice out of the counted rows too (S2/T6, S9)", async () => {
+    const sinFilas = vi.fn().mockResolvedValue({ _sum: { monto_cop: null } });
+    const porLinea = vi.fn().mockResolvedValue({ _sum: { valor: new Prisma.Decimal("350000") } });
+    const tx = { gasto: { aggregate: sinFilas }, gastoReparto: { aggregate: porLinea } } as never;
+
+    await superaAsignado(tx, { id: "lin-12", asignado: toCents("1000000") }, toCents("1"), "gas-1");
+    expect(sinFilas).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: { not: "gas-1" } }) }),
+    );
+    expect(porLinea).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ gasto: expect.objectContaining({ id: { not: "gas-1" } }) }) }),
     );
   });
 });
@@ -366,10 +418,28 @@ describe("overspend alerts after saving (S2, L16)", () => {
     expect(alertaSobregasto(null)).toBeNull();
   });
 
+  /** The tx a single-line answer needs: gastos without rows on their header, plus the distribution rows. */
+  function txNivel(opciones: {
+    ejecutado?: unknown;
+    programado?: { _sum: { valor: Prisma.Decimal | null } };
+    repartido?: { _sum: { valor: Prisma.Decimal | null } };
+  }) {
+    const ejecutado = vi.fn().mockResolvedValue(opciones.ejecutado ?? { _sum: { monto_cop: null } });
+    const programado = vi.fn().mockResolvedValue(opciones.programado ?? { _sum: { valor: null } });
+    const repartido = vi.fn().mockResolvedValue(opciones.repartido ?? { _sum: { valor: null } });
+    return {
+      ejecutado,
+      programado,
+      repartido,
+      tx: { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado }, gastoReparto: { aggregate: repartido } },
+    };
+  }
+
   it("compares the executed accumulated up to the period with the programmed one", async () => {
-    const ejecutado = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("3000000") } });
-    const programado = vi.fn().mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2500000") } });
-    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+    const { tx, ejecutado, programado } = txNivel({
+      ejecutado: { _sum: { monto_cop: new Prisma.Decimal("3000000") } },
+      programado: { _sum: { valor: new Prisma.Decimal("2500000") } },
+    });
 
     await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false })).resolves.toBe(
       "PROGRAMADO",
@@ -384,15 +454,40 @@ describe("overspend alerts after saving (S2, L16)", () => {
           linea_id: "lin-1",
           periodo: { lte: "2026-10" },
           estado: { in: ["REGISTRADO", "VALIDADO"] },
+          repartos: { none: {} },
         }),
       }),
     );
   });
 
+  // S9 / T14.2-B2: lo ejecutado hasta el corte también sale del reparto; si no, la línea 1.3 de la factura
+  // repartida no existe para el aviso.
+  it("reads the executed up to the period from the distribution rows of each line (S9)", async () => {
+    const { tx, repartido } = txNivel({
+      programado: { _sum: { valor: new Prisma.Decimal("2500000") } },
+      repartido: { _sum: { valor: new Prisma.Decimal("3000000") } },
+    });
+
+    await expect(nivelSobregasto(tx as never, { id: "lin-13" }, { periodo: "2026-10", critico: false })).resolves.toBe(
+      "PROGRAMADO",
+    );
+    expect(repartido).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        linea_id: "lin-13",
+        gasto: expect.objectContaining({
+          estado: { in: ["REGISTRADO", "VALIDADO"] },
+          periodo: { lte: "2026-10" },
+        }),
+      }),
+      _sum: { valor: true },
+    });
+  });
+
   it("stays quiet while the executed does not exceed the programmed, adding `nuevo` only when predicting", async () => {
-    const ejecutado = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("2000000") } });
-    const programado = vi.fn().mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2500000") } });
-    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+    const { tx } = txNivel({
+      ejecutado: { _sum: { monto_cop: new Prisma.Decimal("2000000") } },
+      programado: { _sum: { valor: new Prisma.Decimal("2500000") } },
+    });
 
     await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false })).resolves.toBeNull();
     await expect(
@@ -401,9 +496,7 @@ describe("overspend alerts after saving (S2, L16)", () => {
   });
 
   it("the critical level wins and skips the programmed query", async () => {
-    const ejecutado = vi.fn();
-    const programado = vi.fn();
-    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+    const { tx, ejecutado, programado } = txNivel({});
 
     await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: true })).resolves.toBe(
       "ASIGNADO",
@@ -413,12 +506,41 @@ describe("overspend alerts after saving (S2, L16)", () => {
   });
 
   it("reads a line with no programming as $0 and warns on any executed amount", async () => {
-    const ejecutado = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("1") } });
-    const programado = vi.fn().mockResolvedValue({ _sum: { valor: null } });
-    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+    const { tx } = txNivel({ ejecutado: { _sum: { monto_cop: new Prisma.Decimal("1") } } });
 
     await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false })).resolves.toBe(
       "PROGRAMADO",
+    );
+  });
+});
+
+describe("cargarSobregastos (importación)", () => {
+  // S9 / T14.2-B2: el lote del importador también suma el reparto, con la misma regla que la costura: un gasto
+  // con filas cuenta por sus filas y uno sin filas sigue contando su total en la línea de la cabecera.
+  it("counts the distribution rows and the gastos without rows, each on its line (S9)", async () => {
+    const programados = vi.fn().mockResolvedValue([]);
+    const ejecutados = vi.fn().mockResolvedValue([
+      { linea_id: "lin-99", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("900000") } },
+    ]);
+    const filas = vi.fn().mockResolvedValue([
+      { linea_id: "lin-12", valor: new Prisma.Decimal("350000"), gasto: { periodo: "2026-10" } },
+      { linea_id: "lin-13", valor: new Prisma.Decimal("650000"), gasto: { periodo: "2026-10" } },
+    ]);
+    const tx = {
+      gasto: { groupBy: ejecutados },
+      programacionPeriodo: { groupBy: programados },
+      gastoReparto: { findMany: filas },
+    };
+
+    const lote = await cargarSobregastos(tx as never, [{ id: "lin-12" }, { id: "lin-13" }]);
+
+    // La línea 1.3 solo recibe dinero por una fila del reparto: el aviso la ve.
+    expect(lote.critico({ id: "lin-13", asignado: toCents("650000") }, toCents("1"))).toBe(true);
+    expect(lote.critico({ id: "lin-12", asignado: toCents("1000000") }, toCents("0"))).toBe(false);
+    // Y el gasto sin filas sigue contando su total en su cabecera.
+    expect(lote.critico({ id: "lin-99", asignado: toCents("900000") }, toCents("1"))).toBe(true);
+    expect(ejecutados).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ repartos: { none: {} } }) }),
     );
   });
 });

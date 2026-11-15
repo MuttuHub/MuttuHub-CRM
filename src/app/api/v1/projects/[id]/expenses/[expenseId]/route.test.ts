@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   updateMany: vi.fn(),
   repartoCreate: vi.fn(),
   repartoDelete: vi.fn(),
+  // S9/T14.2-B2: el aviso de sobregasto suma las filas del reparto; los casos de este archivo son gastos de una
+  // sola fila, así que la suma de repartos se queda en 0 y los importes del test no cambian.
+  repartoAggregate: vi.fn(),
   reread: vi.fn(),
   aggregate: vi.fn(),
   programadoAggregate: vi.fn(),
@@ -34,7 +37,7 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         gasto: { aggregate: mocks.aggregate, updateMany: mocks.updateMany, findFirstOrThrow: mocks.reread },
-        gastoReparto: { createMany: mocks.repartoCreate, deleteMany: mocks.repartoDelete },
+        gastoReparto: { createMany: mocks.repartoCreate, deleteMany: mocks.repartoDelete, aggregate: mocks.repartoAggregate },
         programacionPeriodo: { aggregate: mocks.programadoAggregate },
         usuario: { findMany: mocks.gerentes },
         notificacion: { createMany: mocks.notificar },
@@ -176,6 +179,7 @@ beforeEach(() => {
     },
   ] as never);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  mocks.repartoAggregate.mockResolvedValue({ _sum: { valor: null } });
   mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
   mocks.gerentes.mockResolvedValue([{ id: "ger-1" }, { id: "ger-2" }]);
   mocks.notificar.mockResolvedValue({ count: 2 });

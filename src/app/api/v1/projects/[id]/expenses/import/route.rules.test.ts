@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   rubroFindMany: vi.fn(),
   lineaFindMany: vi.fn(),
   gastoFindMany: vi.fn(),
+  // S9/T14.2-B2: el lote del importador suma las filas del reparto; estas filas de plantilla se escriben sin
+  // reparto (el modelo es de la importación, T14.3), así que la lectura llega vacía y los importes no cambian.
+  repartoFindMany: vi.fn(),
   proyectoMiembroFindMany: vi.fn(),
   aggregate: vi.fn(),
   create: vi.fn(),
@@ -33,6 +36,7 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
 vi.mock("@/lib/db", () => {
   const tx = {
     gasto: { aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy, create: mocks.create },
+    gastoReparto: { findMany: mocks.repartoFindMany },
     soporteProyecto: { create: mocks.soporteCreate },
     programacionPeriodo: { aggregate: mocks.programacionAggregate, groupBy: mocks.programadoGroupBy },
     usuario: { findMany: mocks.usuarioFindMany },
@@ -44,6 +48,7 @@ vi.mock("@/lib/db", () => {
       rubro: { findMany: mocks.rubroFindMany },
       lineaPresupuestal: { findMany: mocks.lineaFindMany },
       gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy },
+      gastoReparto: { findMany: mocks.repartoFindMany },
       proyectoMiembro: { findMany: mocks.proyectoMiembroFindMany },
       programacionPeriodo: { aggregate: mocks.programacionAggregate, groupBy: mocks.programadoGroupBy },
       $transaction: mocks.transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
@@ -141,6 +146,7 @@ beforeEach(() => {
     { id: "lin-3", monto_proyectado_cop: new Prisma.Decimal("0"), rubro: rubroSinAsignar },
   ]);
   mocks.gastoFindMany.mockResolvedValue([]);
+  mocks.repartoFindMany.mockResolvedValue([]);
   mocks.proyectoMiembroFindMany.mockResolvedValue([]);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
   mocks.programacionAggregate.mockResolvedValue({ _sum: { valor: null } });

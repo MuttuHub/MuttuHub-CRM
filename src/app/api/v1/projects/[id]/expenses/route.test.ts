@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   info: vi.fn(),
   create: vi.fn(),
   repartoCreate: vi.fn(),
+  // S9/T14.2-B2: el aviso de sobregasto suma las filas del reparto; los casos de este archivo son gastos de una
+  // sola fila, así que la suma de repartos se queda en 0 y los importes del test no cambian.
+  repartoAggregate: vi.fn(),
   soporteCreate: vi.fn(),
   aggregate: vi.fn(),
   programadoAggregate: vi.fn(),
@@ -38,7 +41,7 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         gasto: { aggregate: mocks.aggregate, create: mocks.create },
-        gastoReparto: { createMany: mocks.repartoCreate },
+        gastoReparto: { createMany: mocks.repartoCreate, aggregate: mocks.repartoAggregate },
         soporteProyecto: { create: mocks.soporteCreate },
         programacionPeriodo: { aggregate: mocks.programadoAggregate },
         usuario: { findMany: mocks.gerentes },
@@ -184,6 +187,7 @@ beforeEach(() => {
   vi.mocked(db.proyectoMiembro.findMany).mockResolvedValue([]);
   mocks.info.mockResolvedValue({ data: { size: 2048 }, error: null });
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  mocks.repartoAggregate.mockResolvedValue({ _sum: { valor: null } });
   // The fixture line has a full monthly programming, so only the tests that say so warn.
   mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
   mocks.gerentes.mockResolvedValue([{ id: "ger-1" }]);
@@ -665,8 +669,12 @@ describe("POST expenses: alerts", () => {
       skipDuplicates: true,
     });
     // AJ-08: the warning compares against every expense that counts as executed, not only VALIDADO.
+    // S9/T14.2-B2: the header aggregate leaves out the gastos that have distribution rows (they count by their
+    // rows), which is the only change to this expectation; the amounts the test asserts are the same.
     expect(mocks.aggregate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { linea_id: "lin-1", estado: { in: ["REGISTRADO", "VALIDADO"] } } }),
+      expect.objectContaining({
+        where: { linea_id: "lin-1", estado: { in: ["REGISTRADO", "VALIDADO"] }, repartos: { none: {} } },
+      }),
     );
   });
 

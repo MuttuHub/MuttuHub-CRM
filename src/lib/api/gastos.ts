@@ -432,22 +432,51 @@ export function resolverPeriodo(
   return evaluated;
 }
 
-/** Early warning: would the executed total of the line plus `nuevo` exceed the assigned amount. */
+/** Which gastos count as executed for the overspend arithmetic of one line. */
+type FiltroEjecutado = { lineaId: string; hasta?: string; excluirGastoId?: string };
+
+function whereEjecutado(filtro: FiltroEjecutado): Prisma.GastoWhereInput {
+  return {
+    estado: { in: [...ESTADOS_EJECUTADOS] },
+    ...(filtro.hasta === undefined ? {} : { periodo: { lte: filtro.hasta } }),
+    ...(filtro.excluirGastoId === undefined ? {} : { id: { not: filtro.excluirGastoId } }),
+  };
+}
+
+/**
+ * S9/T14.2-B2: the executed money of a line as the overspend alert must read it — its distribution rows, plus the
+ * total of every gasto without rows on its own header line. It is the same fallback as the executed seam
+ * (`loadGastosEjecutados`, src/lib/api/financiera.ts): a line that only receives money through a later row of a
+ * split invoice counts there, and a legacy row (the Excel import, the seeds) keeps counting its total on the line
+ * of its header. Before this, the alert under-reported the executed of every distributed invoice.
+ */
+async function ejecutadoDeLinea(
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto">,
+  filtro: FiltroEjecutado,
+): Promise<Cents> {
+  const [sinReparto, repartido] = await Promise.all([
+    tx.gasto.aggregate({
+      where: { linea_id: filtro.lineaId, repartos: { none: {} }, ...whereEjecutado(filtro) },
+      _sum: { monto_cop: true },
+    }),
+    tx.gastoReparto.aggregate({
+      where: { linea_id: filtro.lineaId, gasto: whereEjecutado(filtro) },
+      _sum: { valor: true },
+    }),
+  ]);
+  const cabecera = sinReparto._sum.monto_cop ? toCents(sinReparto._sum.monto_cop) : BigInt(0);
+  const filas = repartido._sum.valor ? toCents(repartido._sum.valor) : BigInt(0);
+  return cabecera + filas;
+}
+
+/** Early warning: would the executed total of the line plus `nuevo` exceed the assigned amount (S9: by row). */
 export async function superaAsignado(
-  tx: Pick<Prisma.TransactionClient, "gasto">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto">,
   linea: { id: string; asignado: Cents },
   nuevo: Cents,
   excluirGastoId?: string,
 ): Promise<boolean> {
-  const total = await tx.gasto.aggregate({
-    where: {
-      linea_id: linea.id,
-      estado: { in: [...ESTADOS_EJECUTADOS] },
-      ...(excluirGastoId ? { id: { not: excluirGastoId } } : {}),
-    },
-    _sum: { monto_cop: true },
-  });
-  const ejecutado = total._sum.monto_cop ? toCents(total._sum.monto_cop) : BigInt(0);
+  const ejecutado = await ejecutadoDeLinea(tx, { lineaId: linea.id, excluirGastoId });
   return excederiaAsignado({ asignado: linea.asignado, ejecutado, nuevo });
 }
 
@@ -489,35 +518,27 @@ export function alertaSobregasto(nivel: NivelSobregasto): AlertaGasto | null {
 /**
  * Overspend level after saving (S2, L16), never blocking: the assigned total (`ASIGNADO`, critical) when the
  * executed total of the line already exceeds it, else the programmed level (`PROGRAMADO`) when the executed
- * accumulated up to `periodo` exceeds the amount programmed up to that same period. The critical level is
- * taken as given (the callers already store it as `alerta_sobregasto`) and skips the programmed query.
+ * accumulated up to `periodo` exceeds the amount programmed up to that same period. The executed comes from the
+ * line's distribution rows (S9/T14.2-B2), with the header fallback of the seam. The critical level is taken as
+ * given (the callers already store it as `alerta_sobregasto`) and skips the programmed query.
  *
  * `nuevo` predicts an amount that is not written yet (the import preview); after a write the executed sum
  * already includes the row. `excluirGastoId` leaves the edited row out when the update has not landed yet.
  */
 export async function nivelSobregasto(
-  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto" | "programacionPeriodo">,
   linea: { id: string },
   input: { periodo: string; critico: boolean; nuevo?: Cents; excluirGastoId?: string },
 ): Promise<NivelSobregasto> {
   if (input.critico) return "ASIGNADO";
-  const [programado, ejecutado] = await Promise.all([
+  const [programado, ejecutadoCents] = await Promise.all([
     tx.programacionPeriodo.aggregate({
       where: { linea_id: linea.id, periodo: { lte: input.periodo } },
       _sum: { valor: true },
     }),
-    tx.gasto.aggregate({
-      where: {
-        linea_id: linea.id,
-        estado: { in: [...ESTADOS_EJECUTADOS] },
-        periodo: { lte: input.periodo },
-        ...(input.excluirGastoId ? { id: { not: input.excluirGastoId } } : {}),
-      },
-      _sum: { monto_cop: true },
-    }),
+    ejecutadoDeLinea(tx, { lineaId: linea.id, hasta: input.periodo, excluirGastoId: input.excluirGastoId }),
   ]);
   const programadoCents = programado._sum.valor ? toCents(programado._sum.valor) : BigInt(0);
-  const ejecutadoCents = ejecutado._sum.monto_cop ? toCents(ejecutado._sum.monto_cop) : BigInt(0);
   return excedeProgramado({ programado: programadoCents, ejecutado: ejecutadoCents + (input.nuevo ?? BigInt(0)) })
     ? "PROGRAMADO"
     : null;
@@ -532,7 +553,7 @@ export type RepartoConCritico = RepartoFactura & { critico: boolean };
  * exactly what `nivelSobregasto` answered before, with one call.
  */
 export async function nivelSobregastoDeFactura(
-  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto" | "programacionPeriodo">,
   repartos: readonly RepartoConCritico[],
   periodo: string,
 ): Promise<NivelSobregasto> {
@@ -582,16 +603,22 @@ function sumarTodo(porLinea: PorLinea, lineaId: string): bigint {
  * they are created, so each one still counts for the ones that follow without going back to the database.
  */
 export async function cargarSobregastos(
-  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto" | "programacionPeriodo">,
   lineas: readonly { id: string }[],
 ): Promise<LoteSobregasto> {
   const ids = lineas.map((linea) => linea.id);
-  const [programados, ejecutados] = await Promise.all([
+  const [programados, sinReparto, conReparto] = await Promise.all([
     tx.programacionPeriodo.groupBy({ by: ["linea_id", "periodo"], where: { linea_id: { in: ids } }, _sum: { valor: true } }),
+    // S9/T14.2-B2: same fallback as the executed seam — a gasto with rows counts by its rows, a gasto without
+    // rows keeps counting its total on its header line.
     tx.gasto.groupBy({
       by: ["linea_id", "periodo"],
-      where: { linea_id: { in: ids }, estado: { in: [...ESTADOS_EJECUTADOS] } },
+      where: { linea_id: { in: ids }, repartos: { none: {} }, estado: { in: [...ESTADOS_EJECUTADOS] } },
       _sum: { monto_cop: true },
+    }),
+    tx.gastoReparto.findMany({
+      where: { linea_id: { in: ids }, gasto: { estado: { in: [...ESTADOS_EJECUTADOS] } } },
+      select: { linea_id: true, valor: true, gasto: { select: { periodo: true } } },
     }),
   ]);
   const programado: PorLinea = new Map();
@@ -599,8 +626,11 @@ export async function cargarSobregastos(
     if (fila._sum.valor) acumular(programado, fila.linea_id, fila.periodo, toCents(fila._sum.valor));
   }
   const ejecutado: PorLinea = new Map();
-  for (const fila of ejecutados) {
+  for (const fila of sinReparto) {
     if (fila._sum.monto_cop) acumular(ejecutado, fila.linea_id, fila.periodo, toCents(fila._sum.monto_cop));
+  }
+  for (const fila of conReparto) {
+    acumular(ejecutado, fila.linea_id, fila.gasto.periodo, toCents(fila.valor));
   }
 
   const critico = (linea: { id: string; asignado: Cents }, monto: Cents) =>

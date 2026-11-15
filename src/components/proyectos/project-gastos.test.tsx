@@ -394,6 +394,49 @@ describe("ProjectGastos", () => {
       expect(filas[0]).toHaveTextContent("Soporte ilegible")
       expect(filas[1]).toHaveTextContent("Factura duplicada")
     })
+
+    // S9 criterio: «La factura de $1.000.000 queda con $350.000 en la actividad 1.2 y $650.000 en la 1.3, y se
+    // puede consultar como un solo documento.»
+    it("muestra la factura repartida como un solo documento, con sus líneas y su total (S9)", async () => {
+      setup({
+        gastos: [
+          gasto("g1", {
+            valor: "1000000.00",
+            subtotal: "1000000.00",
+            iva: "0.00",
+            repartos: [
+              { linea_id: "l-12-r12", actividad_id: "a12", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "350000.00" },
+              { linea_id: "l-13-r01", actividad_id: "a13", rubro: { id: "r01", codigo: "R01", nombre: "Papelería" }, valor: "650000.00" },
+            ],
+          }),
+        ],
+      })
+      const lista = await screen.findByTestId("gastos-lista")
+      // Una factura es una fila de la lista, por muchas líneas que tenga su reparto.
+      const filas = await within(lista).findAllByTestId("gasto-fila")
+      expect(filas).toHaveLength(1)
+      expect(within(filas[0]).getAllByText(/FE-0123/)).toHaveLength(1)
+      expect(within(filas[0]).getByTestId("gasto-distribuido")).toHaveTextContent(
+        "Distribuida en 2 líneas · $ 1.000.000",
+      )
+    })
+
+    it("una factura de una sola línea se pinta como siempre, sin la marca de distribuida (regresión, S9)", async () => {
+      setup({
+        gastos: [
+          gasto("g1", {
+            repartos: [
+              { linea_id: "l12", actividad_id: "a1", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "1500000.00" },
+            ],
+          }),
+        ],
+      })
+      const fila = await screen.findByTestId("gasto-fila")
+      expect(screen.getAllByTestId("gasto-fila")).toHaveLength(1)
+      expect(screen.queryByTestId("gasto-distribuido")).not.toBeInTheDocument()
+      expect(fila).not.toHaveTextContent("Distribuida en")
+      expect(fila).toHaveTextContent("$ 1.500.000")
+    })
   })
 
   describe("ledger table", () => {

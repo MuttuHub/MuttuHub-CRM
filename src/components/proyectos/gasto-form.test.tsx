@@ -57,6 +57,12 @@ const LINEAS: ProjectBudgetLinea[] = [
   { linea_id: "l-a3-r01", actividad_id: "a3", actividad_codigo: "2.2", actividad_nombre: "Jornadas", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Personal", valor: "8000000.00" },
 ]
 
+/** S9/T14.2-B2: las actividades 1.2 y 1.3 del ejemplo de la PO, las dos en el objetivo 1. */
+const LINEAS_12_13: ProjectBudgetLinea[] = [
+  { linea_id: "l-12-r12", actividad_id: "a12", actividad_codigo: "1.2", actividad_nombre: "Gestión de talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "10000000.00" },
+  { linea_id: "l-13-r01", actividad_id: "a13", actividad_codigo: "1.3", actividad_nombre: "Suministros", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Papelería", valor: "8000000.00" },
+]
+
 function actividad(id: string, codigo: string, nombre: string, objetivoId: string | null): ProjectActivity {
   return {
     id,
@@ -93,6 +99,12 @@ const ACTIVIDADES: ProjectActivity[] = [
   actividad("a1", "1.1", "Talleres", "o1"),
   actividad("a2", "2.1", "Ferias", "o2"),
   actividad("a3", "2.2", "Jornadas", "o2"),
+]
+
+/** S9/T14.2-B2: las dos actividades del ejemplo de la PO, ambas en el objetivo 1. */
+const ACTIVIDADES_12_13: ProjectActivity[] = [
+  actividad("a12", "1.2", "Gestión de talleres", "o1"),
+  actividad("a13", "1.3", "Suministros", "o1"),
 ]
 
 const OBJETIVOS: ProjectObjective[] = [
@@ -132,6 +144,28 @@ const GASTO: ProjectExpense = {
   motivo_anulacion: null,
   soportes: [],
   soportes_count: 0,
+}
+
+/** S9/T14.2-B2: la factura de $1.000.000 repartida en la 1.2 ($350.000) y la 1.3 ($650.000). */
+const GASTO_REPARTIDO: ProjectExpense = {
+  ...GASTO,
+  valor: "1000000.00",
+  subtotal: "1000000.00",
+  iva: "0.00",
+  repartos: [
+    {
+      linea_id: "l-12-r12",
+      actividad_id: "a12",
+      rubro: { id: "r12", codigo: "R12", nombre: "Transporte" },
+      valor: "350000.00",
+    },
+    {
+      linea_id: "l-13-r01",
+      actividad_id: "a13",
+      rubro: { id: "r01", codigo: "R01", nombre: "Papelería" },
+      valor: "650000.00",
+    },
+  ],
 }
 
 describe("GastoForm", () => {
@@ -949,6 +983,228 @@ describe("GastoForm", () => {
       expect(screen.queryByLabelText("Objetivo")).not.toBeInTheDocument()
       expect(screen.queryByLabelText("Actividad")).not.toBeInTheDocument()
       expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte", "R01 · Personal"])
+    })
+
+    // S9/T14.2-B2: la factura distribuida. Cada línea elige su actividad y su rubro con la misma cascada y escribe
+    // su valor; la suma de las líneas tiene que ser exactamente el total (subtotal + IVA).
+    describe("factura distribuida (S9)", () => {
+      async function facturaDeUnMillon(user: ReturnType<typeof userEvent.setup>, subtotal = "1.000.000", iva = "0") {
+        await user.type(screen.getByLabelText("Subtotal"), subtotal)
+        await user.clear(screen.getByLabelText("IVA"))
+        await user.type(screen.getByLabelText("IVA"), iva)
+      }
+
+      async function soporteEnlace(user: ReturnType<typeof userEvent.setup>) {
+        await user.click(screen.getByRole("radio", { name: "Enlace" }))
+        await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+        await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+      }
+
+      it("agrega una segunda línea y la guarda como repartos, con la cascada de cada línea y su valor (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+        await elegir(user, "Objetivo", "Objetivo 1 · Fortalecer capacidades")
+        await elegir(user, "Actividad", "1.1 · Talleres")
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        // El total de la factura es Subtotal + IVA: 1.000.000 + 190.000.
+        await facturaDeUnMillon(user, "1.000.000", "190.000")
+
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+
+        // La segunda línea tiene su propia cascada: objetivo 2, actividad 2.2 y su rubro.
+        await elegir(user, "Objetivo 2", "Objetivo 2 · Ampliar cobertura")
+        await elegir(user, "Actividad 2", "2.2 · Jornadas")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+        // Con el IVA fuera de la suma la distribución no cuadra contra el total de la factura.
+        expect(screen.getByText("Suma de la distribución: $ 1.000.000 de $ 1.190.000")).toBeInTheDocument()
+        expect(screen.getByText("Faltan $ 190.000 para el total de la factura.")).toBeInTheDocument()
+
+        await user.clear(screen.getByLabelText("Valor 2"))
+        await user.type(screen.getByLabelText("Valor 2"), "840.000")
+        expect(screen.getByText("Suma de la distribución: $ 1.190.000 de $ 1.190.000")).toBeInTheDocument()
+
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toEqual([
+          { linea_id: "l-a1-r12", valor: "350000.00" },
+          { linea_id: "l-a3-r01", valor: "840000.00" },
+        ])
+        // Con repartos la cabecera no lleva rubro ni línea: mezclarlos es el 400 que el servidor ya rechaza.
+        expect(postedBody()).not.toHaveProperty("rubro_id")
+        expect(postedBody()).not.toHaveProperty("linea_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      })
+
+      // S9 criterio: «Una distribución que suma $990.000 para una factura de $1.000.000 no se guarda.»
+      it("no se guarda una distribución de 990.000 para una factura de 1.000.000: muestra el faltante y se niega (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+        await elegir(user, "Objetivo", "Objetivo 1 · Fortalecer capacidades")
+        await elegir(user, "Actividad", "1.1 · Talleres")
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        await facturaDeUnMillon(user)
+
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "340.000")
+        await elegir(user, "Objetivo 2", "Objetivo 2 · Ampliar cobertura")
+        await elegir(user, "Actividad 2", "2.2 · Jornadas")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+
+        expect(screen.getByText("Suma de la distribución: $ 990.000 de $ 1.000.000")).toBeInTheDocument()
+        expect(screen.getByText("Faltan $ 10.000 para el total de la factura.")).toBeInTheDocument()
+
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Las líneas de la distribución deben sumar exactamente el total de la factura.",
+        )
+        expect(postedBody()).toBeNull()
+
+        // Completar el faltante deja guardar: la suma vuelve a cuadrar.
+        await user.clear(screen.getByLabelText("Valor"))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toHaveLength(2)
+      })
+
+      // S9 criterio: «La factura de $1.000.000 queda con $350.000 en la actividad 1.2 y $650.000 en la 1.3…»
+      it("la factura de 1.000.000 queda con 350.000 en la actividad 1.2 y 650.000 en la 1.3 (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS_12_13, actividades: ACTIVIDADES_12_13 })
+        await waitFor(() => expect(opcionesDe("Actividad")).toEqual(["1.2 · Gestión de talleres", "1.3 · Suministros"]))
+
+        await elegir(user, "Actividad", "1.2 · Gestión de talleres")
+        expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte"])
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        await facturaDeUnMillon(user)
+
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+        await elegir(user, "Actividad 2", "1.3 · Suministros")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+
+        expect(screen.getByText("Suma de la distribución: $ 1.000.000 de $ 1.000.000")).toBeInTheDocument()
+
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toEqual([
+          { linea_id: "l-12-r12", valor: "350000.00" },
+          { linea_id: "l-13-r01", valor: "650000.00" },
+        ])
+      })
+
+      it("corrige una factura repartida mostrando sus líneas y con la misma regla de la suma (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+          const url = String(input)
+          if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES_12_13 }))
+          if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+          if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+            return Promise.resolve(jsonResponse({ gasto: GASTO_REPARTIDO, alertas: [] }))
+          return Promise.resolve(jsonResponse({}))
+        })
+        render(
+          <GastoForm
+            proyecto={PROYECTO}
+            rubros={RUBROS}
+            lineas={LINEAS_12_13}
+            gasto={GASTO_REPARTIDO}
+            onDone={onDone}
+          />,
+          { wrapper: createWrapper() },
+        )
+
+        expect(screen.getByRole("form", { name: "Corregir gasto" })).toBeInTheDocument()
+        // La corrección abre con las dos líneas guardadas: su actividad, su rubro y su valor.
+        await waitFor(() => expect(screen.getByLabelText("Valor")).toHaveValue("350.000"))
+        expect(screen.getByLabelText("Valor 2")).toHaveValue("650.000")
+        expect(screen.getByLabelText("Actividad")).toHaveValue("a12")
+        expect(screen.getByLabelText("Actividad 2")).toHaveValue("a13")
+        expect(screen.getByLabelText("Rubro")).toHaveValue("r12")
+        expect(screen.getByLabelText("Rubro 2")).toHaveValue("r01")
+
+        await user.clear(screen.getByLabelText("Valor 2"))
+        await user.type(screen.getByLabelText("Valor 2"), "600.000")
+        expect(screen.getByText("Faltan $ 50.000 para el total de la factura.")).toBeInTheDocument()
+
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Las líneas de la distribución deben sumar exactamente el total de la factura.",
+        )
+        expect(patchBody()).toBeNull()
+
+        await user.clear(screen.getByLabelText("Valor 2"))
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+        await waitFor(() => expect(patchBody()).not.toBeNull())
+        expect(patchBody().repartos).toEqual([
+          { linea_id: "l-12-r12", valor: "350000.00" },
+          { linea_id: "l-13-r01", valor: "650000.00" },
+        ])
+        expect(patchBody()).not.toHaveProperty("rubro_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      })
+
+      // S9/T14.2-B2: mientras el presupuesto no trajo sus líneas no hay forma de saber a qué línea va cada fila; el
+      // formulario se niega en vez de mandar una distribución a medias.
+      it("se niega a corregir una factura repartida mientras el presupuesto no trae sus líneas (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+          const url = String(input)
+          if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES_12_13 }))
+          if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+          if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+            return Promise.resolve(jsonResponse({ gasto: GASTO_REPARTIDO, alertas: [] }))
+          return Promise.resolve(jsonResponse({}))
+        })
+        render(
+          <GastoForm proyecto={PROYECTO} rubros={RUBROS} lineas={[]} gasto={GASTO_REPARTIDO} onDone={onDone} />,
+          { wrapper: createWrapper() },
+        )
+
+        // Las filas se ven con sus valores, pero sin presupuesto no hay línea que enviar.
+        await waitFor(() => expect(screen.getByLabelText("Valor")).toHaveValue("350.000"))
+        expect(screen.getByLabelText("Valor 2")).toHaveValue("650.000")
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.",
+        )
+        expect(patchBody()).toBeNull()
+        expect(onDone).not.toHaveBeenCalled()
+      })
+
+      it("una factura de una sola línea sigue enviando el cuerpo de siempre, sin repartos (regresión)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+        await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+        await elegir(user, "Actividad", "2.1 · Ferias")
+        await llenarTodo(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody()).toMatchObject({ rubro_id: "r12", linea_id: "l-a2-r12" })
+        expect(postedBody()).not.toHaveProperty("repartos")
+        // Sin una segunda línea no hay campo «Valor»: el formulario de siempre no cambió.
+        expect(screen.queryByLabelText("Valor")).not.toBeInTheDocument()
+      })
     })
 
     it("ofrece en la corrección un rubro con dos líneas y guarda con su rubro (S9, compatibilidad del PATCH)", async () => {
