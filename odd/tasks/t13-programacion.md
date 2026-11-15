@@ -53,7 +53,7 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.1 | S3 | Migration: `proyectos.programacion_confirmada_at`, `programacion_confirmada_por_id` (additive, nullable) | inline | done | #188 `f1789f5` |
 | T13.2 | S1 | Pure proposal helper (days per month, cent to last month, transversal even) + template import writes it | inline | done | #188 `f1789f5` |
 | T13.3 | S3 | Confirm route; writes clear it; baseline requires it | inline | done | #188 `f1789f5` |
-| T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | pending | |
+| T13.4 | S2 | Programming screen grouped by activity, rubro × month totals | inline | done | `6089552` |
 | T13.5 | S4 | Post-baseline move route (same line, open periods, audit) + UI | inline | pending | |
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | pending | |

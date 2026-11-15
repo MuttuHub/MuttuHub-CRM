@@ -6,7 +6,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { mesLegible } from "@/components/proyectos/project-display";
@@ -103,6 +103,8 @@ function ProgramacionGrid({
     ),
   );
   const [localError, setLocalError] = useState<string | null>(null);
+  // T13 (S7): activity groups that collapse; all open at first. Collapsing never drops a typed value.
+  const [plegados, setPlegados] = useState<ReadonlySet<string>>(() => new Set());
   const guardar = useUpdateProgramming(proyectoId);
   const confirmar = useConfirmProgramming(proyectoId);
   const ZERO = toCents("0");
@@ -134,6 +136,35 @@ function ProgramacionGrid({
   const completa = !data.programacion_pendiente && data.control_por_linea.every((c) => toCents(c.control) === ZERO);
   const confirmada = data.programacion_confirmada !== null;
 
+  // T13 (S7): «… con arriba los totales por rubro y por mes»; computed from what is typed, so they move as you edit.
+  const montoCelda = (lineaId: string, periodo: string) => {
+    const valor = valorCelda(lineaId, periodo);
+    return valor === null ? ZERO : toCents(valor);
+  };
+  const totalRubroMes = (rubroId: string, periodo: string) =>
+    data.control_por_linea
+      .filter((c) => c.rubro_id === rubroId)
+      .reduce((total, c) => total + montoCelda(c.linea_id, periodo), ZERO);
+  const totalMes = (periodo: string) =>
+    data.control_por_linea.reduce((total, c) => total + montoCelda(c.linea_id, periodo), ZERO);
+  const sumar = (valores: bigint[]) => valores.reduce((total, valor) => total + valor, ZERO);
+
+  // Lines grouped by activity, in the order the server sends them (activity, then rubro); legacy lines last.
+  const grupos: { clave: string; titulo: string; lineas: ProjectProgramming["control_por_linea"] }[] = [];
+  for (const c of data.control_por_linea) {
+    const clave = c.actividad?.id ?? "sin-actividad";
+    const grupo = grupos.find((g) => g.clave === clave);
+    if (grupo) grupo.lineas.push(c);
+    else grupos.push({ clave, titulo: c.actividad ? `${c.actividad.codigo} ${c.actividad.nombre}` : "Sin actividad", lineas: [c] });
+  }
+  const alternar = (clave: string) =>
+    setPlegados((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(clave)) siguiente.delete(clave);
+      else siguiente.add(clave);
+      return siguiente;
+    });
+
   function submit() {
     const filas: { linea_id: string; periodo: string; valor: string }[] = [];
     for (const c of data.control_por_linea) {
@@ -161,6 +192,42 @@ function ProgramacionGrid({
       {confirmada && <ToneBadge tone="exito" label="Programación confirmada" className="self-start" />}
 
       <div className="overflow-x-auto rounded-inner border border-border bg-panel">
+        <Table data-testid="programacion-totales" className="w-full text-[12.5px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Rubro</TableHead>
+              {data.periodos.map((periodo) => (
+                <TableHead key={periodo} scope="col" numeric>{mesLegible(periodo)}</TableHead>
+              ))}
+              <TableHead scope="col" numeric>Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.control_por_rubro.map((r) => (
+              <TableRow key={r.rubro_id}>
+                <TableCell className="text-ink-800 whitespace-normal">
+                  <span className="font-mono text-[11.5px] text-ink-500">{r.codigo ?? "—"}</span> {r.nombre}
+                </TableCell>
+                {data.periodos.map((periodo) => (
+                  <TableCell key={periodo} numeric>{formatCOP(totalRubroMes(r.rubro_id, periodo))}</TableCell>
+                ))}
+                <TableCell numeric className="font-semibold">
+                  {formatCOP(sumar(data.periodos.map((periodo) => totalRubroMes(r.rubro_id, periodo))))}
+                </TableCell>
+              </TableRow>
+            ))}
+            <TableRow>
+              <TableCell className="font-semibold text-ink-900">Total</TableCell>
+              {data.periodos.map((periodo) => (
+                <TableCell key={periodo} numeric className="font-semibold">{formatCOP(totalMes(periodo))}</TableCell>
+              ))}
+              <TableCell numeric className="font-semibold">{formatCOP(sumar(data.periodos.map(totalMes)))}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="overflow-x-auto rounded-inner border border-border bg-panel">
         <Table data-testid="programacion-grid" className="w-full text-[12.5px]">
           <TableHeader>
             <TableRow>
@@ -173,7 +240,26 @@ function ProgramacionGrid({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.control_por_linea.map((c) => {
+            {grupos.flatMap((grupo) => {
+              const abierto = !plegados.has(grupo.clave);
+              const cabecera = (
+                <TableRow key={`grupo-${grupo.clave}`} data-testid="programacion-grupo" className="bg-muted/40">
+                  <TableCell colSpan={data.periodos.length + 3}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-expanded={abierto}
+                      onClick={() => alternar(grupo.clave)}
+                      className="px-1.5 font-semibold text-ink-800"
+                    >
+                      {abierto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                      {grupo.titulo}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+              return [cabecera, ...(abierto ? grupo.lineas : []).map((c) => {
               // What is still to program: assigned minus programmed (negative when over-programmed).
               const faltante = toCents(c.asignado) - sumaFila(c.linea_id);
               return (
@@ -206,6 +292,7 @@ function ProgramacionGrid({
                   <TableCell numeric className="font-semibold">{formatCOP(faltante)}</TableCell>
                 </TableRow>
               );
+              })];
             })}
           </TableBody>
         </Table>
