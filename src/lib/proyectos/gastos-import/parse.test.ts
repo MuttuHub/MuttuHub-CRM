@@ -1,11 +1,13 @@
 // @vitest-environment node
-// B8 — the expenses workbook (one row per expense): headers, row rules shared with the single
-// expense form (amount, rubro with assigned value, project month, text limits), in-file duplicates.
+// B8 — the expenses workbook (one row per distribution line): headers, row rules shared with the single
+// expense form (amount, rubro with assigned value, project month, text limits) and, since T14.3, the
+// activity of each line and the rows of one document read as ONE distributed invoice.
 import { describe, expect, it } from "vitest"
 import ExcelJS from "exceljs"
 import {
   IVA_NEGATIVO_MESSAGE,
   PERIODO_FUERA_MESSAGE,
+  REPARTO_SUMA_MESSAGE,
   RUBRO_SIN_ASIGNADO_MESSAGE,
   SUBTOTAL_POSITIVO_MESSAGE,
 } from "@/lib/api/gastos"
@@ -13,11 +15,13 @@ import { toCents } from "../money"
 import type { RubroCatalogo } from "../excel-celdas"
 import {
   ARCHIVO_ILEGIBLE,
-  DUPLICADO_EN_ARCHIVO_MESSAGE,
   ENCABEZADOS_GASTOS,
+  FACTURA_NO_COINCIDE_MESSAGE,
   MAX_FILAS_GASTOS,
   PLANTILLA_ANTERIOR_MESSAGE,
   SIN_FILAS_GASTOS,
+  SIN_TOTAL_DISTRIBUCION_MESSAGE,
+  facturaIncompleta,
   parseGastosImport,
   type ContextoImportGastos,
 } from "./parse"
@@ -31,7 +35,22 @@ const rubros: RubroCatalogo[] = [
 const contexto: ContextoImportGastos = {
   proyecto: { fecha_inicio: new Date("2026-10-05"), fecha_fin: new Date("2027-01-29") },
   rubros,
-  rubrosConAsignado: new Set(["rub-1", "rub-2"]),
+  lineas: [
+    { id: "lin-rub-1", rubro_id: "rub-1", actividad_codigo: "1.2", actividad_nombre: "Talleres", asignado: true },
+    { id: "lin-rub-2", rubro_id: "rub-2", actividad_codigo: "1.2", actividad_nombre: "Talleres", asignado: true },
+    { id: "lin-rub-3", rubro_id: "rub-3", actividad_codigo: "1.2", actividad_nombre: "Talleres", asignado: false },
+  ],
+}
+
+/** The same rubro budgeted in two activities: the pair activity + rubro is what pins the line (S9). */
+const contextoDistribuido: ContextoImportGastos = {
+  ...contexto,
+  lineas: [
+    { id: "lin-12", rubro_id: "rub-1", actividad_codigo: "1.2", actividad_nombre: "Talleres", asignado: true },
+    { id: "lin-13", rubro_id: "rub-1", actividad_codigo: "1.3", actividad_nombre: "Ferias", asignado: true },
+    { id: "lin-13-sum", rubro_id: "rub-2", actividad_codigo: "1.3", actividad_nombre: "Ferias", asignado: true },
+    { id: "lin-13-sin", rubro_id: "rub-3", actividad_codigo: "1.3", actividad_nombre: "Ferias", asignado: false },
+  ],
 }
 
 type Celda = string | number | Date | null
@@ -50,6 +69,7 @@ const ENCABEZADO = [
   "Total",
   "Periodo",
   "Enlace del soporte",
+  "Código de actividad",
 ]
 
 const fila = (data: Partial<Record<(typeof ENCABEZADO)[number], Celda>> = {}): Celda[] => {
@@ -91,6 +111,8 @@ describe("parseGastosImport — file", () => {
     expect(r.filas[0]).toMatchObject({ fila: 2, rubroId: "rub-1", error: null })
     expect(r.filas[0].datos).toEqual({
       rubro_id: "rub-1",
+      linea_id: "lin-rub-1",
+      total_documento: null,
       fecha_documento: "2026-10-15",
       periodo: "2026-10",
       tipo_soporte: "FACTURA_PROVEEDOR",
@@ -393,34 +415,213 @@ describe("parseGastosImport — enlace del soporte (AJ-06, S2, S3)", () => {
   })
 })
 
-describe("parseGastosImport — duplicates inside the file", () => {
-  it("flags the second row with the same normalized third-party id and document number", async () => {
-    const r = await parseGastosImport(
-      await libro([fila(), fila({ "Número de identificación": "900123456", "Número de documento": "fe 0123" })]),
-      contexto,
-    )
-    expect(r.filas[0].error).toBeNull()
-    expect(r.filas[1].error).toBe(`${DUPLICADO_EN_ARCHIVO_MESSAGE} (ya aparece en la fila 2).`)
-    expect(r.filas[1].datos).toBeNull()
-    expect(r.resumen).toEqual({ validas: 1, errores: 1 })
+describe("parseGastosImport — código de actividad (S9, T14.3)", () => {
+  async function unaFila(data: Partial<Record<string, Celda>>, ctx: ContextoImportGastos = contextoDistribuido) {
+    const r = await parseGastosImport(await libro([fila(data)]), ctx)
+    return r.filas[0]
+  }
+
+  it("reads «Código de actividad» by code or by name and pins the line of that activity and rubro (S9)", async () => {
+    expect((await unaFila({ "Código de actividad": "1.3" })).datos).toMatchObject({ rubro_id: "rub-1", linea_id: "lin-13" })
+    expect((await unaFila({ "Código de actividad": "ferias" })).datos).toMatchObject({ linea_id: "lin-13" })
+    expect((await unaFila({ "Código de actividad": " 1.2 " })).datos).toMatchObject({ linea_id: "lin-12" })
+    expect((await unaFila({ "Código de actividad": "1.3" })).actividadTexto).toBe("1.3")
   })
 
-  it("does not flag the same document number of another third party or without identification", async () => {
+  it("keeps resolving by rubro when the column is missing or the cell is empty (compatibilidad)", async () => {
+    const sinColumna = await parseGastosImport(
+      await libro([fila().slice(0, 13)], ENCABEZADO.filter((h) => h !== "Código de actividad")),
+      contexto,
+    )
+    expect(sinColumna.filas[0].error).toBeNull()
+    expect(sinColumna.filas[0].datos).toMatchObject({ linea_id: "lin-rub-1" })
+    expect((await unaFila({ Rubro: "Promoción y divulgación" }, contexto)).datos).toMatchObject({ linea_id: "lin-rub-2" })
+  })
+
+  it("rejects a row whose activity is not in the project, naming the column (S9)", async () => {
+    const f = await unaFila({ "Código de actividad": "9.9" })
+    expect(f.datos).toBeNull()
+    expect(f.error).toBe("«Código de actividad»: no encontramos la actividad «9.9» en el proyecto.")
+  })
+
+  it("rejects a row whose activity and rubro have no line with an assigned amount (S9)", async () => {
+    // El rubro no está presupuestado en la actividad 1.2.
+    expect((await unaFila({ "Código de actividad": "1.2", Rubro: "Promoción y divulgación" })).error).toBe(
+      RUBRO_SIN_ASIGNADO_MESSAGE,
+    )
+    // El rubro 3 está en la 1.3, pero sin valor asignado.
+    expect((await unaFila({ "Código de actividad": "1.3", Rubro: "Sin asignar" })).error).toBe(RUBRO_SIN_ASIGNADO_MESSAGE)
+  })
+
+  it("asks for the activity when the rubro is budgeted in several and the cell is empty (S9)", async () => {
+    expect((await unaFila({})).error).toBe(
+      "«Código de actividad»: el rubro está en varias actividades: escribe el código de la que corresponde.",
+    )
+  })
+})
+
+describe("parseGastosImport — una factura distribuida (S9, T14.3)", () => {
+  const dosFilas = (total: number | null = 1000000) =>
+    libro([
+      fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: total }),
+      fila({ "Código de actividad": "1.3", Subtotal: 650000, Total: total }),
+    ])
+
+  it("reads two rows of the same document as ONE distributed invoice, not as duplicates (S9)", async () => {
+    const r = await parseGastosImport(await dosFilas(), contextoDistribuido)
+    expect(r.erroresArchivo).toEqual([])
+    expect(r.filas.map((f) => f.error)).toEqual([null, null])
+    expect(r.resumen).toEqual({ validas: 2, errores: 0 })
+    expect(r.facturas).toHaveLength(1)
+    expect(r.facturas[0].filas).toEqual([2, 3])
+    expect(r.facturas[0].error).toBeNull()
+    expect(r.facturas[0].datos).toMatchObject({
+      numero_documento: "FE-0123",
+      subtotal: toCents("1000000"),
+      iva: BigInt(0),
+      cents: toCents("1000000"),
+      repartos: [
+        { linea_id: "lin-12", valor: toCents("350000") },
+        { linea_id: "lin-13", valor: toCents("650000") },
+      ],
+    })
+  })
+
+  it("rejects the whole invoice when its rows do not add up to the «Total» of the document (S9)", async () => {
     const r = await parseGastosImport(
       await libro([
-        fila(),
-        fila({ "Número de identificación": "800.000.001-1" }),
-        fila({ "Tipo de identificación": null, "Número de identificación": null }),
-        fila({ "Tipo de identificación": null, "Número de identificación": null }),
+        fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: 1000000 }),
+        fila({ "Código de actividad": "1.3", Subtotal: 640000, Total: 1000000 }),
       ]),
-      contexto,
+      contextoDistribuido,
     )
-    expect(r.filas.map((f) => f.error)).toEqual([null, null, null, null])
+    expect(r.filas.map((f) => [f.fila, f.error, f.datos])).toEqual([
+      [2, REPARTO_SUMA_MESSAGE, null],
+      [3, REPARTO_SUMA_MESSAGE, null],
+    ])
+    expect(r.facturas[0].datos).toBeNull()
+    expect(r.resumen).toEqual({ validas: 0, errores: 2 })
   })
 
-  it("does not take an invalid row as the first occurrence", async () => {
-    const r = await parseGastosImport(await libro([fila({ Subtotal: 0 }), fila()]), contexto)
-    expect(r.filas[0].error).toBe(`«Subtotal»: ${SUBTOTAL_POSITIVO_MESSAGE}`)
-    expect(r.filas[1].error).toBeNull()
+  it("joins two rows of the same invoice on the same line into one distribution row with their sum (S9)", async () => {
+    const r = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2", Subtotal: 600000, Total: 1000000 }),
+        fila({ "Código de actividad": "1.2", Subtotal: 400000, Total: 1000000 }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(r.filas.map((f) => f.error)).toEqual([null, null])
+    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1000000") }])
+  })
+
+  // Review of T14: a code Excel turned into a number (1.10 → 1.1) or a date must never resolve to an activity.
+  it.each([
+    ["a number", 1.1],
+    ["a date", new Date(Date.UTC(2026, 1, 1))],
+  ])("rejects an activity code that arrives as %s instead of text (S9)", async (_caso, valor) => {
+    const r = await parseGastosImport(
+      await libro([fila({ "Código de actividad": valor, Subtotal: 1000000 })]),
+      contextoDistribuido,
+    )
+    expect(r.filas[0].error).toBe(
+      "«Código de actividad»: escríbelo como texto (por ejemplo 1.10); Excel lo convirtió en número o fecha.",
+    )
+    expect(r.facturas[0].datos).toBeNull()
+  })
+
+  it("requires the invoice to state its «Total» before it can be distributed (S9)", async () => {
+    const r = await parseGastosImport(await dosFilas(null), contextoDistribuido)
+    expect(r.filas.map((f) => f.error)).toEqual([SIN_TOTAL_DISTRIBUCION_MESSAGE, SIN_TOTAL_DISTRIBUCION_MESSAGE])
+    expect(r.facturas[0].datos).toBeNull()
+  })
+
+  it("keeps the invoice total equal on every row that writes it (S9)", async () => {
+    const r = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: 1000000 }),
+        fila({ "Código de actividad": "1.3", Subtotal: 650000, Total: 990000 }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(r.filas.map((f) => f.error)).toEqual([REPARTO_SUMA_MESSAGE, REPARTO_SUMA_MESSAGE])
+  })
+
+  it("rejects the whole invoice when one of its rows has an error, so no half document is written (S9)", async () => {
+    const r = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: 1000000 }),
+        fila({ "Código de actividad": "1.3", Subtotal: 0, Total: 1000000 }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(r.filas[1].error).toBe(`«Subtotal»: ${SUBTOTAL_POSITIVO_MESSAGE}`)
+    expect(r.filas[0]).toMatchObject({ error: facturaIncompleta(3), datos: null })
+    expect(r.facturas[0].datos).toBeNull()
+  })
+
+  it("rejects the rows of one invoice that disagree on its date, period or support type (S9)", async () => {
+    const otraFecha = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: 1000000 }),
+        fila({ "Código de actividad": "1.3", Subtotal: 650000, Total: 1000000, "Fecha del documento": "2026-10-20" }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(otraFecha.filas.map((f) => f.error)).toEqual([FACTURA_NO_COINCIDE_MESSAGE, FACTURA_NO_COINCIDE_MESSAGE])
+    expect(otraFecha.facturas[0].datos).toBeNull()
+  })
+
+  it("keeps the same document of another third party apart, as two invoices (S9)", async () => {
+    const r = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2" }),
+        fila({ "Código de actividad": "1.3", "Número de identificación": "800.000.001-1" }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(r.filas.map((f) => f.error)).toEqual([null, null])
+    expect(r.facturas).toHaveLength(2)
+    expect(r.facturas.map((f) => f.datos?.numero_documento)).toEqual(["FE-0123", "FE-0123"])
+  })
+
+  it("reads every row without identification as its own invoice, as before (S9)", async () => {
+    const sinId = { "Tipo de identificación": null, "Número de identificación": null, "Código de actividad": "1.2" }
+    const r = await parseGastosImport(await libro([fila(sinId), fila(sinId)]), contextoDistribuido)
+    expect(r.filas.map((f) => f.error)).toEqual([null, null])
+    expect(r.facturas).toHaveLength(2)
+    expect(r.facturas.map((f) => f.datos?.repartos)).toEqual([
+      [{ linea_id: "lin-12", valor: toCents("1500000.50") }],
+      [{ linea_id: "lin-12", valor: toCents("1500000.50") }],
+    ])
+  })
+
+  it("writes one row per invoice when the document has a single row, with its whole total (regresión)", async () => {
+    const r = await parseGastosImport(await libro([fila({ "Código de actividad": "1.2" })]), contextoDistribuido)
+    expect(r.facturas).toHaveLength(1)
+    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1500000.50") }])
+    expect(r.facturas[0].datos).toMatchObject({ subtotal: toCents("1500000.50"), iva: BigInt(0), cents: toCents("1500000.50") })
+  })
+
+  it("joins the support links of every row of the same invoice (S9)", async () => {
+    const r = await parseGastosImport(
+      await libro([
+        fila({ "Código de actividad": "1.2", Subtotal: 350000, Total: 1000000, "Enlace del soporte": "https://drive.google.com/a" }),
+        fila({ "Código de actividad": "1.3", Subtotal: 650000, Total: 1000000, "Enlace del soporte": "https://drive.google.com/b" }),
+      ]),
+      contextoDistribuido,
+    )
+    expect(r.facturas[0].datos?.enlaces).toEqual(["https://drive.google.com/a", "https://drive.google.com/b"])
+  })
+
+  it("keeps a single-row invoice Total rule: «Total» must equal Subtotal + IVA (regresión)", async () => {
+    const r = await parseGastosImport(
+      await libro([fila({ "Código de actividad": "1.2", Subtotal: 500000, IVA: 95000, Total: 600000 })]),
+      contextoDistribuido,
+    )
+    expect(r.filas[0].error).toBe(
+      "«Total»: no coincide con Subtotal + IVA ($ 595.000). Corrígelo o deja la columna vacía.",
+    )
+    expect(r.facturas[0].datos).toBeNull()
   })
 })

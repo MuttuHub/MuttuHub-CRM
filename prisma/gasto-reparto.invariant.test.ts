@@ -1,0 +1,449 @@
+// Live-DB coverage for the T14 distributed invoice (`gastos_reparto`): one distribution row per
+// activity+rubro, the sum of a gasto's rows equal to its total, the legacy `gastos.linea_id` kept
+// whenever the invoice has a single row, and the composite foreign keys that keep every row inside
+// its project. Prisma cannot express the CHECK or the cascade, so a mocked client would prove
+// nothing. Every path rolls back.
+//
+// S9/T14.3: the Excel import writes the header and its distribution rows like any other writer, so the
+// strict audit below has no exception left: no gasto of the table lives without its rows.
+//
+// `./require-local-db` must stay the FIRST import.
+import "./require-local-db"
+
+import { randomUUID } from "node:crypto"
+
+import ExcelJS from "exceljs"
+import { Prisma } from "@prisma/client"
+import { describe, expect, it } from "vitest"
+
+import { db } from "@/lib/db"
+import type { LineaGasto } from "@/lib/api/gastos"
+import { ENCABEZADOS_GASTOS, parseGastosImport, type ContextoImportGastos } from "@/lib/proyectos/gastos-import/parse"
+import { aplicarGastosImport } from "@/lib/proyectos/gastos-import/server"
+import { toCents } from "@/lib/proyectos/money"
+import { RespuestaAbortada } from "@/lib/api/errors"
+import { lineasTienenGastos } from "@/lib/api/lineas-con-gastos"
+import { loadEjecutadoPorLinea } from "@/lib/api/modificaciones"
+import { borrarPresupuestoDeActividad } from "@/lib/api/presupuesto"
+import { claveLineaDe } from "@/lib/proyectos/modificaciones"
+
+const TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 }
+
+class IntentionalRollback extends Error {}
+
+type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0]
+
+async function runAndRollback<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  let captured: T | undefined
+  try {
+    await db.$transaction(async (tx) => {
+      captured = await fn(tx)
+      throw new IntentionalRollback()
+    }, TX_OPTIONS)
+  } catch (error) {
+    if (!(error instanceof IntentionalRollback)) throw error
+  }
+  return captured as T
+}
+
+/** Runs `fn`, returns the error it threw (a failed statement poisons the tx) and rolls back. */
+async function captureError(fn: (tx: Tx) => Promise<unknown>): Promise<unknown> {
+  let captured: unknown
+  try {
+    await db.$transaction(async (tx) => {
+      try {
+        await fn(tx)
+      } catch (error) {
+        captured = error
+      }
+      throw new IntentionalRollback()
+    }, TX_OPTIONS)
+  } catch (error) {
+    if (!(error instanceof IntentionalRollback)) throw error
+  }
+  return captured
+}
+
+const MARKER = "t14-reparto"
+
+function driverMessage(error: unknown): string {
+  const meta = (error as { meta?: { driverAdapterError?: { cause?: { originalMessage?: string } } } }).meta
+  return meta?.driverAdapterError?.cause?.originalMessage ?? String(error)
+}
+
+async function fixture(tx: Tx) {
+  const suffix = randomUUID()
+  const usuario = await tx.usuario.create({ data: { email: `${MARKER}-${suffix}@example.test`, nombre: MARKER } })
+  const cliente = await tx.cliente.create({
+    data: { nombre: `${MARKER}-cliente-${suffix}`, tipo_cliente: "OTRO", responsable_id: usuario.id },
+  })
+  const proyecto = await tx.proyecto.create({
+    data: { codigo: `PRY-T14-R-${suffix}`, nombre: `${MARKER}-${suffix}`, cliente_id: cliente.id },
+  })
+  const otro = await tx.proyecto.create({
+    data: { codigo: `PRY-T14-R2-${suffix}`, nombre: `${MARKER}-otro-${suffix}`, cliente_id: cliente.id },
+  })
+  const rubro = await tx.rubro.create({ data: { codigo: `T14-${suffix.slice(0, 8)}`, nombre: `${MARKER}-rubro` } })
+  // T12: a NORMAL activity always hangs from an objective (actividades_tipo_objetivo_check).
+  const objetivo = await tx.objetivo.create({
+    data: { proyecto_id: proyecto.id, codigo: "1", descripcion: "Objetivo 1", orden: 1 },
+  })
+  // T11: the same rubro can be budgeted in two activities (one line each).
+  const actividad1 = await tx.actividad.create({
+    data: {
+      proyecto_id: proyecto.id,
+      objetivo_id: objetivo.id,
+      codigo: "1.2",
+      nombre: "Actividad 1.2",
+      semana_inicio: 1,
+      semana_fin: 4,
+    },
+  })
+  const actividad2 = await tx.actividad.create({
+    data: {
+      proyecto_id: proyecto.id,
+      objetivo_id: objetivo.id,
+      codigo: "1.3",
+      nombre: "Actividad 1.3",
+      semana_inicio: 5,
+      semana_fin: 8,
+    },
+  })
+  const linea1 = await tx.lineaPresupuestal.create({
+    data: {
+      proyecto_id: proyecto.id,
+      rubro_id: rubro.id,
+      actividad_id: actividad1.id,
+      monto_proyectado_cop: 10_000_000,
+    },
+  })
+  const linea2 = await tx.lineaPresupuestal.create({
+    data: {
+      proyecto_id: proyecto.id,
+      rubro_id: rubro.id,
+      actividad_id: actividad2.id,
+      monto_proyectado_cop: 10_000_000,
+    },
+  })
+  const lineaOtro = await tx.lineaPresupuestal.create({
+    data: { proyecto_id: otro.id, rubro_id: rubro.id, monto_proyectado_cop: 1_000_000 },
+  })
+  const datos = {
+    proyecto_id: proyecto.id,
+    linea_id: linea1.id,
+    fecha_documento: new Date("2026-10-15"),
+    periodo: "2026-10",
+    tipo_soporte: "FACTURA_PROVEEDOR" as const,
+    tercero_nombre: "Proveedor SAS",
+    tercero_tipo_id: "NIT" as const,
+    tercero_numero_id: "900.123.456-7",
+    tercero_id_norm: "900123456",
+    numero_documento: "FE-1000",
+    numero_documento_norm: "FE1000",
+    descripcion: "Factura distribuida",
+    subtotal_cop: 100,
+    iva_cop: 0,
+    monto_cop: 100,
+    registrado_por_id: usuario.id,
+  }
+  return { usuario, proyecto, otro, rubro, objetivo, actividad1, actividad2, linea1, linea2, lineaOtro, datos }
+}
+
+/**
+ * Cross-row rules of the distributed invoice, in one round trip per rule. They are audits: they
+ * must always return zero violations for the whole table, including the rows the fixture inserts.
+ */
+async function violaciones(tx: Tx) {
+  const [sinReparto] = await tx.$queryRawUnsafe<Array<{ n: number }>>(
+    `SELECT count(*)::int AS n FROM gastos g
+      WHERE NOT EXISTS (SELECT 1 FROM gastos_reparto r WHERE r.gasto_id = g.id)`,
+  )
+  const [sumaNoCuadra] = await tx.$queryRawUnsafe<Array<{ n: number }>>(
+    `SELECT count(*)::int AS n FROM gastos g
+      WHERE g.monto_cop <> COALESCE((SELECT sum(r.valor) FROM gastos_reparto r WHERE r.gasto_id = g.id), 0)`,
+  )
+  const [lineaHuerfana] = await tx.$queryRawUnsafe<Array<{ n: number }>>(
+    `SELECT count(*)::int AS n FROM gastos g
+       JOIN gastos_reparto r ON r.gasto_id = g.id
+      WHERE (SELECT count(*) FROM gastos_reparto r2 WHERE r2.gasto_id = g.id) = 1
+        AND r.linea_id <> g.linea_id`,
+  )
+  const [fueraDelProyecto] = await tx.$queryRawUnsafe<Array<{ n: number }>>(
+    `SELECT count(*)::int AS n FROM gastos_reparto r
+       JOIN gastos g ON g.id = r.gasto_id
+       JOIN lineas_presupuestales l ON l.id = r.linea_id
+      WHERE r.proyecto_id <> g.proyecto_id OR l.proyecto_id <> g.proyecto_id`,
+  )
+  const [huerfanas] = await tx.$queryRawUnsafe<Array<{ n: number }>>(
+    `SELECT count(*)::int AS n FROM gastos_reparto r
+      WHERE NOT EXISTS (SELECT 1 FROM gastos g WHERE g.id = r.gasto_id)
+         OR NOT EXISTS (SELECT 1 FROM lineas_presupuestales l WHERE l.id = r.linea_id)`,
+  )
+  return {
+    sinReparto: sinReparto.n,
+    sumaNoCuadra: sumaNoCuadra.n,
+    lineaHuerfana: lineaHuerfana.n,
+    fueraDelProyecto: fueraDelProyecto.n,
+    huerfanas: huerfanas.n,
+  }
+}
+
+describe("GastoReparto invariants (live DB)", () => {
+  it("splits one factura across two activities (S9: 350.000 + 650.000 = 1.000.000)", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { datos, linea1, linea2 } = await fixture(tx)
+      const gasto = await tx.gasto.create({
+        data: { ...datos, subtotal_cop: 1_000_000, iva_cop: 0, monto_cop: 1_000_000 },
+      })
+      const primera = await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: linea1.id, valor: 350_000 },
+      })
+      const segunda = await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: linea2.id, valor: 650_000 },
+      })
+      const [cuadra] = await tx.$queryRawUnsafe<Array<{ ok: boolean }>>(
+        `SELECT g.monto_cop = (SELECT sum(r.valor) FROM gastos_reparto r WHERE r.gasto_id = g.id) AS ok
+           FROM gastos g WHERE g.id = $1`,
+        gasto.id,
+      )
+      return {
+        valores: [primera.valor.toString(), segunda.valor.toString()],
+        filas: await tx.gastoReparto.count({ where: { gasto_id: gasto.id } }),
+        cuadra: cuadra.ok,
+      }
+    })
+    expect(result.filas).toBe(2)
+    expect(result.valores).toEqual(["350000", "650000"])
+    expect(result.cuadra).toBe(true)
+  })
+
+  it("gives every gasto at least one distribution row", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { datos } = await fixture(tx)
+      const gasto = await tx.gasto.create({ data: datos })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: gasto.linea_id, valor: gasto.monto_cop },
+      })
+      return violaciones(tx)
+    })
+    expect(result.sinReparto).toBe(0)
+  })
+
+  it("keeps the sum of a gasto's distribution rows equal to its monto_cop", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { datos, linea2 } = await fixture(tx)
+      const gasto = await tx.gasto.create({
+        data: { ...datos, subtotal_cop: 1_000_000, iva_cop: 190_000, monto_cop: 1_190_000 },
+      })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: gasto.linea_id, valor: 1_090_000 },
+      })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: linea2.id, valor: 100_000 },
+      })
+      return violaciones(tx)
+    })
+    expect(result.sumaNoCuadra).toBe(0)
+  })
+
+  it("keeps Gasto.linea_id on a single-row invoice, so the legacy readers still resolve the line", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { datos, linea1 } = await fixture(tx)
+      const gasto = await tx.gasto.create({ data: datos })
+      const fila = await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: linea1.id, valor: gasto.monto_cop },
+      })
+      return { gastoLinea: gasto.linea_id, filaLinea: fila.linea_id, ...(await violaciones(tx)) }
+    })
+    expect(result.filaLinea).toBe(result.gastoLinea)
+    expect(result.lineaHuerfana).toBe(0)
+  })
+
+  it("rejects a distribution row whose line or invoice belongs to another project", async () => {
+    const lineaAjena = await captureError(async (tx) => {
+      const { datos, lineaOtro } = await fixture(tx)
+      const gasto = await tx.gasto.create({ data: datos })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: lineaOtro.id, valor: 100 },
+      })
+    })
+    expect((lineaAjena as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+
+    const gastoAjeno = await captureError(async (tx) => {
+      const { datos, otro, lineaOtro } = await fixture(tx)
+      const gasto = await tx.gasto.create({ data: datos })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: otro.id, gasto_id: gasto.id, linea_id: lineaOtro.id, valor: 100 },
+      })
+    })
+    expect((gastoAjeno as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+  })
+
+  it("rejects a non-positive distribution value (gastos_reparto_valor_positivo_ck)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await fixture(tx)
+      const gasto = await tx.gasto.create({ data: datos })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: gasto.linea_id, valor: 0 },
+      })
+    })
+    expect(driverMessage(error)).toContain("gastos_reparto_valor_positivo_ck")
+  })
+
+  it("deletes the distribution rows with their gasto and never leaves an orphan", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { datos, linea2 } = await fixture(tx)
+      const gasto = await tx.gasto.create({ data: datos })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: gasto.linea_id, valor: 50 },
+      })
+      await tx.gastoReparto.create({
+        data: { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: linea2.id, valor: 50 },
+      })
+      await tx.gasto.delete({ where: { id: gasto.id } })
+      const quedan = await tx.gastoReparto.count({ where: { gasto_id: gasto.id } })
+      return { quedan, ...(await violaciones(tx)) }
+    })
+    expect(result.quedan).toBe(0)
+    expect(result.huerfanas).toBe(0)
+  })
+
+  // S9/T14.3: la auditoría vuelve a ser estricta sobre la tabla ENTERA y sin excepciones. La importación de Excel
+  // ya escribe cabecera y filas, así que ningún escritor deja un gasto sin su reparto.
+  it("audits the whole table with no exception: every gasto has its rows and they add up (S9, T14.3)", async () => {
+    const result = await runAndRollback(async (tx) => violaciones(tx))
+    expect(result).toEqual({ sinReparto: 0, sumaNoCuadra: 0, lineaHuerfana: 0, fueraDelProyecto: 0, huerfanas: 0 })
+  })
+
+  // S9/T14.3: el camino real del importador (parser + escritor) sobre la base viva: la factura de 1.000.000 con
+  // 350.000 en la 1.2 y 650.000 en la 1.3 queda como UN gasto con sus dos filas, y la auditoría sigue en cero.
+  it("writes an invoice imported from Excel as one gasto with its two rows, leaving the audit clean (S9, T14.3)", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, rubro, actividad1, actividad2, linea1, linea2 } = await fixture(tx)
+      const contexto: ContextoImportGastos = {
+        proyecto: { fecha_inicio: new Date("2026-10-01"), fecha_fin: new Date("2026-12-31") },
+        rubros: [{ id: rubro.id, codigo: rubro.codigo, nombre: rubro.nombre }],
+        lineas: [
+          { id: linea1.id, rubro_id: rubro.id, actividad_codigo: actividad1.codigo, actividad_nombre: actividad1.nombre, asignado: true },
+          { id: linea2.id, rubro_id: rubro.id, actividad_codigo: actividad2.codigo, actividad_nombre: actividad2.nombre, asignado: true },
+        ],
+      }
+      const fila = (actividad: string, subtotal: number) => [
+        rubro.nombre,
+        "2026-10-15",
+        "Factura de proveedor",
+        "Proveedor SAS",
+        "NIT",
+        "900.123.456-7",
+        "FE-2000",
+        "Factura distribuida",
+        subtotal,
+        0,
+        1_000_000,
+        null,
+        "https://drive.google.com/soporte",
+        actividad,
+      ]
+      const workbook = new ExcelJS.Workbook()
+      const hoja = workbook.addWorksheet("Gastos")
+      hoja.addRow([...ENCABEZADOS_GASTOS])
+      hoja.addRow(fila(actividad1.codigo, 350_000))
+      hoja.addRow(fila(actividad2.codigo, 650_000))
+      const parseado = await parseGastosImport(Buffer.from(await workbook.xlsx.writeBuffer()), contexto)
+      expect(parseado.erroresArchivo).toEqual([])
+      expect(parseado.filas.map((cada) => cada.error)).toEqual([null, null])
+
+      const lineas = new Map<string, LineaGasto>([
+        [linea1.id, { id: linea1.id, asignado: toCents("10000000"), rubro }],
+        [linea2.id, { id: linea2.id, asignado: toCents("10000000"), rubro }],
+      ])
+      const facturas = parseado.facturas.filter(
+        (cada): cada is typeof cada & { datos: NonNullable<typeof cada.datos> } => cada.datos !== null,
+      )
+      const creados = await aplicarGastosImport(tx, {
+        proyectoId: proyecto.id,
+        usuarioId: usuario.id,
+        facturas,
+        lineas,
+        loteId: randomUUID(),
+      })
+      const gasto = await tx.gasto.findUniqueOrThrow({ where: { id: creados[0].id } })
+      const repartos = await tx.gastoReparto.findMany({ where: { gasto_id: gasto.id }, orderBy: { valor: "asc" } })
+      return {
+        creados: creados.length,
+        monto: gasto.monto_cop.toString(),
+        lineaId: gasto.linea_id,
+        primera: linea1.id,
+        repartos: repartos.map((cada) => [cada.linea_id, cada.valor.toString()]),
+        ...(await violaciones(tx)),
+      }
+    })
+    expect(result.creados).toBe(1)
+    expect(result.monto).toBe("1000000")
+    // La cabecera se queda en la línea de la primera fila del reparto.
+    expect(result.lineaId).toBe(result.primera)
+    expect(result.repartos).toEqual([
+      [expect.any(String), "350000"],
+      [expect.any(String), "650000"],
+    ])
+    expect(result).toMatchObject({ sinReparto: 0, sumaNoCuadra: 0, lineaHuerfana: 0, fueraDelProyecto: 0, huerfanas: 0 })
+  })
+})
+
+// Cross-lane debt of T14 (plan §14, row 6): the readers lane A wrote before `gastos_reparto` existed. A line whose
+// only expense is a non-first row of a split invoice must still count as «has expenses» and as executed.
+describe("Readers of a line's expenses count the distribution rows (live DB, T14 cross-lane debt)", () => {
+  async function facturaRepartida(tx: Tx) {
+    const base = await fixture(tx)
+    const gasto = await tx.gasto.create({
+      data: { ...base.datos, subtotal_cop: 1_000_000, iva_cop: 0, monto_cop: 1_000_000 },
+    })
+    await tx.gastoReparto.createMany({
+      data: [
+        { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: base.linea1.id, valor: 350_000 },
+        { proyecto_id: gasto.proyecto_id, gasto_id: gasto.id, linea_id: base.linea2.id, valor: 650_000 },
+      ],
+    })
+    return base
+  }
+
+  it("answers 409 when deleting an activity whose line holds only the second row of a split invoice", async () => {
+    let status: number | null = null
+    const error = await captureError(async (tx) => {
+      const { proyecto, actividad2, usuario } = await facturaRepartida(tx)
+      await borrarPresupuestoDeActividad(tx, {
+        proyectoId: proyecto.id,
+        actividadId: actividad2.id,
+        usuarioId: usuario.id,
+      })
+    })
+    if (error instanceof RespuestaAbortada) status = error.response.status
+    expect(driverMessage(error)).not.toMatch(/foreign key/i)
+    expect(status).toBe(409)
+  })
+
+  it("reports a line as having expenses when only a distribution row points at it", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { proyecto, linea1, linea2, lineaOtro } = await facturaRepartida(tx)
+      return {
+        cabecera: await lineasTienenGastos(tx, proyecto.id, [linea1.id]),
+        soloFila: await lineasTienenGastos(tx, proyecto.id, [linea2.id]),
+        ajena: await lineasTienenGastos(tx, proyecto.id, [lineaOtro.id]),
+        ninguna: await lineasTienenGastos(tx, proyecto.id, []),
+      }
+    })
+    expect(result).toEqual({ cabecera: true, soloFila: true, ajena: false, ninguna: false })
+  })
+
+  it("puts 350.000 executed on 1.2 and 650.000 on 1.3, never 1.000.000 on the header's line", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { proyecto, rubro } = await facturaRepartida(tx)
+      const ejecutado = await loadEjecutadoPorLinea(tx, proyecto.id)
+      return {
+        l12: ejecutado.get(claveLineaDe(rubro.codigo, "1.2") as string),
+        l13: ejecutado.get(claveLineaDe(rubro.codigo, "1.3") as string),
+      }
+    })
+    expect(result).toEqual({ l12: toCents("350000"), l13: toCents("650000") })
+  })
+})

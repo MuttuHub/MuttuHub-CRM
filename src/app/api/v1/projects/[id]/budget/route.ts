@@ -30,6 +30,7 @@ import {
   parseMonto,
 } from "@/lib/api/presupuesto";
 import { fromCents, sumCents, toCents } from "@/lib/proyectos/money";
+import { lineasTienenGastos } from "@/lib/api/lineas-con-gastos";
 
 export const dynamic = "force-dynamic";
 
@@ -135,8 +136,8 @@ export const PUT = withApiErrorHandling(
 
         const quitadas = lineas.filter((l) => !pedidas.has(claveDe(l.actividad_id, l.rubro_id)));
         if (quitadas.length > 0) {
-          const conGastos = await tx.gasto.count({ where: { proyecto_id: id, linea_id: { in: quitadas.map((l) => l.id) } } });
-          if (conGastos > 0) invalid("No se puede quitar del presupuesto una línea que ya tiene gastos registrados.");
+          const conGastos = await lineasTienenGastos(tx, id, quitadas.map((l) => l.id));
+          if (conGastos) invalid("No se puede quitar del presupuesto una línea que ya tiene gastos registrados.");
         }
 
         const cambios: CambioInput[] = [];

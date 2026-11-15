@@ -36,6 +36,19 @@ const SoporteGastoSchema = registry.register(
 
 const EstadoGastoSchema = z.enum(["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"]);
 
+const RepartoGastoSchema = registry.register(
+  "RepartoGasto",
+  z.object({
+    linea_id: z.string().openapi({ description: "Línea del presupuesto (actividad + rubro) del reparto." }),
+    actividad_id: z
+      .string()
+      .nullable()
+      .openapi({ description: "Actividad de la línea; nula en una línea heredada («Sin actividad»)." }),
+    rubro: z.object({ id: z.string().uuid(), codigo: z.string().nullable(), nombre: z.string() }),
+    valor: z.string().openapi({ example: "350000.00", description: "Valor de la fila, Decimal(15,2) como string." }),
+  }),
+);
+
 const GastoSchema = registry.register(
   "Gasto",
   z.object({
@@ -81,6 +94,12 @@ const GastoSchema = registry.register(
       .int()
       .optional()
       .openapi({ description: "Soportes vigentes del gasto. Omitido sin acceso a soportes financieros (RNF-03)." }),
+    repartos: z.array(RepartoGastoSchema).openapi({
+      description:
+        "S9: el reparto de la factura, una fila por actividad + rubro, en el orden en que se registró. La primera fila " +
+        "es la línea que guarda la cabecera (`gastos.linea_id`) y las filas suman siempre `valor`. Una factura " +
+        "registrada sin `repartos` en el cuerpo tiene una sola fila con su total.",
+    }),
   }),
 );
 
@@ -144,14 +163,23 @@ registry.registerPath({
     "ejecutado total del rubro supera lo asignado; su mensaje es «Solicita un traslado al Gerente» y avisa a Gerencia), " +
     "`SOBREGASTO_PROGRAMADO` (aviso: el ejecutado acumulado hasta el periodo supera lo programado hasta ese mismo periodo; " +
     "no se repite cuando aplica el crítico) y `DUPLICADO` " +
-    "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto).",
+    "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto)." +
+    " S9: `linea_id` (opcional) fija la línea exacta del presupuesto —la actividad y el rubro que el formulario elige en ese " +
+    "orden, con el objetivo solo como filtro—; tiene que ser una línea de ese rubro en el proyecto y si no lo es responde 400 " +
+    "«La línea elegida no corresponde al rubro de este proyecto.». Sin `linea_id` se usa la línea del rubro, como antes. " +
+    "S9/T14.2-B1: con `repartos` la factura se distribuye en varias actividades y rubros: el cuerpo no lleva `rubro_id` ni " +
+    "`linea_id` (un cuerpo que mezcla las dos formas responde 400 «Una factura distribuida no lleva rubro ni línea en la " +
+    "cabecera.»), cada `linea_id` tiene que ser una línea del proyecto con valor asignado y la suma de `valor` tiene que ser " +
+    "exactamente el total de la factura (subtotal + IVA): 990.000 para una factura de 1.000.000 responde 400 «Las líneas de la " +
+    "distribución deben sumar exactamente el total de la factura.». La cabecera y el reparto se guardan en una sola transacción " +
+    "y la cabecera conserva en `linea_id` la línea del primer reparto; sin `repartos` el gasto recibe una sola fila con su total,", 
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,
     body: {
       content: {
         "application/json": {
-          schema: GASTO_CREATE_SCHEMA.extend({
+          schema: GASTO_CREATE_SCHEMA.safeExtend({
             soportes: z.array(z.union([MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA])).min(1).max(5),
           }),
         },
@@ -254,7 +282,10 @@ registry.registerPath({
     "Audita un registro EDITAR por campo cambiado (incluidos `subtotal`, `iva`, `valor` y `periodo`); el número de " +
     "identificación solo se audita enmascarado. `subtotal` e `iva` se envían juntos o por separado (el que falta conserva el " +
     "guardado) y el Total siempre es su suma. Si cambia `fecha_documento` sin `periodo`, el periodo vuelve al mes de la nueva " +
-    "fecha (400 si ese mes no es del proyecto).",
+    "fecha (400 si ese mes no es del proyecto). S9: si el rubro no cambia, el gasto conserva la línea que ya tenía; solo un " +
+    "cambio de rubro vuelve a resolver la línea. S9/T14.2-B1: `repartos` reescribe el reparto entero con las mismas reglas del " +
+    "registro (sin `rubro_id`, suma exacta del total) dentro de la misma transacción; la primera fila fija la línea de la " +
+    "cabecera. Una factura repartida no se corrige cambiando solo el total: hay que enviar su distribución completa.",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: GASTO_PATCH_SCHEMA } } } },
   responses: {
@@ -346,6 +377,7 @@ const ExpensesImportPreviewSchema = registry.register(
       z.object({
         fila: z.number().int().openapi({ description: "Fila de Excel (base 1)." }),
         rubro: z.string().nullable(),
+        actividad: z.string().nullable().openapi({ description: "Código de actividad tal como está escrito en el archivo (S9)." }),
         tercero: z.string().nullable(),
         numero_documento: z.string().nullable(),
         valor: z.string().nullable(),
@@ -362,10 +394,10 @@ const ExpensesImportAppliedSchema = registry.register(
   "ImportacionGastosAplicada",
   z.object({
     importado: z.literal(true),
-    creados: z.number().int(),
+    creados: z.number().int().openapi({ description: "Facturas escritas: las filas de un mismo documento son una sola." }),
     lote_id: z.string().uuid().openapi({ description: "Lote de auditoría compartido por todos los gastos importados." }),
     valor_total: z.string(),
-    gastos: z.array(z.object({ fila: z.number().int(), id: z.string().uuid() })),
+    gastos: z.array(z.object({ fila: z.number().int().openapi({ description: "Primera fila del documento." }), id: z.string().uuid() })),
     rechazadas: z.array(ExpensesImportErrorSchema),
     alertas: z.array(z.object({ fila: z.number().int(), alertas: z.array(AlertaSchema) })),
   }),
@@ -375,28 +407,35 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/projects/{id}/expenses/import",
   tags: ["Projects"],
-  summary: "Importa gastos desde un Excel (una fila por gasto, soportes por enlace opcionales)",
+  summary: "Importa gastos desde un Excel (una fila por línea de reparto, soportes por enlace opcionales)",
   description:
     `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB, máximo 200 filas con datos; no se almacena). ` +
     "Columnas: `Rubro`, `Fecha del documento`, `Tipo de soporte`, `Tercero`, `Tipo de identificación` (opcional), " +
     "`Número de identificación` (opcional), `Número de documento`, `Descripción`, `Subtotal`, `IVA`, " +
-    "`Total` (opcional), `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento) y `Enlace del " +
-    "soporte` (opcional, AJ-06). `Subtotal` e `IVA` son " +
-    "obligatorios: el IVA puede ser 0 pero debe escribirse. Si viene `Total`, debe ser igual a Subtotal + IVA o la fila se " +
-    "rechaza con su fila y columna. Un archivo con la columna antigua `Valor (COP)` y sin `Subtotal` se rechaza completo: " +
+    "`Total` (opcional), `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento), `Enlace del " +
+    "soporte` (opcional, AJ-06) y `Código de actividad` (opcional, S9: el código o el nombre de la actividad). `Subtotal` e `IVA` son " +
+    "obligatorios: el IVA puede ser 0 pero debe escribirse. `Subtotal` e `IVA` describen la parte de la fila; el `Total` describe el documento. " +
+    "Un archivo con la columna antigua `Valor (COP)` y sin `Subtotal` se rechaza completo: " +
     "«Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.». " +
     "Cada fila pasa por las mismas reglas que un gasto individual (rubro con valor asignado, subtotal positivo con máximo dos " +
-    "decimales, periodo dentro del proyecto, límites de texto). `Enlace del soporte` admite uno o varios enlaces en la misma " +
+    "decimales, periodo dentro del proyecto, límites de texto). `Código de actividad` junto con `Rubro` fijan la línea exacta del " +
+    "presupuesto; sin la celda, la fila se resuelve por su rubro, y solo si ese rubro tiene una única línea con valor asignado (si " +
+    "está en varias actividades, se pide el código). `Enlace del soporte` admite uno o varios enlaces en la misma " +
     "celda separados por `;`; cada uno debe empezar por `http://` o `https://` (sin distinguir mayúsculas) o la fila se " +
     "rechaza con su fila y columna. Un archivo sin esa columna, o con la celda vacía, importa igual que antes (sin soportes). " +
-    "Cada enlace válido crea un soporte sobre el gasto creado, dentro de la misma transacción que el gasto (ej.: dos enlaces " +
-    "en la celda crean un gasto con dos soportes). Un gasto importado sin soporte se crea REGISTRADO y se adjunta después " +
-    "(`POST /expenses/{expenseId}/attachments`); sin soporte no se puede validar. Dos filas " +
-    "con el mismo tercero y número de documento normalizados: la segunda es inválida. Con `modo=validar` devuelve cada fila como " +
-    "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir. Aplicar crea solo las filas válidas en una " +
-    "transacción, con un único `lote_id` de auditoría, y devuelve las rechazadas; avisa a Gerencia por cada gasto que deja el " +
+    "El documento: las filas con el mismo tercero y número de documento normalizados son UNA factura distribuida, no duplicados. " +
+    "El primer renglón del documento debe escribir el `Total` de la factura y la suma de las filas tiene que ser exactamente ese " +
+    "total (mismo mensaje que el reparto de `POST /expenses`); si no cuadra, o si una fila del documento tiene un error, la factura " +
+    "completa se rechaza y no se escribe nada de ella. Una factura de una sola fila conserva la regla de siempre: si viene `Total`, " +
+    "debe ser igual a Subtotal + IVA. Cada enlace válido crea un soporte sobre la factura creada, dentro de la misma transacción que " +
+    "ella (ej.: dos enlaces en la celda crean un gasto con dos soportes). Un gasto importado sin soporte se crea REGISTRADO y se adjunta después " +
+    "(`POST /expenses/{expenseId}/attachments`); sin soporte no se puede validar. Con `modo=validar` devuelve cada fila como " +
+    "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir; el aviso de duplicado se consulta y se muestra " +
+    "una vez por factura (en su primera fila), no una vez por fila. Aplicar crea solo las facturas válidas en una " +
+    "transacción, una cabecera más sus filas de reparto por documento, con un único `lote_id` de auditoría, y devuelve las rechazadas; " +
+    "avisa a Gerencia por cada gasto que deja el " +
     "rubro por encima de lo asignado. Errores del archivo completo " +
-    "(no es Excel, faltan encabezados, sin filas, más de 200) y la ausencia de filas válidas al aplicar responden 400 con " +
+    "(no es Excel, faltan encabezados, sin filas, más de 200) y la ausencia de facturas válidas al aplicar responden 400 con " +
     "`reporte`. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400.",
   security: [{ sessionCookie: [] }],
   request: {
@@ -439,7 +478,8 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Descarga la plantilla vacía de gastos",
   description:
-    "Una hoja `Gastos` con los encabezados de la importación y una hoja `Rubros` con los rubros del proyecto que admiten gastos " +
+    "Una hoja `Gastos` con los encabezados de la importación —incluida la columna `Código de actividad` (S9), al final para no " +
+    "mover las anteriores— y una hoja `Rubros` con los rubros del proyecto que admiten gastos " +
     `(valor asignado mayor que cero). ${READ_NOTE}`,
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
@@ -470,5 +510,38 @@ registry.registerPath({
   responses: {
     201: { description: "Soporte adjuntado; devuelve el gasto con sus soportes.", content: { "application/json": { schema: GastoResponse } } },
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+const CambioGastoSchema = z.object({
+  id: z.string(),
+  accion: z.enum(["EDITAR", "ANULAR"]),
+  fecha: z.string(),
+  usuario_nombre: z.string().nullable(),
+  motivo: z.string().nullable(),
+  gasto: z
+    .object({ id: z.string(), numero_documento: z.string(), tercero_nombre: z.string(), estado: z.string() })
+    .nullable(),
+  detalle: z.array(z.object({ campo: z.string(), antes: z.unknown(), despues: z.unknown() })),
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/expense-changes",
+  tags: ["Projects"],
+  summary: "Gastos editados y anulados en un periodo, con su detalle y motivo (T7)",
+  description:
+    "Resumen de cambios del periodo para la Gerencia (AJ-08): una entrada por corrección (los campos que cambió y su motivo) " +
+    "y una por anulación (con su motivo), hechas durante ese mes calendario en Bogotá, en el orden en que ocurrieron. Solo " +
+    "ADMINISTRADOR y GERENCIA (403 para otro rol). `periodo` es obligatorio, como AAAA-MM; si falta o no tiene ese formato " +
+    "responde 400 «Indica el periodo como AAAA-MM.».",
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectParams, query: z.object({ periodo: z.string() }) },
+  responses: {
+    200: {
+      description: "Cambios del periodo.",
+      content: { "application/json": { schema: z.object({ periodo: z.string(), cambios: z.array(CambioGastoSchema) }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
   },
 });

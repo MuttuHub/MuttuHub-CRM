@@ -8,27 +8,32 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { esGestionDelProyecto } from "@/components/proyectos/project-display";
 import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, CAPTURE_TEXTAREA, InlineError, SELECT_CLASS_LG as SELECT } from "@/components/proyectos/ui";
 import {
   useCreateExpense,
   useExpenseDuplicates,
+  useProjectActivities,
+  useProjectObjectives,
   useUpdateExpense,
   type AvanceMedioInput,
   type ExpenseAlert,
   type ExpenseDuplicateQuery,
+  type ProjectBudgetLinea,
   type ProjectBudgetRubro,
   type ProjectExpense,
   type ProjectListRow,
 } from "@/hooks/projects";
 import { formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
-import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
+import { formatCOP, fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
@@ -42,6 +47,13 @@ const IVA_INVALIDO =
 const IVA_EXCEDE_19 =
   "El IVA supera el 19 % del subtotal. Revisa los valores; puedes registrar el gasto igualmente.";
 const POSIBLE_DUPLICADO = "Posible duplicado";
+
+/** S9/T14.2-B2: la regla de la suma, con la misma redacción que manda el servidor (`REPARTO_SUMA_MESSAGE`). */
+const REPARTO_SUMA = "Las líneas de la distribución deben sumar exactamente el total de la factura.";
+/** S9: cada línea tiene que ser una línea del proyecto y llevar un valor mayor que cero (mensajes del servidor). */
+const REPARTO_LINEA = "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.";
+const REPARTO_VALOR = "El valor de cada línea de la distribución debe ser mayor que cero.";
+const AGREGAR_LINEA = "Agregar línea de la distribución";
 
 export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string> = {
   FACTURA_PROVEEDOR: "Factura de proveedor",
@@ -136,14 +148,122 @@ function formatearMontoAlEscribir(texto: string): string {
 
 const SIN_RUBROS = "Aún no hay rubros con monto asignado. Asigna primero un monto a un rubro en Presupuesto.";
 
+/* S9/T14.1: el formulario elige Objetivo -> Actividad -> Rubro y guarda la línea exacta del presupuesto. */
+/** Valor del select «Objetivo» que agrupa lo que no cuelga de un objetivo: «Gestión del proyecto». */
+const OBJETIVO_GESTION = "__gestion__";
+/** Valor del select «Actividad» de una línea heredada, sin actividad (D9): la etiqueta de Presupuesto. */
+const SIN_ACTIVIDAD = "sin-actividad";
+const ELIGE_OBJETIVO = "Elige el objetivo.";
+const ELIGE_ACTIVIDAD = "Elige la actividad.";
+
+/** Una opción de los selects de la cascada: el valor que se guarda en el estado y lo que se lee. */
+type Opcion = { clave: string; etiqueta: string };
+
+/** Una línea del presupuesto vista como actividad: sus rubros son los únicos que se pueden elegir. */
+type RubroDeLinea = Opcion & { linea_id: string };
+type ActividadDeLinea = Opcion & { objetivo: string; codigo: string | null; rubros: RubroDeLinea[] };
+
+/**
+ * La cascada Objetivo -> Actividad -> Rubro armada con las líneas del presupuesto (actividad + rubro + valor) y
+ * las actividades del proyecto, que dicen a qué objetivo pertenecen. Una línea heredada (sin actividad) va a
+ * «Gestión del proyecto» / «Sin actividad», como en Presupuesto; una actividad transversal, a «Gestión del
+ * proyecto» sin objetivo. Una actividad que todavía no llegó se agrupa igual, para no dejar su línea sin ofrecer.
+ */
+function cascadaDeGasto(
+  lineas: readonly ProjectBudgetLinea[],
+  actividades: readonly { id: string; objetivo_id: string | null; tipo?: "NORMAL" | "TRANSVERSAL" | null; codigo: string; nombre: string }[],
+): ActividadDeLinea[] {
+  const porActividad = new Map<string, ActividadDeLinea>();
+  for (const linea of lineas) {
+    if (toCents(linea.valor) <= BigInt(0)) continue;
+    const clave = linea.actividad_id ?? SIN_ACTIVIDAD;
+    const actual = porActividad.get(clave);
+    const rubro: RubroDeLinea = {
+      clave: linea.rubro_id,
+      etiqueta: linea.rubro_codigo ? `${linea.rubro_codigo} · ${linea.rubro_nombre}` : linea.rubro_nombre,
+      linea_id: linea.linea_id,
+    };
+    if (actual) {
+      actual.rubros.push(rubro);
+      continue;
+    }
+    const enLinea = actividades.find((actividad) => actividad.id === linea.actividad_id);
+    let objetivo = OBJETIVO_GESTION;
+    if (enLinea !== undefined && !esGestionDelProyecto(enLinea) && enLinea.objetivo_id !== null) {
+      objetivo = enLinea.objetivo_id;
+    }
+    const codigo = enLinea?.codigo ?? linea.actividad_codigo;
+    const nombre = enLinea?.nombre ?? linea.actividad_nombre;
+    porActividad.set(clave, {
+      clave,
+      codigo,
+      etiqueta: codigo === null ? SIN_ACTIVIDAD : `${codigo} · ${nombre ?? ""}`,
+      objetivo,
+      rubros: [rubro],
+    });
+  }
+  return [...porActividad.values()];
+}
+
+/** S9/T14.2-B2: una línea de la distribución de la factura: actividad + rubro + valor, cada una con su cascada. */
+type FilaReparto = {
+  clave: number;
+  /** Línea de la que salió una fila ya guardada; se suelta en cuanto la persona toca la cascada de esa fila. */
+  linea: string | null;
+  objetivo: string;
+  actividad: string;
+  rubro: string;
+  /** Importe tecleado, como texto es-CO; se lee con `parseMontoInput`, nunca con `Number`. */
+  valor: string;
+};
+
+/**
+ * Las filas con las que abre el formulario. Una factura ya repartida (dos o más líneas) las trae de su reparto, con
+ * su línea guardada; cualquier otro caso abre con la fila única de siempre.
+ */
+function filasIniciales(gasto?: ProjectExpense): FilaReparto[] {
+  const repartos = gasto?.repartos ?? [];
+  if (repartos.length > 1) {
+    return repartos.map((reparto, indice) => ({
+      clave: indice + 1,
+      linea: reparto.linea_id,
+      objetivo: "",
+      actividad: "",
+      rubro: reparto.rubro.id,
+      valor: formatMontoInput(montoToInput(reparto.valor)),
+    }));
+  }
+  return [{ clave: 1, linea: null, objetivo: "", actividad: "", rubro: gasto?.rubro.id ?? "", valor: "" }];
+}
+
+/** El valor tecleado de una fila en centavos; null cuando todavía no es un monto mayor que cero. */
+function valorDeReparto(fila: FilaReparto): Cents | null {
+  if (fila.valor.trim() === "") return null;
+  const limpio = parseMontoInput(fila.valor);
+  if (limpio === null) return null;
+  const cents = toCents(limpio);
+  return cents > BigInt(0) ? cents : null;
+}
+
+/** La suma de las líneas en centavos: las que aún no tienen un importe válido suman 0 mientras se escribe. */
+function sumarRepartos(filas: readonly FilaReparto[]): Cents {
+  return sumCents(filas.map((fila) => valorDeReparto(fila) ?? BigInt(0)));
+}
+
 export function GastoForm({
   proyecto,
   rubros,
+  lineas = [],
   onDone,
   gasto,
 }: {
   proyecto: Pick<ProjectListRow, "id" | "fecha_inicio" | "fecha_fin">;
   rubros: ProjectBudgetRubro[];
+  /**
+   * S9/T14.1: las líneas del presupuesto (actividad + rubro + valor). Sin ellas el formulario conserva el orden
+   * por rubro de siempre: un llamador anterior sigue funcionando sin cambios.
+   */
+  lineas?: ProjectBudgetLinea[];
   onDone: () => void;
   /**
    * S2/T6: si viene, el formulario corrige ese gasto (PATCH) en vez de registrar uno nuevo (POST). No ofrece
@@ -153,11 +273,110 @@ export function GastoForm({
 }) {
   const create = useCreateExpense(proyecto.id);
   const update = useUpdateExpense(proyecto.id);
+  // S9/T14.1: la actividad dice en qué objetivo está; el objetivo solo filtra, nunca se guarda.
+  const actividadesQuery = useProjectActivities(proyecto.id);
+  const objetivosQuery = useProjectObjectives(proyecto.id);
   const enCorreccion = gasto !== undefined;
+  // Un rubro solo se ofrece si su línea tiene monto: la API rechaza una línea sin valor asignado.
+  const actividades = cascadaDeGasto(lineas, actividadesQuery.data ?? []);
+  const conLineas = actividades.length > 0;
+  // S9/T14.2-B2: la cascada está siempre que el presupuesto traiga líneas. Una corrección abre su cascada solo si
+  // la factura ya viene repartida (ahí la vista sí trae la línea de cada fila); una factura de una sola línea sigue
+  // corrigiéndose con la lista de rubros de siempre, como hoy.
+  const repartosGuardados = gasto?.repartos ?? [];
+  const enCascada = conLineas && (!enCorreccion || repartosGuardados.length > 1);
   const conAsignado = rubros.filter((rubro) => rubro.linea_id !== null && toCents(rubro.asignado) > BigInt(0));
+  const rubrosCorregibles = rubros.filter((rubro) => toCents(rubro.asignado) > BigInt(0));
+
+  const objetivos = objetivosQuery.data ?? [];
+  const opcionesObjetivo: Opcion[] = objetivos
+    .filter((objetivo) => actividades.some((actividad) => actividad.objetivo === objetivo.id))
+    .map((objetivo) => ({ clave: objetivo.id, etiqueta: `Objetivo ${objetivo.codigo} · ${objetivo.descripcion}` }));
+  // Un objetivo que la lectura todavía no trajo sigue siendo elegible, con el código de sus actividades.
+  for (const actividad of actividades) {
+    const falta =
+      actividad.objetivo !== OBJETIVO_GESTION && !opcionesObjetivo.some((opcion) => opcion.clave === actividad.objetivo);
+    if (!falta) continue;
+    const codigos = actividades
+      .filter((otra) => otra.objetivo === actividad.objetivo)
+      .map((otra) => otra.codigo ?? otra.clave)
+      .join(", ");
+    opcionesObjetivo.push({ clave: actividad.objetivo, etiqueta: `Objetivo ${codigos}` });
+  }
+  if (actividades.some((actividad) => actividad.objetivo === OBJETIVO_GESTION)) {
+    opcionesObjetivo.push({ clave: OBJETIVO_GESTION, etiqueta: GRUPO_GESTION });
+  }
   const periodos = periodosDe(proyecto);
 
-  const [rubroId, setRubroId] = useState(gasto?.rubro.id ?? "");
+  const [filas, setFilas] = useState<FilaReparto[]>(() => filasIniciales(gasto));
+  const proximaClaveLinea = useRef(filas.length + 1);
+  // S9/T14.2-B2: con una sola línea el formulario es el de siempre; desde dos, la factura está distribuida.
+  const enDistribucion = filas.length > 1;
+
+  /**
+   * La cascada de una fila: el objetivo filtra sus actividades, la actividad deja solo sus rubros presupuestados y
+   * el rubro resuelve la línea exacta. Una fila que viene de una factura repartida se resuelve por su `linea`
+   * guardada, así la corrección abre con la actividad y el rubro que ya tenía.
+   */
+  function derivar(fila: FilaReparto) {
+    const prefijada =
+      enCascada && fila.linea !== null
+        ? actividades.find((actividad) => actividad.rubros.some((rubro) => rubro.linea_id === fila.linea))
+        : undefined;
+    const objetivoBase = prefijada?.objetivo ?? fila.objetivo;
+    // La opción elegida tiene que existir en la lista de hoy: una sola opción se elige sola.
+    const objetivoActivo = opcionesObjetivo.some((opcion) => opcion.clave === objetivoBase)
+      ? objetivoBase
+      : opcionesObjetivo.length === 1
+        ? opcionesObjetivo[0]!.clave
+        : "";
+    const actividadesVisibles = actividades.filter((actividad) => actividad.objetivo === objetivoActivo);
+    const actividadBase = prefijada?.clave ?? fila.actividad;
+    const actividadActiva = actividadesVisibles.some((actividad) => actividad.clave === actividadBase)
+      ? actividadBase
+      : actividadesVisibles.length === 1
+        ? actividadesVisibles[0]!.clave
+        : "";
+    const rubros = actividadesVisibles.find((actividad) => actividad.clave === actividadActiva)?.rubros ?? [];
+    const rubroBase =
+      prefijada === undefined
+        ? fila.rubro
+        : (prefijada.rubros.find((rubro) => rubro.linea_id === fila.linea)?.clave ?? fila.rubro);
+    // Sin cascada (un llamador anterior o una línea heredada) la fila conserva el rubro guardado tal cual.
+    const rubroElegido = enCascada ? (rubros.some((rubro) => rubro.clave === rubroBase) ? rubroBase : "") : rubroBase;
+    // S9: el gasto se guarda contra la línea de la actividad y el rubro elegidos, nunca contra una cualquiera.
+    const lineaElegida = enCascada ? (rubros.find((rubro) => rubro.clave === rubroElegido)?.linea_id ?? null) : fila.linea;
+    return { objetivoActivo, actividadesVisibles, actividadActiva, rubros, rubroElegido, lineaElegida };
+  }
+
+  const primera = derivar(filas[0]!);
+  const objetivoActivo = primera.objetivoActivo;
+  const actividadActiva = primera.actividadActiva;
+  const rubrosDeActividad = primera.rubros;
+  const rubroElegido = primera.rubroElegido;
+  const lineaElegida = primera.lineaElegida;
+  const rubrosOfrecidos: Opcion[] = enCascada
+    ? rubrosDeActividad
+    : (enCorreccion ? rubrosCorregibles : conAsignado).map((rubro) => ({
+        clave: rubro.rubro_id,
+        etiqueta: rubro.codigo ? `${rubro.codigo} · ${rubro.nombre}` : rubro.nombre,
+      }));
+  const sinRubros = !enCascada && rubrosOfrecidos.length === 0;
+
+  function actualizarFila(clave: number, cambio: Partial<Omit<FilaReparto, "clave">>) {
+    setFilas((actuales) => actuales.map((fila) => (fila.clave === clave ? { ...fila, ...cambio } : fila)));
+  }
+
+  /** S9/T14.2-B2: una línea más de la distribución, con su propia cascada y su valor. */
+  function agregarFila() {
+    const clave = proximaClaveLinea.current;
+    proximaClaveLinea.current += 1;
+    setFilas((actuales) => [...actuales, { clave, linea: null, objetivo: "", actividad: "", rubro: "", valor: "" }]);
+  }
+
+  function quitarFila(clave: number) {
+    setFilas((actuales) => actuales.filter((fila) => fila.clave !== clave));
+  }
   const [fecha, setFecha] = useState(gasto?.fecha_documento.slice(0, 10) ?? todayInBogota());
   const [periodo, setPeriodo] = useState(() => gasto?.periodo ?? periodoDeFecha(todayInBogota(), periodos));
   // The expense will show «Cuenta en AAAA-MM» when its period is not the month of its document date.
@@ -215,21 +434,63 @@ export function GastoForm({
   function submit() {
     const subtotalNormal = normalizarSubtotal(subtotal);
     const ivaNormal = normalizarIva(iva);
-    if (conAsignado.length === 0) return setLocal(SIN_RUBROS);
-    if (rubroId === "") return setLocal("Elige el rubro.");
+    if (sinRubros) return setLocal(SIN_RUBROS);
+    if (enDistribucion) {
+      // S9/T14.2-B2: sin las líneas del presupuesto no hay forma de saber a qué línea va cada fila de una factura
+      // repartida, así que se niega en vez de mandar una distribución a medias; el diálogo vuelve a ofrecerla en
+      // cuanto llegan las líneas.
+      if (!enCascada) return setLocal(REPARTO_LINEA);
+      // Cada línea elige su actividad y su rubro con la cascada y escribe su valor; se revisan todas.
+      for (const fila of filas) {
+        const derivada = derivar(fila);
+        if (enCascada && derivada.objetivoActivo === "") return setLocal(ELIGE_OBJETIVO);
+        if (enCascada && derivada.actividadActiva === "") return setLocal(ELIGE_ACTIVIDAD);
+        if (derivada.rubroElegido === "") return setLocal("Elige el rubro.");
+        if (derivada.lineaElegida === null) return setLocal(REPARTO_LINEA);
+        if (valorDeReparto(fila) === null) return setLocal(REPARTO_VALOR);
+      }
+    } else {
+      if (enCascada && objetivoActivo === "") return setLocal(ELIGE_OBJETIVO);
+      if (enCascada && actividadActiva === "") return setLocal(ELIGE_ACTIVIDAD);
+      if (rubroElegido === "") return setLocal("Elige el rubro.");
+    }
     if (fecha === "") return setLocal("La fecha del documento es obligatoria.");
     if (periodo === "") return setLocal(PERIODO_REQUERIDO);
     // Los errores de monto ya están en línea junto al campo; el aviso general solo cubre el vacío.
     if (subtotalNormal === null) return setLocal(subtotal.trim() === "" ? SUBTOTAL_INVALIDO : null);
     if (iva.trim() === "") return setLocal(IVA_VACIO);
     if (ivaNormal === null) return setLocal(null);
+    // S9/T14.2-B2: la suma de las líneas tiene que ser exactamente el total (subtotal + IVA); si no, no se guarda.
+    if (enDistribucion && sumarRepartos(filas) !== toCents(subtotalNormal) + toCents(ivaNormal)) {
+      return setLocal(REPARTO_SUMA);
+    }
     if (tercero.trim() === "") return setLocal("El nombre del tercero es obligatorio.");
     if (numeroDoc.trim() === "") return setLocal("El número de documento es obligatorio.");
     if (descripcion.trim() === "") return setLocal("La descripción es obligatoria.");
 
     setLocal(null);
+    // S9/T14.2-B2: con una sola línea el cuerpo es el de siempre (rubro y línea exacta). Desde dos líneas la
+    // factura va por su distribución y la cabecera no lleva ni rubro ni línea: mezclarlos es el 400 del servidor.
+    // A split invoice corrected down to one line still travels as a distribution (of one row): the PATCH has no
+    // `linea_id`, and without `repartos` the server would refuse to collapse the stored rows.
+    const unaFilaRepartida = !enDistribucion && enCorreccion && enCascada && lineaElegida !== null;
     const campos = {
-      rubro_id: rubroId,
+      ...(enDistribucion
+        ? {
+            repartos: filas.map((fila) => ({
+              // La validación de arriba ya exigió una línea y un valor mayor que cero para cada fila.
+              linea_id: derivar(fila).lineaElegida ?? "",
+              valor: fromCents(valorDeReparto(fila) ?? BigInt(0)),
+            })),
+          }
+        : unaFilaRepartida
+          ? { repartos: [{ linea_id: lineaElegida, valor: fromCents(toCents(subtotalNormal) + toCents(ivaNormal)) }] }
+          : {
+            rubro_id: rubroElegido,
+            // S9/T14.1: la línea exacta de la actividad y el rubro elegidos; sin cascada (un llamador anterior) la
+            // API resuelve la del rubro, como antes.
+            ...(lineaElegida === null ? {} : { linea_id: lineaElegida }),
+          }),
       fecha_documento: fecha,
       periodo,
       tipo_soporte: tipoSoporte,
@@ -334,9 +595,12 @@ export function GastoForm({
   // The Total is always Subtotal + IVA and is never typed; it stays $ 0 until both amounts read as valid.
   const subtotalCents = normalizarSubtotal(subtotal);
   const ivaCents = normalizarIva(iva);
-  const totalTexto = formatCOP(
-    (subtotalCents === null ? BigInt(0) : toCents(subtotalCents)) + (ivaCents === null ? BigInt(0) : toCents(ivaCents)),
-  );
+  const totalCents =
+    (subtotalCents === null ? BigInt(0) : toCents(subtotalCents)) + (ivaCents === null ? BigInt(0) : toCents(ivaCents));
+  const totalTexto = formatCOP(totalCents);
+  // S9/T14.2-B2: la suma de la distribución a la vista mientras se reparte; un `faltante` positivo es lo que falta.
+  const sumaRepartos = sumarRepartos(filas);
+  const faltanteReparto = totalCents - sumaRepartos;
   // S2/L16 (c): errors are shown as soon as the field has text; empty stays for the submit check.
   const subtotalError = subtotal.trim() !== "" && subtotalCents === null ? SUBTOTAL_INVALIDO : null;
   const ivaError = iva.trim() !== "" && ivaCents === null ? IVA_INVALIDO : null;
@@ -358,20 +622,162 @@ export function GastoForm({
       }}
       className="mt-2 grid gap-2.5 rounded-inner border border-border bg-panel p-3 sm:grid-cols-2"
     >
-      {conAsignado.length === 0 && (
+      {sinRubros && (
         <p className="text-[12.5px] text-ink-600 sm:col-span-2">{SIN_RUBROS}</p>
       )}
 
-      <Campo id={`${p}-rubro`} label="Rubro">
-        <select id={`${p}-rubro`} value={rubroId} onChange={(e) => setRubroId(e.target.value)} className={SELECT}>
-          <option value="">Elige un rubro</option>
-          {conAsignado.map((rubro) => (
-            <option key={rubro.rubro_id} value={rubro.rubro_id}>
-              {rubro.codigo ? `${rubro.codigo} · ${rubro.nombre}` : rubro.nombre}
-            </option>
-          ))}
-        </select>
-      </Campo>
+      {filas.map((fila, indice) => {
+        const numero = indice + 1;
+        // La primera fila conserva los nombres de siempre; las siguientes los numeran para que cada control tenga
+        // un id y un nombre accesible propios.
+        const sufijo = numero === 1 ? "" : ` ${numero}`;
+        const idCampo = (campo: string) => (numero === 1 ? `${p}-${campo}` : `${p}-${campo}-${numero}`);
+        const derivada = derivar(fila);
+        const camposDeFila = (
+          <>
+            {enCascada && (
+              <>
+                <Campo id={idCampo("objetivo")} label={`Objetivo${sufijo}`}>
+                  <select
+                    id={idCampo("objetivo")}
+                    value={derivada.objetivoActivo}
+                    onChange={(e) =>
+                      // El objetivo solo filtra: cambiar de objetivo empieza la actividad y el rubro de nuevo.
+                      actualizarFila(fila.clave, { objetivo: e.target.value, actividad: "", rubro: "", linea: null })
+                    }
+                    className={SELECT}
+                  >
+                    <option value="">Elige un objetivo</option>
+                    {opcionesObjetivo.map((opcion) => (
+                      <option key={opcion.clave} value={opcion.clave}>
+                        {opcion.etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+
+                <Campo id={idCampo("actividad")} label={`Actividad${sufijo}`}>
+                  <select
+                    id={idCampo("actividad")}
+                    value={derivada.actividadActiva}
+                    onChange={(e) =>
+                      actualizarFila(fila.clave, {
+                        objetivo: derivada.objetivoActivo,
+                        actividad: e.target.value,
+                        rubro: "",
+                        linea: null,
+                      })
+                    }
+                    className={SELECT}
+                  >
+                    <option value="">Elige una actividad</option>
+                    {derivada.actividadesVisibles.map((actividad) => (
+                      <option key={actividad.clave} value={actividad.clave}>
+                        {actividad.etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+              </>
+            )}
+
+            <Campo id={idCampo("rubro")} label={`Rubro${sufijo}`}>
+              <select
+                id={idCampo("rubro")}
+                value={derivada.rubroElegido}
+                onChange={(e) =>
+                  actualizarFila(fila.clave, {
+                    objetivo: derivada.objetivoActivo,
+                    actividad: derivada.actividadActiva,
+                    rubro: e.target.value,
+                    linea: null,
+                  })
+                }
+                className={SELECT}
+              >
+                <option value="">Elige un rubro</option>
+                {(enCascada ? derivada.rubros : rubrosOfrecidos).map((rubro) => (
+                  <option key={rubro.clave} value={rubro.clave}>
+                    {rubro.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+
+            {enDistribucion && (
+              <Campo id={idCampo("valor")} label={`Valor${sufijo}`}>
+                <Input
+                  id={idCampo("valor")}
+                  inputMode="decimal"
+                  value={fila.valor}
+                  aria-describedby={`${p}-suma`}
+                  onChange={(e) => actualizarFila(fila.clave, { valor: formatearMontoAlEscribir(e.target.value) })}
+                  className={FIELD}
+                />
+              </Campo>
+            )}
+          </>
+        );
+        // Con una sola línea no hay distribución: se pinta el mismo formulario de siempre, sin campo «Valor».
+        if (!enDistribucion) return <Fragment key={fila.clave}>{camposDeFila}</Fragment>;
+        return (
+          <fieldset
+            key={fila.clave}
+            className="flex min-w-0 flex-col gap-2 rounded-inner border border-border bg-panel p-2 sm:col-span-2 sm:grid sm:grid-cols-4 sm:items-end"
+          >
+            <legend className="px-1 text-[12px] text-ink-600">{`Línea ${numero}`}</legend>
+            {camposDeFila}
+            {numero > 1 && (
+              <div className="sm:col-span-4">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className={CAPTURE_BUTTON}
+                  aria-label={`Quitar línea ${numero}`}
+                  disabled={pending}
+                  onClick={() => quitarFila(fila.clave)}
+                >
+                  Quitar
+                </Button>
+              </div>
+            )}
+          </fieldset>
+        );
+      })}
+
+      {enDistribucion && (
+        <p id={`${p}-suma`} className="text-[12.5px] text-ink-700 sm:col-span-2">
+          {`Suma de la distribución: ${formatCOP(sumaRepartos)} de ${totalTexto}`}
+        </p>
+      )}
+
+      {enDistribucion && faltanteReparto > BigInt(0) && (
+        <p className="text-[12.5px] text-alerta sm:col-span-2">
+          {`Faltan ${formatCOP(faltanteReparto)} para el total de la factura.`}
+        </p>
+      )}
+
+      {enDistribucion && faltanteReparto < BigInt(0) && (
+        <p className="text-[12.5px] text-alerta sm:col-span-2">
+          {`Sobran ${formatCOP(-faltanteReparto)} del total de la factura.`}
+        </p>
+      )}
+
+      {enCascada && (
+        <div className="sm:col-span-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className={CAPTURE_BUTTON}
+            disabled={pending}
+            onClick={agregarFila}
+          >
+            {AGREGAR_LINEA}
+          </Button>
+        </div>
+      )}
 
       <Campo id={`${p}-subtotal`} label="Subtotal">
         <Input

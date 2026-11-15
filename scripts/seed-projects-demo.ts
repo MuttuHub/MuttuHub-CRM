@@ -883,6 +883,10 @@ async function registrarGasto(
         registrado_por_id: actores.coordinador,
       },
     })
+    // S9/T14: every expense has its distribution; a one-line invoice has one row with its total, like the API.
+    await tx.gastoReparto.create({
+      data: { proyecto_id: proyecto.id, gasto_id: created.id, linea_id: created.linea_id, valor: decimalFromCents(total) },
+    })
     const creados: { id: string }[] = []
     for (const soporte of soportes) {
       creados.push(
@@ -898,7 +902,11 @@ async function registrarGasto(
       entidad_id: created.id,
       proyecto_id: proyecto.id,
       valor_nuevo: {
-        ...gastoAuditable({ ...created, rubro_id: linea.value.rubro.id }),
+        ...gastoAuditable({
+          ...created,
+          rubro_id: linea.value.rubro.id,
+          repartos: [{ linea_id: created.linea_id, valor: total }],
+        }),
         estado: created.estado,
         soportes: creados.length,
       },

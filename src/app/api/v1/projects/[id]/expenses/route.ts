@@ -2,8 +2,14 @@
 // POST — register an expense against the budget line of a rubro, with 1..5 supports.
 //
 // Register: ADMINISTRADOR/GERENCIA or an active-member COORDINADOR on an EN_EJECUCION project
-// (404 -> 403 -> 409 -> 400). The rubro must have an assigned amount above zero; the period must be
-// a month of the project (default: the month of the document date); the estado is always REGISTRADO.
+// (404 -> 403 -> 409 -> 400). The body may name the exact line (`linea_id`, the activity + rubro the form
+// chose, S9/T14.1) or only the rubro (older callers); the rubro must have an assigned amount above zero and a
+// `linea_id` has to be one of that rubro's lines in the project. S9/T14.2-B1: with `repartos` the invoice is
+// distributed across lines — one row per activity + rubro, the header carrying neither `rubro_id` nor
+// `linea_id` — every line must be a line of this project with an assigned amount and the rows must add up to
+// exactly the invoice total (subtotal + IVA); `gastos.linea_id` is the line of the first row. Without `repartos`
+// the invoice gets a single row with its whole total, so the rows always add up. The period must be a month of
+// the project (default: the month of the document date); the estado is always REGISTRADO.
 // Supports follow the confirm-mode flow (sign -> direct upload -> confirm) and are created in the same
 // transaction as the expense. Alerts never block: SOBREGASTO (critical, over the assigned amount, with
 // the «Solicita un traslado al Gerente» message and the Gerencia notification), SOBREGASTO_PROGRAMADO
@@ -15,6 +21,7 @@
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { apiError } from "@/lib/api/errors";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
@@ -28,17 +35,21 @@ import {
   alertaSobregasto,
   buscarDuplicados,
   clavesNormalizadas,
+  evaluarRepartos,
   gastoAuditable,
   gateGastoRead,
-  nivelSobregasto,
+  nivelSobregastoDeFactura,
   parseMontosGasto,
+  repartosDeLineas,
   resolverLinea,
+  resolverRepartos,
   resumenGastos,
   resolverPeriodo,
   superaAsignado,
   toGastoView,
   totalesPorEstado,
   type AlertaGasto,
+  type RepartoFactura,
 } from "@/lib/api/gastos";
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
 import { normalizeProjectDate } from "@/lib/api/projects";
@@ -90,8 +101,25 @@ export const POST = withApiErrorHandling(
 
     const montos = parseMontosGasto(input.subtotal, input.iva);
     if (!montos.ok) return montos.response;
-    const linea = await resolverLinea(id, input.rubro_id);
-    if (!linea.ok) return linea.response;
+
+    // S9/T14.2-B1: with `repartos` the invoice is distributed and the header carries no rubro or line; without
+    // them the legacy shape is untouched and the invoice gets one row with its whole total.
+    let repartos: RepartoFactura[];
+    if (input.repartos) {
+      const evaluados = evaluarRepartos(input.repartos, montos.total);
+      if (!evaluados.ok) return apiError(evaluados.message, 400, "VALIDATION_ERROR");
+      const resueltos = await resolverRepartos(id, evaluados.value);
+      if (!resueltos.ok) return resueltos.response;
+      repartos = resueltos.value;
+    } else {
+      // The schema already guarantees the rubro without `repartos`; this narrows it for the resolver.
+      if (input.rubro_id === undefined) return apiError("El rubro es obligatorio.", 400, "VALIDATION_ERROR");
+      const linea = await resolverLinea(id, input.rubro_id, input.linea_id);
+      if (!linea.ok) return linea.response;
+      repartos = [{ linea: linea.value, valor: montos.total }];
+    }
+    // `gastos.linea_id` keeps its NOT NULL and means «the line of the first distribution row».
+    const cabecera = repartos[0].linea;
     const periodo = resolverPeriodo(proyecto, input.fecha_documento, input.periodo);
     if (!periodo.ok) return periodo.response;
 
@@ -112,11 +140,14 @@ export const POST = withApiErrorHandling(
 
     try {
       const { gasto, soportesCreados, nivel } = await db.$transaction(async (tx) => {
-        const sobregasto = await superaAsignado(tx, linea.value, montos.total);
+        // The overspend is checked against each row's own line and assigned amount, never the header's.
+        const criticos: boolean[] = [];
+        for (const reparto of repartos) criticos.push(await superaAsignado(tx, reparto.linea, reparto.valor));
+        const sobregasto = criticos.some(Boolean);
         const created = await tx.gasto.create({
           data: {
             proyecto_id: id,
-            linea_id: linea.value.id,
+            linea_id: cabecera.id,
             fecha_documento: normalizeProjectDate(input.fecha_documento),
             periodo: periodo.value,
             tipo_soporte: input.tipo_soporte,
@@ -131,6 +162,16 @@ export const POST = withApiErrorHandling(
             alerta_sobregasto: sobregasto,
             registrado_por_id: auth.usuario.id,
           },
+        });
+
+        // The header and its distribution land in the same transaction: a failure leaves nothing written.
+        await tx.gastoReparto.createMany({
+          data: repartos.map((reparto) => ({
+            proyecto_id: id,
+            gasto_id: created.id,
+            linea_id: reparto.linea.id,
+            valor: decimalFromCents(reparto.valor),
+          })),
         });
 
         const soportesCreados = [];
@@ -149,14 +190,22 @@ export const POST = withApiErrorHandling(
           entidad_id: created.id,
           proyecto_id: id,
           valor_nuevo: {
-            ...gastoAuditable({ ...created, rubro_id: linea.value.rubro.id }),
+            ...gastoAuditable({
+              ...created,
+              rubro_id: cabecera.rubro.id,
+              repartos: repartos.map((reparto) => ({ linea_id: reparto.linea.id, valor: reparto.valor })),
+            }),
             estado: created.estado,
             soportes: soportesCreados.length,
           },
         });
 
-        // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
-        const nivel = await nivelSobregasto(tx, linea.value, { periodo: periodo.value, critico: sobregasto });
+        // S2/L16: after saving, each line tells its level; the critical one also rings the Gerencia bell.
+        const nivel = await nivelSobregastoDeFactura(
+          tx,
+          repartos.map((reparto, indice) => ({ ...reparto, critico: criticos[indice] })),
+          periodo.value,
+        );
         if (sobregasto) await notificarSobregasto(tx, { gastoId: created.id, proyectoId: id });
         return { gasto: created, soportesCreados, nivel };
       });
@@ -167,7 +216,12 @@ export const POST = withApiErrorHandling(
       alertas.push(...(await buscarDuplicados(auth.usuario, gasto)));
 
       const view = toGastoView(
-        { ...gasto, linea: { rubro: linea.value.rubro }, soportes: soportesCreados },
+        {
+          ...gasto,
+          linea: { rubro: cabecera.rubro },
+          repartos: repartosDeLineas(repartos),
+          soportes: soportesCreados,
+        },
         { puedeVerSoportes: true },
       );
       return NextResponse.json({ gasto: view, alertas }, { status: 201 });

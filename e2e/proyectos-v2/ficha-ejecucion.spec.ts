@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginToProject } from "./helpers";
 
 // Guide §3, §5, §6, §7, §11 on PRY-2026-001 (EN_EJECUCION). Serial: the expense lifecycle spans roles.
@@ -30,13 +30,49 @@ async function openGastos(page: Page) {
   await page.getByRole("tab", { name: "Gastos" }).click();
 }
 
+/**
+ * T14.1/S9: el formulario de gasto recorre Objetivo → Actividad → Rubro, así que el rubro solo aparece cuando
+ * se eligió la actividad que lo presupuesta. Se busca el par que lo tenga en vez de fijar uno del seed.
+ */
+async function elegirLineaDelGasto(page: Page, form: Locator, rubro: RegExp) {
+  const objetivo = form.getByLabel("Objetivo");
+  const actividad = form.getByLabel("Actividad");
+  const selectorRubro = form.getByLabel("Rubro");
+  const valores = async (selector: Locator) =>
+    (await selector.locator("option").evaluateAll((opciones) => opciones.map((o) => (o as HTMLOptionElement).value))).filter(
+      (valor) => valor !== "",
+    );
+  // La lista de rubros se repinta al elegir la actividad, así que se espera a que aparezca el rubro buscado.
+  const rubroDeActividad = async () => {
+    for (let intento = 0; intento < 20; intento++) {
+      const elegido = (await selectorRubro.locator("option").allTextContents()).find((texto) => rubro.test(texto));
+      if (elegido !== undefined) return elegido;
+      await page.waitForTimeout(100);
+    }
+    return undefined;
+  };
+
+  for (const claveObjetivo of await valores(objetivo)) {
+    await objetivo.selectOption(claveObjetivo);
+    for (const claveActividad of await valores(actividad)) {
+      await actividad.selectOption(claveActividad);
+      const elegido = await rubroDeActividad();
+      if (elegido !== undefined) {
+        await selectorRubro.selectOption({ label: elegido });
+        return;
+      }
+    }
+  }
+  throw new Error(`Ninguna actividad del seed presupuesta el rubro ${rubro}`);
+}
+
 async function registrarGasto(
   page: Page,
   v: { rubro: RegExp; subtotal: string; doc: string; tercero: string },
 ) {
   await page.getByTestId("gastos").getByRole("button", { name: "Registrar gasto" }).click();
   const form = page.getByRole("form", { name: "Registrar gasto" });
-  await form.getByLabel("Rubro").selectOption({ label: (await form.getByLabel("Rubro").locator("option").allTextContents()).find((t) => v.rubro.test(t))! });
+  await elegirLineaDelGasto(page, form, v.rubro);
   // AJ-04: the total is Subtotal + IVA; IVA starts at 0, so the total equals the subtotal here.
   await form.getByLabel("Subtotal", { exact: true }).fill(v.subtotal);
   await form.getByLabel("Fecha del documento").fill(new Date().toISOString().slice(0, 10));
@@ -87,11 +123,13 @@ test("Registrar avance with a generated file → Documentos (Actividades) → op
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await tab(page, "Actividades").click();
   // 1.4-E2 has target 4 and 0 counted: room for several runs; the form asks for a justification past the target.
-  // The deliverables of an activity in progress start folded: unfold them first.
-  if (!(await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).isVisible())) {
-    await page.getByRole("button", { name: /^Ver \d+ entregables?$/ }).filter({ visible: true }).last().click();
-  }
-  await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).click();
+  // The deliverables of an activity in progress start folded, but an overdue one opens them by itself (1.4 ends on a
+  // fixed date of the seed), so wait for either state before deciding: `isVisible` does not wait for the render.
+  const registrar = page.getByRole("button", { name: "Registrar cantidad 1.4-E2" });
+  const desplegar = page.getByRole("button", { name: /^Ver \d+ entregables?$/ }).filter({ visible: true }).last();
+  await expect(registrar.or(desplegar).first()).toBeVisible();
+  if (!(await registrar.isVisible())) await desplegar.click();
+  await registrar.click();
   const form = page.getByRole("form", { name: "Registrar cantidad 1.4-E2" });
   await form.getByLabel("Cantidad").fill("1");
   const just = form.getByLabel("Justificación del exceso");

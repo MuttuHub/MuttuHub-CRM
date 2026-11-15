@@ -14,6 +14,7 @@ import { logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { diferenciaValor } from "@/lib/proyectos/proyecto-general";
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 import { projectPeriods } from "@/lib/proyectos/weeks";
+import { lineasTienenGastos } from "./lineas-con-gastos";
 
 const PRESUPUESTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 const PRESUPUESTO_STATE_MESSAGE =
@@ -571,7 +572,7 @@ export async function borrarPresupuestoDeActividad(
   });
   if (lineas.length === 0) return;
   const ids = lineas.map((linea) => linea.id);
-  if ((await tx.gasto.count({ where: { proyecto_id: input.proyectoId, linea_id: { in: ids } } })) > 0) {
+  if (await lineasTienenGastos(tx, input.proyectoId, ids)) {
     throw new RespuestaAbortada(apiError(ACTIVIDAD_CON_GASTOS_MESSAGE, 409, "CONFLICT"));
   }
 

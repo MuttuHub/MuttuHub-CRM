@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   lineaDelete: vi.fn(),
   actividadFindMany: vi.fn(),
   gastoCount: vi.fn(),
+  repartoCount: vi.fn(),
   celdaDeleteMany: vi.fn(),
   proyectoUpdate: vi.fn(),
   proyectoFindUnique: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/lib/db", () => {
     },
     actividad: { findMany: mocks.actividadFindMany },
     gasto: { count: mocks.gastoCount },
+    gastoReparto: { count: mocks.repartoCount },
     programacionPeriodo: { deleteMany: mocks.celdaDeleteMany },
     proyecto: { update: mocks.proyectoUpdate, findUniqueOrThrow: mocks.proyectoFindUnique },
     $queryRaw: mocks.queryRaw,
@@ -129,6 +131,7 @@ beforeEach(() => {
   mocks.lineaDelete.mockResolvedValue({});
   mocks.actividadFindMany.mockResolvedValue([act11, act12, act110]);
   mocks.gastoCount.mockResolvedValue(0);
+  mocks.repartoCount.mockResolvedValue(0);
   mocks.celdaDeleteMany.mockResolvedValue({ count: 0 });
   mocks.proyectoUpdate.mockResolvedValue({});
 });
@@ -309,6 +312,17 @@ describe("PUT budget: validation (400)", () => {
     const res = await PUT(put(cuerpo()), ctx);
     expect(res.status).toBe(400);
     expect((await res.json()).error).toContain("gastos");
+    expect(mocks.lineaDelete).not.toHaveBeenCalled();
+  });
+
+  // T14 cross-lane debt: the line's only expense is the second row of a split invoice, not a header.
+  it("refuses to remove a line whose only expense is a row of a split invoice (S9)", async () => {
+    mocks.lineaFindMany.mockResolvedValue([linea("r1", "100", "l-11-r1", act11)]);
+    mocks.repartoCount.mockResolvedValue(1);
+    const res = await PUT(put(cuerpo()), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("gastos");
+    expect(mocks.repartoCount).toHaveBeenCalledWith({ where: { proyecto_id: "pry-1", linea_id: { in: ["l-11-r1"] } } });
     expect(mocks.lineaDelete).not.toHaveBeenCalled();
   });
 });

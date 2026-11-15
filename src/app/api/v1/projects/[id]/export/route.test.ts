@@ -75,6 +75,7 @@ const sheet = {
   ejecucion_disponible: true,
   rubros: ficha.rubros.map((r) => serializeRow(r, true)),
   total: serializeRow(ficha.total, true),
+  actividades: [],
   alerta_retraso: false,
   parametros: { tolerancia: 10, retraso: 70, confirmado: false },
 }

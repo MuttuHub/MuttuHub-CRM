@@ -16,7 +16,7 @@ import {
 } from "@/lib/permissions";
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";
-import { MONTO_MAXIMO_CENTS, parseMonto } from "@/lib/api/presupuesto";
+import { MONTO_MAXIMO_CENTS, decimalFromCents, parseMonto } from "@/lib/api/presupuesto";
 import { PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
 import { excederiaAsignado } from "@/lib/proyectos/ficha-financiera";
 import {
@@ -45,6 +45,20 @@ const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
 export const MAX_SOPORTES = 5;
 export const MAX_SOPORTES_MESSAGE = `Puedes adjuntar máximo ${MAX_SOPORTES} soportes.`;
 export const RUBRO_SIN_ASIGNADO_MESSAGE = "Solo puedes registrar gastos en rubros con valor asignado.";
+/** S9/T14.1: the line the form chose must be one of that rubro's lines in the project. */
+export const LINEA_NO_DEL_RUBRO_MESSAGE = "La línea elegida no corresponde al rubro de este proyecto.";
+/** S9/T14.2-B1: the distributed invoice names its lines; a header rubro or line next to them is the ambiguity. */
+export const REPARTO_MEZCLA_MESSAGE = "Una factura distribuida no lleva rubro ni línea en la cabecera.";
+/** S9: «Una distribución que suma $990.000 para una factura de $1.000.000 no se guarda.» */
+export const REPARTO_SUMA_MESSAGE = "Las líneas de la distribución deben sumar exactamente el total de la factura.";
+export const REPARTO_SIN_FILAS_MESSAGE = "Indica al menos una línea de la distribución.";
+export const REPARTO_VALOR_MESSAGE = "El valor de cada línea de la distribución debe ser mayor que cero.";
+export const REPARTO_LINEA_MESSAGE = "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.";
+/** Review of T14: one line appears once per invoice, so its overspend check sees the whole amount it receives. */
+export const REPARTO_LINEA_REPETIDA_MESSAGE =
+  "Cada línea (actividad y rubro) puede aparecer una sola vez en la distribución de la factura.";
+/** S9/T14.2-B1: a split invoice is re-split only with its full distribution; otherwise its rows stop summing. */
+export const REPARTO_REQUERIDO_MESSAGE = "Envía la distribución completa para corregir una factura repartida.";
 export const PERIODO_FUERA_MESSAGE = "El periodo debe corresponder a un mes del proyecto.";
 const PROYECTO_SIN_FECHAS_MESSAGE = "El proyecto no tiene fechas definidas.";
 export const GASTO_VALIDADO_MESSAGE = "Un gasto validado no se puede editar.";
@@ -106,9 +120,30 @@ const GASTO_FIELDS = {
   iva: z.union([z.string(), z.number()], { error: "Ingresa un IVA válido (puede ser 0)." }),
 };
 
-export const GASTO_CREATE_SCHEMA = z
+/** One row of a distributed invoice: the budget line and the amount that belongs to it (S9/T14.2-B1). */
+const GASTO_REPARTO_SCHEMA = z
   .object({
-    rubro_id: GASTO_FIELDS.rubro_id,
+    linea_id: z.string({ error: REPARTO_LINEA_MESSAGE }).min(1, REPARTO_LINEA_MESSAGE),
+    valor: z.union([z.string(), z.number()], { error: REPARTO_VALOR_MESSAGE }),
+  })
+  .strict();
+
+const repartosField = z
+  .array(GASTO_REPARTO_SCHEMA, { error: REPARTO_SIN_FILAS_MESSAGE })
+  .min(1, REPARTO_SIN_FILAS_MESSAGE)
+  .optional();
+
+const GASTO_CREATE_BASE = z
+  .object({
+    /** Optional with `repartos`: the distribution names the lines and the header keeps no rubro of its own. */
+    rubro_id: GASTO_FIELDS.rubro_id.optional(),
+    /**
+     * S9/T14.1: the exact budget line (activity + rubro) the form chose. Optional, so a caller that only
+     * knows the rubro keeps working; when it arrives it must be one of that rubro's lines in the project.
+     */
+    linea_id: z.string().min(1, LINEA_NO_DEL_RUBRO_MESSAGE).optional(),
+    /** S9/T14.2-B1: the distributed invoice, one row per activity + rubro. Excludes `rubro_id`/`linea_id`. */
+    repartos: repartosField,
     fecha_documento: GASTO_FIELDS.fecha_documento,
     periodo: GASTO_FIELDS.periodo.optional(),
     tipo_soporte: GASTO_FIELDS.tipo_soporte,
@@ -126,9 +161,29 @@ export const GASTO_CREATE_SCHEMA = z
   })
   .strict();
 
-export const GASTO_PATCH_SCHEMA = z
+/** The fields the distribution rule reads: the create body, and the import row that omits `soportes`. */
+type GastoConRepartos = { rubro_id?: string; linea_id?: string; repartos?: unknown[] };
+
+/** Without `repartos` the body keeps its legacy shape: `rubro_id` (and the optional `linea_id`) are required. */
+function revisarRepartosDeGasto(value: GastoConRepartos, ctx: z.RefinementCtx) {
+  if (value.repartos === undefined) {
+    if (value.rubro_id === undefined) {
+      ctx.addIssue({ code: "custom", message: "El rubro es obligatorio.", path: ["rubro_id"] });
+    }
+    return;
+  }
+  // S9/T14.2-B1: a body that mixes both would leave the invoice described twice: that ambiguity is the bug.
+  if (value.rubro_id !== undefined) ctx.addIssue({ code: "custom", message: REPARTO_MEZCLA_MESSAGE, path: ["rubro_id"] });
+  if (value.linea_id !== undefined) ctx.addIssue({ code: "custom", message: REPARTO_MEZCLA_MESSAGE, path: ["linea_id"] });
+}
+
+export const GASTO_CREATE_SCHEMA = GASTO_CREATE_BASE.superRefine(revisarRepartosDeGasto);
+
+const GASTO_PATCH_BASE = z
   .object({
     rubro_id: GASTO_FIELDS.rubro_id.optional(),
+    /** S9/T14.2-B1: new distribution of the invoice; it excludes `rubro_id`, as in the create body. */
+    repartos: repartosField,
     fecha_documento: GASTO_FIELDS.fecha_documento.optional(),
     periodo: GASTO_FIELDS.periodo.optional(),
     tipo_soporte: GASTO_FIELDS.tipo_soporte.optional(),
@@ -146,11 +201,17 @@ export const GASTO_PATCH_SCHEMA = z
   })
   .strict();
 
+export const GASTO_PATCH_SCHEMA = GASTO_PATCH_BASE.superRefine((value, ctx) => {
+  if (value.repartos !== undefined && value.rubro_id !== undefined) {
+    ctx.addIssue({ code: "custom", message: REPARTO_MEZCLA_MESSAGE, path: ["rubro_id"] });
+  }
+});
+
 /** One row of an expense: the create body without its supports (the Excel import carries none). */
-export const GASTO_FILA_SCHEMA = GASTO_CREATE_SCHEMA.omit({ soportes: true });
+export const GASTO_FILA_SCHEMA = GASTO_CREATE_BASE.omit({ soportes: true }).superRefine(revisarRepartosDeGasto);
 
 /** Query of the pre-save duplicate check: the create body's identity fields, never the amount. */
-export const GASTO_DUPLICADO_QUERY_SCHEMA = GASTO_CREATE_SCHEMA.pick({
+export const GASTO_DUPLICADO_QUERY_SCHEMA = GASTO_CREATE_BASE.pick({
   tercero_tipo_id: true,
   tercero_numero_id: true,
   numero_documento: true,
@@ -182,6 +243,33 @@ export function parseMontosGasto(subtotal: unknown, iva: unknown): MontosGasto |
   const evaluated = evaluarMontosGasto(subtotal, iva);
   if (!evaluated.ok) return { ok: false, response: apiError(evaluated.message, 400, "VALIDATION_ERROR") };
   return evaluated;
+}
+
+/** One requested distribution row, already in exact cents. */
+export type RepartoPedido = { linea_id: string; valor: Cents };
+
+/**
+ * S9/T14.2-B1: the distribution of a distributed invoice. Every row is positive and exact, and the rows add up
+ * to the invoice total (subtotal + IVA, the value the header stores) — never to the subtotal alone. The example of
+ * the PO: 350.000 + 650.000 = 1.000.000 is saved; 990.000 for a 1.000.000 invoice is not. Without HTTP.
+ */
+export function evaluarRepartos(
+  repartos: readonly { linea_id: string; valor: string | number }[],
+  total: Cents,
+): { ok: true; value: RepartoPedido[] } | { ok: false; message: string } {
+  const filas: RepartoPedido[] = [];
+  for (const fila of repartos) {
+    const monto = parseMonto(fila.valor);
+    if (!monto.ok || monto.cents <= BigInt(0) || monto.cents > MONTO_MAXIMO_CENTS) {
+      return { ok: false, message: REPARTO_VALOR_MESSAGE };
+    }
+    filas.push({ linea_id: fila.linea_id, valor: monto.cents });
+  }
+  if (new Set(filas.map((fila) => fila.linea_id)).size !== filas.length) {
+    return { ok: false, message: REPARTO_LINEA_REPETIDA_MESSAGE };
+  }
+  if (sumCents(filas.map((fila) => fila.valor)) !== total) return { ok: false, message: REPARTO_SUMA_MESSAGE };
+  return { ok: true, value: filas };
 }
 
 // ---------------------------------------------------------------------------
@@ -229,24 +317,95 @@ export type LineaGasto = {
   rubro: { id: string; codigo: string | null; nombre: string };
 };
 
+/** T14.2-B1: a distribution row also names the activity of its line (null on a legacy line, «Sin actividad»). */
+export type LineaReparto = LineaGasto & { actividad_id: string | null };
+
+/** One row of a distributed invoice: the resolved line and the amount that belongs to it. */
+export type RepartoFactura = { linea: LineaReparto; valor: Cents };
+
 /** A rubro only takes expenses while its assigned amount is above zero. */
 export function tieneAsignado(monto: { toString(): string }): boolean {
   return toCents(monto) > BigInt(0);
 }
 
-/** The budget line of a rubro in the project; the rubro needs an assigned amount above zero. */
+/**
+ * The budget line of a rubro in the project; the rubro needs an assigned amount above zero.
+ *
+ * S9/T14.1: with `lineaId` the line has to be one of that rubro's lines in this project — never an arbitrary
+ * one — and anything else is a 400. Without it (an older caller that only knows the rubro) the rubro's line is
+ * resolved as before.
+ */
 export async function resolverLinea(
   proyectoId: string,
   rubroId: string,
-): Promise<{ ok: true; value: LineaGasto } | { ok: false; response: Response }> {
+  lineaId?: string,
+): Promise<{ ok: true; value: LineaReparto } | { ok: false; response: Response }> {
   const linea = await db.lineaPresupuestal.findFirst({
-    where: { proyecto_id: proyectoId, rubro_id: rubroId },
-    select: { id: true, monto_proyectado_cop: true, rubro: { select: { id: true, codigo: true, nombre: true } } },
+    where: lineaId
+      ? { id: lineaId, proyecto_id: proyectoId, rubro_id: rubroId }
+      : { proyecto_id: proyectoId, rubro_id: rubroId },
+    select: {
+      id: true,
+      actividad_id: true,
+      monto_proyectado_cop: true,
+      rubro: { select: { id: true, codigo: true, nombre: true } },
+    },
   });
-  if (!linea || !tieneAsignado(linea.monto_proyectado_cop)) {
+  if (!linea) {
+    return {
+      ok: false,
+      response: apiError(lineaId ? LINEA_NO_DEL_RUBRO_MESSAGE : RUBRO_SIN_ASIGNADO_MESSAGE, 400, "VALIDATION_ERROR"),
+    };
+  }
+  if (!tieneAsignado(linea.monto_proyectado_cop)) {
     return { ok: false, response: apiError(RUBRO_SIN_ASIGNADO_MESSAGE, 400, "VALIDATION_ERROR") };
   }
-  return { ok: true, value: { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro } };
+  return {
+    ok: true,
+    value: {
+      id: linea.id,
+      actividad_id: linea.actividad_id,
+      asignado: toCents(linea.monto_proyectado_cop),
+      rubro: linea.rubro,
+    },
+  };
+}
+
+/**
+ * S9/T14.2-B1: every line of the distribution has to be a line of this project with an assigned amount above
+ * zero. Rows come back in the order the client sent them: the first one is the line the header points at.
+ */
+export async function resolverRepartos(
+  proyectoId: string,
+  repartos: readonly RepartoPedido[],
+): Promise<{ ok: true; value: RepartoFactura[] } | { ok: false; response: Response }> {
+  const lineas = await db.lineaPresupuestal.findMany({
+    where: { id: { in: repartos.map((fila) => fila.linea_id) }, proyecto_id: proyectoId },
+    select: {
+      id: true,
+      actividad_id: true,
+      monto_proyectado_cop: true,
+      rubro: { select: { id: true, codigo: true, nombre: true } },
+    },
+  });
+  const porId = new Map(lineas.map((linea) => [linea.id, linea]));
+  const value: RepartoFactura[] = [];
+  for (const fila of repartos) {
+    const linea = porId.get(fila.linea_id);
+    if (!linea || !tieneAsignado(linea.monto_proyectado_cop)) {
+      return { ok: false, response: apiError(REPARTO_LINEA_MESSAGE, 400, "VALIDATION_ERROR") };
+    }
+    value.push({
+      linea: {
+        id: linea.id,
+        actividad_id: linea.actividad_id,
+        asignado: toCents(linea.monto_proyectado_cop),
+        rubro: linea.rubro,
+      },
+      valor: fila.valor,
+    });
+  }
+  return { ok: true, value };
 }
 
 /**
@@ -279,22 +438,54 @@ export function resolverPeriodo(
   return evaluated;
 }
 
-/** Early warning: would the executed total of the line plus `nuevo` exceed the assigned amount. */
+/** Which gastos count as executed for the overspend arithmetic of one line. */
+type FiltroEjecutado = { lineaId: string; hasta?: string; excluirGastoId?: string };
+
+function whereEjecutado(filtro: FiltroEjecutado): Prisma.GastoWhereInput {
+  return {
+    estado: { in: [...ESTADOS_EJECUTADOS] },
+    ...(filtro.hasta === undefined ? {} : { periodo: { lte: filtro.hasta } }),
+    ...(filtro.excluirGastoId === undefined ? {} : { id: { not: filtro.excluirGastoId } }),
+  };
+}
+
+/**
+ * S9/T14.2-B2: the executed money of a line as the overspend alert must read it — its distribution rows, plus the
+ * total of every gasto without rows on its own header line. It is the same fallback as the executed seam
+ * (`loadGastosEjecutados`, src/lib/api/financiera.ts): a line that only receives money through a later row of a
+ * split invoice counts there, and a legacy row keeps counting its total on the line of its header. Before this,
+ * the alert under-reported the executed of every distributed invoice.
+ *
+ * S9/T14.3: the Excel import writes its distribution rows like every other writer, so the rows without a
+ * distribution are down to the seeds and to the rows written before T14.2-B1 backfilled them.
+ */
+async function ejecutadoDeLinea(
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto">,
+  filtro: FiltroEjecutado,
+): Promise<Cents> {
+  const [sinReparto, repartido] = await Promise.all([
+    tx.gasto.aggregate({
+      where: { linea_id: filtro.lineaId, repartos: { none: {} }, ...whereEjecutado(filtro) },
+      _sum: { monto_cop: true },
+    }),
+    tx.gastoReparto.aggregate({
+      where: { linea_id: filtro.lineaId, gasto: whereEjecutado(filtro) },
+      _sum: { valor: true },
+    }),
+  ]);
+  const cabecera = sinReparto._sum.monto_cop ? toCents(sinReparto._sum.monto_cop) : BigInt(0);
+  const filas = repartido._sum.valor ? toCents(repartido._sum.valor) : BigInt(0);
+  return cabecera + filas;
+}
+
+/** Early warning: would the executed total of the line plus `nuevo` exceed the assigned amount (S9: by row). */
 export async function superaAsignado(
-  tx: Pick<Prisma.TransactionClient, "gasto">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto">,
   linea: { id: string; asignado: Cents },
   nuevo: Cents,
   excluirGastoId?: string,
 ): Promise<boolean> {
-  const total = await tx.gasto.aggregate({
-    where: {
-      linea_id: linea.id,
-      estado: { in: [...ESTADOS_EJECUTADOS] },
-      ...(excluirGastoId ? { id: { not: excluirGastoId } } : {}),
-    },
-    _sum: { monto_cop: true },
-  });
-  const ejecutado = total._sum.monto_cop ? toCents(total._sum.monto_cop) : BigInt(0);
+  const ejecutado = await ejecutadoDeLinea(tx, { lineaId: linea.id, excluirGastoId });
   return excederiaAsignado({ asignado: linea.asignado, ejecutado, nuevo });
 }
 
@@ -336,38 +527,52 @@ export function alertaSobregasto(nivel: NivelSobregasto): AlertaGasto | null {
 /**
  * Overspend level after saving (S2, L16), never blocking: the assigned total (`ASIGNADO`, critical) when the
  * executed total of the line already exceeds it, else the programmed level (`PROGRAMADO`) when the executed
- * accumulated up to `periodo` exceeds the amount programmed up to that same period. The critical level is
- * taken as given (the callers already store it as `alerta_sobregasto`) and skips the programmed query.
+ * accumulated up to `periodo` exceeds the amount programmed up to that same period. The executed comes from the
+ * line's distribution rows (S9/T14.2-B2), with the header fallback of the seam. The critical level is taken as
+ * given (the callers already store it as `alerta_sobregasto`) and skips the programmed query.
  *
  * `nuevo` predicts an amount that is not written yet (the import preview); after a write the executed sum
  * already includes the row. `excluirGastoId` leaves the edited row out when the update has not landed yet.
  */
 export async function nivelSobregasto(
-  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto" | "programacionPeriodo">,
   linea: { id: string },
   input: { periodo: string; critico: boolean; nuevo?: Cents; excluirGastoId?: string },
 ): Promise<NivelSobregasto> {
   if (input.critico) return "ASIGNADO";
-  const [programado, ejecutado] = await Promise.all([
+  const [programado, ejecutadoCents] = await Promise.all([
     tx.programacionPeriodo.aggregate({
       where: { linea_id: linea.id, periodo: { lte: input.periodo } },
       _sum: { valor: true },
     }),
-    tx.gasto.aggregate({
-      where: {
-        linea_id: linea.id,
-        estado: { in: [...ESTADOS_EJECUTADOS] },
-        periodo: { lte: input.periodo },
-        ...(input.excluirGastoId ? { id: { not: input.excluirGastoId } } : {}),
-      },
-      _sum: { monto_cop: true },
-    }),
+    ejecutadoDeLinea(tx, { lineaId: linea.id, hasta: input.periodo, excluirGastoId: input.excluirGastoId }),
   ]);
   const programadoCents = programado._sum.valor ? toCents(programado._sum.valor) : BigInt(0);
-  const ejecutadoCents = ejecutado._sum.monto_cop ? toCents(ejecutado._sum.monto_cop) : BigInt(0);
   return excedeProgramado({ programado: programadoCents, ejecutado: ejecutadoCents + (input.nuevo ?? BigInt(0)) })
     ? "PROGRAMADO"
     : null;
+}
+
+/** A distribution row with the critical level already computed for its own line. */
+export type RepartoConCritico = RepartoFactura & { critico: boolean };
+
+/**
+ * S9/T14.2-B1: the overspend level of the invoice as a whole, read from each distribution row against its own
+ * line — never the header's line with the whole total. The critical level wins; a single-row invoice answers
+ * exactly what `nivelSobregasto` answered before, with one call.
+ */
+export async function nivelSobregastoDeFactura(
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto" | "programacionPeriodo">,
+  repartos: readonly RepartoConCritico[],
+  periodo: string,
+): Promise<NivelSobregasto> {
+  let nivel: NivelSobregasto = null;
+  for (const reparto of repartos) {
+    const cada = await nivelSobregasto(tx, reparto.linea, { periodo, critico: reparto.critico });
+    if (cada === "ASIGNADO") return "ASIGNADO";
+    if (cada === "PROGRAMADO") nivel = "PROGRAMADO";
+  }
+  return nivel;
 }
 
 /** One batch's programmed and executed amounts, loaded once instead of once per row. */
@@ -407,16 +612,22 @@ function sumarTodo(porLinea: PorLinea, lineaId: string): bigint {
  * they are created, so each one still counts for the ones that follow without going back to the database.
  */
 export async function cargarSobregastos(
-  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  tx: Pick<Prisma.TransactionClient, "gasto" | "gastoReparto" | "programacionPeriodo">,
   lineas: readonly { id: string }[],
 ): Promise<LoteSobregasto> {
   const ids = lineas.map((linea) => linea.id);
-  const [programados, ejecutados] = await Promise.all([
+  const [programados, sinReparto, conReparto] = await Promise.all([
     tx.programacionPeriodo.groupBy({ by: ["linea_id", "periodo"], where: { linea_id: { in: ids } }, _sum: { valor: true } }),
+    // S9/T14.2-B2: same fallback as the executed seam — a gasto with rows counts by its rows, a gasto without
+    // rows keeps counting its total on its header line.
     tx.gasto.groupBy({
       by: ["linea_id", "periodo"],
-      where: { linea_id: { in: ids }, estado: { in: [...ESTADOS_EJECUTADOS] } },
+      where: { linea_id: { in: ids }, repartos: { none: {} }, estado: { in: [...ESTADOS_EJECUTADOS] } },
       _sum: { monto_cop: true },
+    }),
+    tx.gastoReparto.findMany({
+      where: { linea_id: { in: ids }, gasto: { estado: { in: [...ESTADOS_EJECUTADOS] } } },
+      select: { linea_id: true, valor: true, gasto: { select: { periodo: true } } },
     }),
   ]);
   const programado: PorLinea = new Map();
@@ -424,8 +635,11 @@ export async function cargarSobregastos(
     if (fila._sum.valor) acumular(programado, fila.linea_id, fila.periodo, toCents(fila._sum.valor));
   }
   const ejecutado: PorLinea = new Map();
-  for (const fila of ejecutados) {
+  for (const fila of sinReparto) {
     if (fila._sum.monto_cop) acumular(ejecutado, fila.linea_id, fila.periodo, toCents(fila._sum.monto_cop));
+  }
+  for (const fila of conReparto) {
+    acumular(ejecutado, fila.linea_id, fila.gasto.periodo, toCents(fila.valor));
   }
 
   const critico = (linea: { id: string; asignado: Cents }, monto: Cents) =>
@@ -449,6 +663,10 @@ export async function cargarSobregastos(
  * RF-21: a live expense (REGISTRADO or VALIDADO) of ANY project with the same normalized
  * identification and document number. It never blocks. The project code (and the expense id)
  * are revealed only when the actor may read that project.
+ *
+ * S9: the key is the whole invoice — one `Gasto` with its distribution rows — never one of its rows, so a
+ * distributed invoice is reported once. The `id: { not }` below is `esDuplicado`'s `factura_id` distinction
+ * expressed in SQL: the invoice never duplicates itself.
  */
 export async function buscarDuplicados(
   usuario: Usuario,
@@ -504,10 +722,57 @@ export async function buscarDuplicados(
 
 export const GASTO_INCLUDE = {
   linea: { select: { rubro: { select: { id: true, codigo: true, nombre: true } } } },
+  /**
+   * S9/T14.2-B1: the distribution rows, in write order; the header's line is the first row's line. The
+   * `monto_proyectado_cop` of the line feeds the per-row overspend check of a correction.
+   */
+  repartos: {
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
+    select: {
+      linea_id: true,
+      valor: true,
+      linea: {
+        select: {
+          id: true,
+          actividad_id: true,
+          monto_proyectado_cop: true,
+          rubro: { select: { id: true, codigo: true, nombre: true } },
+        },
+      },
+    },
+  },
   soportes: { where: { deleted_at: null }, orderBy: [{ created_at: "asc" }, { id: "asc" }] },
 } satisfies Prisma.GastoInclude;
 
 export type GastoConRelaciones = Prisma.GastoGetPayload<{ include: typeof GASTO_INCLUDE }>;
+
+/** A distribution row as both the include and a freshly written row can describe it. */
+export type RepartoConLinea = {
+  linea_id: string;
+  valor: { toString(): string };
+  linea: { actividad_id: string | null; rubro: LineaGasto["rubro"] };
+};
+
+/** The rows exactly as they were written, in the order the client sent them (the header's line first). */
+export function repartosDeLineas(filas: readonly RepartoFactura[]): RepartoConLinea[] {
+  return filas.map((fila) => ({
+    linea_id: fila.linea.id,
+    valor: decimalFromCents(fila.valor),
+    linea: { actividad_id: fila.linea.actividad_id, rubro: fila.linea.rubro },
+  }));
+}
+
+/** A `Gasto` row as the mapper needs it: a hand-built row (the sibling routes' tests) may omit the relation. */
+export type GastoVistaFuente = Omit<GastoConRelaciones, "repartos"> & { repartos?: readonly RepartoConLinea[] };
+
+type RepartoGastoView = {
+  linea_id: string;
+  /** Activity of the line; null on a legacy line with no activity («Sin actividad», D4). */
+  actividad_id: string | null;
+  rubro: { id: string; codigo: string | null; nombre: string };
+  /** Decimal(15,2) as a string. */
+  valor: string;
+};
 
 type SoporteGastoView = {
   id: string;
@@ -560,6 +825,12 @@ export type GastoView = {
   soportes?: SoporteGastoView[];
   /** Live supports of the expense. Omitted together with `soportes` (RNF-03). */
   soportes_count?: number;
+  /**
+   * S9/T14.2-B1: the distribution of the invoice: one row per activity + rubro. The first row is the one the
+   * header points at (`Gasto.linea_id`); an invoice without `repartos` in the body has exactly one row with its
+   * whole total, so the rows always add up to `valor`.
+   */
+  repartos: RepartoGastoView[];
 };
 
 const iso = (value: Date | null) => (value ? value.toISOString() : null);
@@ -578,7 +849,21 @@ function toSoporteGastoView(row: GastoConRelaciones["soportes"][number]): Soport
   };
 }
 
-export function toGastoView(row: GastoConRelaciones, opts: { puedeVerSoportes: boolean }): GastoView {
+/** S9/T14.2-B1: one distribution row of the payload, with the activity and the rubro the screen shows. */
+function toRepartoView(row: RepartoConLinea): RepartoGastoView {
+  return {
+    linea_id: row.linea_id,
+    actividad_id: row.linea.actividad_id,
+    rubro: row.linea.rubro,
+    valor: fromCents(toCents(row.valor)),
+  };
+}
+
+export function toGastoView(row: GastoVistaFuente, opts: { puedeVerSoportes: boolean }): GastoView {
+  const repartos = (row.repartos ?? []).map(toRepartoView);
+  // The header's line is the line of the first row the client sent: keep that row first in the payload.
+  const cabecera = repartos.findIndex((reparto) => reparto.linea_id === row.linea_id);
+  if (cabecera > 0) repartos.unshift(...repartos.splice(cabecera, 1));
   const completo = {
     id: row.id,
     proyecto_id: row.proyecto_id,
@@ -612,6 +897,7 @@ export function toGastoView(row: GastoConRelaciones, opts: { puedeVerSoportes: b
     motivo_anulacion: row.motivo_anulacion,
     soportes: row.soportes.map(toSoporteGastoView),
     soportes_count: row.soportes.length,
+    repartos,
   };
   return redactarGasto(completo, opts) as GastoView;
 }
@@ -688,6 +974,11 @@ export type GastoAuditable = {
   subtotal: string;
   iva: string;
   valor: string;
+  /**
+   * Review of T14: a split invoice's distribution as `linea_id=valor; …`, so moving money between lines is audited
+   * too. Null for a one-line invoice, whose line and amount the other fields already record.
+   */
+  reparto: string | null;
 };
 
 export const CAMPOS_AUDITABLES_GASTO = [
@@ -703,6 +994,7 @@ export const CAMPOS_AUDITABLES_GASTO = [
   "subtotal",
   "iva",
   "valor",
+  "reparto",
 ] as const satisfies readonly (keyof GastoAuditable)[];
 
 export function gastoAuditable(input: {
@@ -718,6 +1010,8 @@ export function gastoAuditable(input: {
   subtotal_cop: { toString(): string };
   iva_cop: { toString(): string };
   monto_cop: { toString(): string };
+  /** The distribution rows in write order; exact cents or a stored decimal. */
+  repartos: readonly { linea_id: string; valor: Cents | { toString(): string } }[];
 }): GastoAuditable {
   return {
     rubro_id: input.rubro_id,
@@ -732,5 +1026,13 @@ export function gastoAuditable(input: {
     subtotal: fromCents(toCents(input.subtotal_cop)),
     iva: fromCents(toCents(input.iva_cop)),
     valor: fromCents(toCents(input.monto_cop)),
+    reparto:
+      input.repartos.length < 2
+        ? null
+        : input.repartos
+            .map(
+              (fila) => `${fila.linea_id}=${fromCents(typeof fila.valor === "bigint" ? fila.valor : toCents(fila.valor))}`,
+            )
+            .join("; "),
   };
 }

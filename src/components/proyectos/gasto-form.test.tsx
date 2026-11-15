@@ -1,11 +1,18 @@
 // S6 U6: formulario de registro de gasto. Las queries/mutaciones son reales; solo `fetch`.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ProjectBudgetRubro, ProjectExpense, ProjectListRow } from "@/hooks/projects"
+import type {
+  ProjectActivity,
+  ProjectBudgetLinea,
+  ProjectBudgetRubro,
+  ProjectExpense,
+  ProjectListRow,
+  ProjectObjective,
+} from "@/hooks/projects"
 import { GastoForm } from "./gasto-form"
 
 function createWrapper() {
@@ -30,6 +37,79 @@ const PROYECTO = {
 const RUBROS: ProjectBudgetRubro[] = [
   { rubro_id: "r12", codigo: "R12", nombre: "Transporte", activo: true, linea_id: "l12", asignado: "24000000.00", heredado_pendiente: false },
   { rubro_id: "r01", codigo: "R01", nombre: "Personal", activo: true, linea_id: "l01", asignado: "59500000.00", heredado_pendiente: false },
+]
+
+/** Un rubro con monto asignado, sin línea concreta: el presupuesto lo suma entre varias actividades. */
+const RUBRO_EN_DOS_ACTIVIDADES: ProjectBudgetRubro = {
+  rubro_id: "r12",
+  codigo: "R12",
+  nombre: "Transporte",
+  activo: true,
+  linea_id: null,
+  asignado: "15000000.00",
+  heredado_pendiente: false,
+}
+
+/** S9/T14.1: la línea es actividad + rubro + valor; R12 está presupuestado en DOS actividades. */
+const LINEAS: ProjectBudgetLinea[] = [
+  { linea_id: "l-a1-r12", actividad_id: "a1", actividad_codigo: "1.1", actividad_nombre: "Talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "10000000.00" },
+  { linea_id: "l-a2-r12", actividad_id: "a2", actividad_codigo: "2.1", actividad_nombre: "Ferias", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "5000000.00" },
+  { linea_id: "l-a3-r01", actividad_id: "a3", actividad_codigo: "2.2", actividad_nombre: "Jornadas", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Personal", valor: "8000000.00" },
+]
+
+/** S9/T14.2-B2: las actividades 1.2 y 1.3 del ejemplo de la PO, las dos en el objetivo 1. */
+const LINEAS_12_13: ProjectBudgetLinea[] = [
+  { linea_id: "l-12-r12", actividad_id: "a12", actividad_codigo: "1.2", actividad_nombre: "Gestión de talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "10000000.00" },
+  { linea_id: "l-13-r01", actividad_id: "a13", actividad_codigo: "1.3", actividad_nombre: "Suministros", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Papelería", valor: "8000000.00" },
+]
+
+function actividad(id: string, codigo: string, nombre: string, objetivoId: string | null): ProjectActivity {
+  return {
+    id,
+    proyecto_id: "p1",
+    objetivo_id: objetivoId,
+    tipo: objetivoId === null ? "TRANSVERSAL" : "NORMAL",
+    codigo,
+    nombre,
+    semana_inicio: 1,
+    semana_fin: 2,
+    fecha_inicio: "2026-10-05",
+    fecha_fin: "2026-10-16",
+    peso: 2,
+    responsable_id: null,
+    fuera_de_duracion: false,
+    created_at: "2026-10-01T12:00:00.000Z",
+    updated_at: "2026-10-01T12:00:00.000Z",
+  }
+}
+
+function objetivo(id: string, codigo: string, descripcion: string, orden: number): ProjectObjective {
+  return {
+    id,
+    proyecto_id: "p1",
+    codigo,
+    descripcion,
+    orden,
+    created_at: "2026-10-01T12:00:00.000Z",
+    updated_at: "2026-10-01T12:00:00.000Z",
+  }
+}
+
+const ACTIVIDADES: ProjectActivity[] = [
+  actividad("a1", "1.1", "Talleres", "o1"),
+  actividad("a2", "2.1", "Ferias", "o2"),
+  actividad("a3", "2.2", "Jornadas", "o2"),
+]
+
+/** S9/T14.2-B2: las dos actividades del ejemplo de la PO, ambas en el objetivo 1. */
+const ACTIVIDADES_12_13: ProjectActivity[] = [
+  actividad("a12", "1.2", "Gestión de talleres", "o1"),
+  actividad("a13", "1.3", "Suministros", "o1"),
+]
+
+const OBJETIVOS: ProjectObjective[] = [
+  objetivo("o1", "1", "Fortalecer capacidades", 1),
+  objetivo("o2", "2", "Ampliar cobertura", 2),
 ]
 
 const GASTO: ProjectExpense = {
@@ -66,13 +146,47 @@ const GASTO: ProjectExpense = {
   soportes_count: 0,
 }
 
+/** S9/T14.2-B2: la factura de $1.000.000 repartida en la 1.2 ($350.000) y la 1.3 ($650.000). */
+const GASTO_REPARTIDO: ProjectExpense = {
+  ...GASTO,
+  valor: "1000000.00",
+  subtotal: "1000000.00",
+  iva: "0.00",
+  repartos: [
+    {
+      linea_id: "l-12-r12",
+      actividad_id: "a12",
+      rubro: { id: "r12", codigo: "R12", nombre: "Transporte" },
+      valor: "350000.00",
+    },
+    {
+      linea_id: "l-13-r01",
+      actividad_id: "a13",
+      rubro: { id: "r01", codigo: "R01", nombre: "Papelería" },
+      valor: "650000.00",
+    },
+  ],
+}
+
 describe("GastoForm", () => {
   const fetchMock = vi.fn()
   const onDone = vi.fn()
 
-  function setup(respuesta: unknown = { gasto: { id: "g1" }, alertas: [] }, duplicados: unknown = { alertas: [] }) {
+  type Opciones = {
+    lineas?: ProjectBudgetLinea[]
+    actividades?: ProjectActivity[]
+    objetivos?: ProjectObjective[]
+  }
+
+  function setup(
+    respuesta: unknown = { gasto: { id: "g1" }, alertas: [] },
+    duplicados: unknown = { alertas: [] },
+    { lineas = [], actividades = ACTIVIDADES, objetivos = OBJETIVOS }: Opciones = {},
+  ) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
+      if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades }))
+      if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos }))
       if (url.includes("/expenses/duplicates?")) return Promise.resolve(jsonResponse(duplicados))
       if (url.endsWith("/expenses/sign")) {
         // One distinct storage_path per file name, so a test can tell the supports apart by their upload.
@@ -85,15 +199,31 @@ describe("GastoForm", () => {
       if (url.endsWith("/expenses") && init?.method === "POST") return Promise.resolve(jsonResponse(respuesta, 201))
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} onDone={onDone} />, { wrapper: createWrapper() })
+    return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} lineas={lineas} onDone={onDone} />, {
+      wrapper: createWrapper(),
+    })
+  }
+
+  /** Las opciones de un select, sin la de «Elige …». */
+  function opcionesDe(etiqueta: string): string[] {
+    return within(screen.getByLabelText(etiqueta))
+      .getAllByRole("option")
+      .map((opcion) => opcion.textContent ?? "")
+      .filter((texto) => !texto.startsWith("Elige"))
+  }
+
+  /** Elige en `campo` la opción que se lee `texto`: el mismo nombre que ve la persona. */
+  async function elegir(user: ReturnType<typeof userEvent.setup>, campo: string, texto: string) {
+    const select = screen.getByLabelText(campo)
+    await user.selectOptions(select, within(select).getByRole("option", { name: texto }))
   }
 
   /** The non-amount fields, so a test can decide which amounts to type before or after them. */
   async function llenarCamposDeGasto(
     user: ReturnType<typeof userEvent.setup>,
-    { identificacion = true, documento = true } = {},
+    { identificacion = true, documento = true, rubro = "r12" } = {},
   ) {
-    await user.selectOptions(screen.getByLabelText("Rubro"), "r12")
+    await user.selectOptions(screen.getByLabelText("Rubro"), rubro)
     await user.clear(screen.getByLabelText("Fecha del documento"))
     await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-15")
     await user.type(screen.getByLabelText("Tercero"), "Proveedor SAS")
@@ -471,7 +601,8 @@ describe("GastoForm", () => {
 
     await user.type(screen.getByLabelText("Número de documento"), "FE-0123")
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    // S9/T14.1: el formulario lee actividades y objetivos para la cascada; lo que no se consulta es el duplicado.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses/duplicates"))).toBe(false)
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 
@@ -735,5 +866,414 @@ describe("GastoForm", () => {
     await user.type(screen.getByLabelText("Nombre del enlace"), "Factura")
     await user.click(screen.getByRole("button", { name: "Registrar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Solo puedes registrar gastos en rubros con valor asignado.")
+  })
+
+  // S9 / T14.1: Objetivo (o «Gestión del proyecto») -> Actividad -> Rubro. El objetivo solo filtra; el gasto
+  // se guarda contra la línea exacta de la actividad y el rubro elegidos.
+  describe("gasto por objetivo, actividad y rubro (S9)", () => {
+    /** Completar todo lo que no es la cascada, con un enlace como soporte. */
+    async function llenarTodo(user: ReturnType<typeof userEvent.setup>, rubro = "r12") {
+      await llenarCamposDeGasto(user, { rubro })
+      await user.type(screen.getByLabelText("Subtotal"), "1.500.000,50")
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    }
+
+    it("al elegir el objetivo 2, la lista de actividades muestra solo las del objetivo 2 (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup(undefined, undefined, { lineas: LINEAS })
+
+      await waitFor(() =>
+        expect(opcionesDe("Objetivo")).toEqual([
+          "Objetivo 1 · Fortalecer capacidades",
+          "Objetivo 2 · Ampliar cobertura",
+        ]),
+      )
+      // El objetivo va primero: sin objetivo no hay actividades que ofrecer.
+      expect(opcionesDe("Actividad")).toEqual([])
+
+      await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+      expect(opcionesDe("Actividad")).toEqual(["2.1 · Ferias", "2.2 · Jornadas"])
+
+      await elegir(user, "Objetivo", "Objetivo 1 · Fortalecer capacidades")
+      expect(opcionesDe("Actividad")).toEqual(["1.1 · Talleres"])
+    })
+
+    it("la actividad elegida deja en Rubro solo los rubros presupuestados en ella (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup(undefined, undefined, { lineas: LINEAS })
+
+      await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+      await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+      await elegir(user, "Actividad", "2.1 · Ferias")
+      expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte"])
+
+      await elegir(user, "Actividad", "2.2 · Jornadas")
+      expect(opcionesDe("Rubro")).toEqual(["R01 · Personal"])
+    })
+
+    it.each([
+      ["Objetivo 1 · Fortalecer capacidades", "1.1 · Talleres", "l-a1-r12"],
+      ["Objetivo 2 · Ampliar cobertura", "2.1 · Ferias", "l-a2-r12"],
+    ])(
+      "un rubro presupuestado en dos actividades se ofrece en las dos y guarda su línea: %s › %s",
+      async (etiquetaObjetivo, etiquetaActividad, lineaId) => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+        await elegir(user, "Objetivo", etiquetaObjetivo)
+        await elegir(user, "Actividad", etiquetaActividad)
+        // R12 tiene dos líneas (una por actividad) y ninguna se oculta.
+        expect(opcionesDe("Rubro")).toContain("R12 · Transporte")
+
+        await llenarTodo(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody()).toMatchObject({ rubro_id: "r12", linea_id: lineaId })
+        // El objetivo no se guarda: se deduce de la actividad, y la actividad de la línea.
+        expect(postedBody()).not.toHaveProperty("objetivo_id")
+        expect(postedBody()).not.toHaveProperty("actividad_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      },
+    )
+
+    it("no guarda nada hasta elegir objetivo, actividad y rubro, en ese orden (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup(undefined, undefined, { lineas: LINEAS })
+      await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige el objetivo.")
+
+      await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige la actividad.")
+
+      await elegir(user, "Actividad", "2.1 · Ferias")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige el rubro.")
+      expect(postedBody()).toBeNull()
+    })
+
+    it("agrupa en «Gestión del proyecto» la actividad transversal, sin objetivo (S9)", async () => {
+      const user = userEvent.setup({ delay: null })
+      const lineas: ProjectBudgetLinea[] = [
+        { linea_id: "l-g1-r01", actividad_id: "g1", actividad_codigo: "T.1", actividad_nombre: "Coordinación", rubro_id: "r01", rubro_codigo: "R01", rubro_nombre: "Personal", valor: "4000000.00" },
+      ]
+      setup(undefined, undefined, {
+        lineas,
+        actividades: [actividad("g1", "T.1", "Coordinación", null)],
+      })
+
+      await waitFor(() => expect(opcionesDe("Objetivo")).toEqual(["Gestión del proyecto"]))
+      await waitFor(() => expect(opcionesDe("Actividad")).toEqual(["T.1 · Coordinación"]))
+      expect(opcionesDe("Rubro")).toEqual(["R01 · Personal"])
+
+      await llenarTodo(user, "r01")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody()).toMatchObject({ rubro_id: "r01", linea_id: "l-g1-r01" })
+    })
+
+    it("sin líneas del presupuesto mantiene el formulario por rubro de siempre (compatibilidad)", () => {
+      setup()
+      expect(screen.queryByLabelText("Objetivo")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Actividad")).not.toBeInTheDocument()
+      expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte", "R01 · Personal"])
+    })
+
+    // S9/T14.2-B2: la factura distribuida. Cada línea elige su actividad y su rubro con la misma cascada y escribe
+    // su valor; la suma de las líneas tiene que ser exactamente el total (subtotal + IVA).
+    describe("factura distribuida (S9)", () => {
+      async function facturaDeUnMillon(user: ReturnType<typeof userEvent.setup>, subtotal = "1.000.000", iva = "0") {
+        await user.type(screen.getByLabelText("Subtotal"), subtotal)
+        await user.clear(screen.getByLabelText("IVA"))
+        await user.type(screen.getByLabelText("IVA"), iva)
+      }
+
+      async function soporteEnlace(user: ReturnType<typeof userEvent.setup>) {
+        await user.click(screen.getByRole("radio", { name: "Enlace" }))
+        await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+        await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+      }
+
+      it("agrega una segunda línea y la guarda como repartos, con la cascada de cada línea y su valor (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+        await elegir(user, "Objetivo", "Objetivo 1 · Fortalecer capacidades")
+        await elegir(user, "Actividad", "1.1 · Talleres")
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        // El total de la factura es Subtotal + IVA: 1.000.000 + 190.000.
+        await facturaDeUnMillon(user, "1.000.000", "190.000")
+
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+
+        // La segunda línea tiene su propia cascada: objetivo 2, actividad 2.2 y su rubro.
+        await elegir(user, "Objetivo 2", "Objetivo 2 · Ampliar cobertura")
+        await elegir(user, "Actividad 2", "2.2 · Jornadas")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+        // Con el IVA fuera de la suma la distribución no cuadra contra el total de la factura.
+        expect(screen.getByText("Suma de la distribución: $ 1.000.000 de $ 1.190.000")).toBeInTheDocument()
+        expect(screen.getByText("Faltan $ 190.000 para el total de la factura.")).toBeInTheDocument()
+
+        await user.clear(screen.getByLabelText("Valor 2"))
+        await user.type(screen.getByLabelText("Valor 2"), "840.000")
+        expect(screen.getByText("Suma de la distribución: $ 1.190.000 de $ 1.190.000")).toBeInTheDocument()
+
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toEqual([
+          { linea_id: "l-a1-r12", valor: "350000.00" },
+          { linea_id: "l-a3-r01", valor: "840000.00" },
+        ])
+        // Con repartos la cabecera no lleva rubro ni línea: mezclarlos es el 400 que el servidor ya rechaza.
+        expect(postedBody()).not.toHaveProperty("rubro_id")
+        expect(postedBody()).not.toHaveProperty("linea_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      })
+
+      // S9 criterio: «Una distribución que suma $990.000 para una factura de $1.000.000 no se guarda.»
+      it("no se guarda una distribución de 990.000 para una factura de 1.000.000: muestra el faltante y se niega (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+        await elegir(user, "Objetivo", "Objetivo 1 · Fortalecer capacidades")
+        await elegir(user, "Actividad", "1.1 · Talleres")
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        await facturaDeUnMillon(user)
+
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "340.000")
+        await elegir(user, "Objetivo 2", "Objetivo 2 · Ampliar cobertura")
+        await elegir(user, "Actividad 2", "2.2 · Jornadas")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+
+        expect(screen.getByText("Suma de la distribución: $ 990.000 de $ 1.000.000")).toBeInTheDocument()
+        expect(screen.getByText("Faltan $ 10.000 para el total de la factura.")).toBeInTheDocument()
+
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Las líneas de la distribución deben sumar exactamente el total de la factura.",
+        )
+        expect(postedBody()).toBeNull()
+
+        // Completar el faltante deja guardar: la suma vuelve a cuadrar.
+        await user.clear(screen.getByLabelText("Valor"))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toHaveLength(2)
+      })
+
+      // S9 criterio: «La factura de $1.000.000 queda con $350.000 en la actividad 1.2 y $650.000 en la 1.3…»
+      it("la factura de 1.000.000 queda con 350.000 en la actividad 1.2 y 650.000 en la 1.3 (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS_12_13, actividades: ACTIVIDADES_12_13 })
+        await waitFor(() => expect(opcionesDe("Actividad")).toEqual(["1.2 · Gestión de talleres", "1.3 · Suministros"]))
+
+        await elegir(user, "Actividad", "1.2 · Gestión de talleres")
+        expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte"])
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        await facturaDeUnMillon(user)
+
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+        await elegir(user, "Actividad 2", "1.3 · Suministros")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+
+        expect(screen.getByText("Suma de la distribución: $ 1.000.000 de $ 1.000.000")).toBeInTheDocument()
+
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toEqual([
+          { linea_id: "l-12-r12", valor: "350000.00" },
+          { linea_id: "l-13-r01", valor: "650000.00" },
+        ])
+      })
+
+      it("corrige una factura repartida mostrando sus líneas y con la misma regla de la suma (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+          const url = String(input)
+          if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES_12_13 }))
+          if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+          if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+            return Promise.resolve(jsonResponse({ gasto: GASTO_REPARTIDO, alertas: [] }))
+          return Promise.resolve(jsonResponse({}))
+        })
+        render(
+          <GastoForm
+            proyecto={PROYECTO}
+            rubros={RUBROS}
+            lineas={LINEAS_12_13}
+            gasto={GASTO_REPARTIDO}
+            onDone={onDone}
+          />,
+          { wrapper: createWrapper() },
+        )
+
+        expect(screen.getByRole("form", { name: "Corregir gasto" })).toBeInTheDocument()
+        // La corrección abre con las dos líneas guardadas: su actividad, su rubro y su valor.
+        await waitFor(() => expect(screen.getByLabelText("Valor")).toHaveValue("350.000"))
+        expect(screen.getByLabelText("Valor 2")).toHaveValue("650.000")
+        expect(screen.getByLabelText("Actividad")).toHaveValue("a12")
+        expect(screen.getByLabelText("Actividad 2")).toHaveValue("a13")
+        expect(screen.getByLabelText("Rubro")).toHaveValue("r12")
+        expect(screen.getByLabelText("Rubro 2")).toHaveValue("r01")
+
+        await user.clear(screen.getByLabelText("Valor 2"))
+        await user.type(screen.getByLabelText("Valor 2"), "600.000")
+        expect(screen.getByText("Faltan $ 50.000 para el total de la factura.")).toBeInTheDocument()
+
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Las líneas de la distribución deben sumar exactamente el total de la factura.",
+        )
+        expect(patchBody()).toBeNull()
+
+        await user.clear(screen.getByLabelText("Valor 2"))
+        await user.type(screen.getByLabelText("Valor 2"), "650.000")
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+        await waitFor(() => expect(patchBody()).not.toBeNull())
+        expect(patchBody().repartos).toEqual([
+          { linea_id: "l-12-r12", valor: "350000.00" },
+          { linea_id: "l-13-r01", valor: "650000.00" },
+        ])
+        expect(patchBody()).not.toHaveProperty("rubro_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      })
+
+      // Review of T14: the strict PATCH schema has no `linea_id`, so a split invoice corrected down to one line
+      // must travel as a one-row distribution, never as `rubro_id` + `linea_id` (a 400 «Unrecognized key»).
+      it("corrige una factura repartida dejándola en una sola línea, como una distribución de una fila (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+          const url = String(input)
+          if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES_12_13 }))
+          if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+          if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+            return Promise.resolve(jsonResponse({ gasto: GASTO_REPARTIDO, alertas: [] }))
+          return Promise.resolve(jsonResponse({}))
+        })
+        render(
+          <GastoForm
+            proyecto={PROYECTO}
+            rubros={RUBROS}
+            lineas={LINEAS_12_13}
+            gasto={GASTO_REPARTIDO}
+            onDone={onDone}
+          />,
+          { wrapper: createWrapper() },
+        )
+
+        await waitFor(() => expect(screen.getByLabelText("Valor 2")).toHaveValue("650.000"))
+        await user.click(screen.getByRole("button", { name: "Quitar línea 2" }))
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+        await waitFor(() => expect(patchBody()).not.toBeNull())
+        expect(patchBody().repartos).toEqual([{ linea_id: "l-12-r12", valor: "1000000.00" }])
+        expect(patchBody()).not.toHaveProperty("rubro_id")
+        expect(patchBody()).not.toHaveProperty("linea_id")
+        await waitFor(() => expect(onDone).toHaveBeenCalled())
+      })
+
+      // S9/T14.2-B2: mientras el presupuesto no trajo sus líneas no hay forma de saber a qué línea va cada fila; el
+      // formulario se niega en vez de mandar una distribución a medias.
+      it("se niega a corregir una factura repartida mientras el presupuesto no trae sus líneas (S9)", async () => {
+        const user = userEvent.setup({ delay: null })
+        fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+          const url = String(input)
+          if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES_12_13 }))
+          if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+          if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+            return Promise.resolve(jsonResponse({ gasto: GASTO_REPARTIDO, alertas: [] }))
+          return Promise.resolve(jsonResponse({}))
+        })
+        render(
+          <GastoForm proyecto={PROYECTO} rubros={RUBROS} lineas={[]} gasto={GASTO_REPARTIDO} onDone={onDone} />,
+          { wrapper: createWrapper() },
+        )
+
+        // Las filas se ven con sus valores, pero sin presupuesto no hay línea que enviar.
+        await waitFor(() => expect(screen.getByLabelText("Valor")).toHaveValue("350.000"))
+        expect(screen.getByLabelText("Valor 2")).toHaveValue("650.000")
+        await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Cada línea de la distribución debe ser una línea del proyecto con valor asignado.",
+        )
+        expect(patchBody()).toBeNull()
+        expect(onDone).not.toHaveBeenCalled()
+      })
+
+      it("una factura de una sola línea sigue enviando el cuerpo de siempre, sin repartos (regresión)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS })
+        await waitFor(() => expect(opcionesDe("Objetivo")).toHaveLength(2))
+
+        await elegir(user, "Objetivo", "Objetivo 2 · Ampliar cobertura")
+        await elegir(user, "Actividad", "2.1 · Ferias")
+        await llenarTodo(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody()).toMatchObject({ rubro_id: "r12", linea_id: "l-a2-r12" })
+        expect(postedBody()).not.toHaveProperty("repartos")
+        // Sin una segunda línea no hay campo «Valor»: el formulario de siempre no cambió.
+        expect(screen.queryByLabelText("Valor")).not.toBeInTheDocument()
+      })
+    })
+
+    it("ofrece en la corrección un rubro con dos líneas y guarda con su rubro (S9, compatibilidad del PATCH)", async () => {
+      const user = userEvent.setup({ delay: null })
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES }))
+        if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: OBJETIVOS }))
+        if (url.endsWith("/expenses/g1") && init?.method === "PATCH")
+          return Promise.resolve(jsonResponse({ gasto: GASTO, alertas: [] }))
+        return Promise.resolve(jsonResponse({}))
+      })
+      render(
+        <GastoForm
+          proyecto={PROYECTO}
+          rubros={[RUBRO_EN_DOS_ACTIVIDADES]}
+          lineas={[LINEAS[0]!, LINEAS[1]!]}
+          gasto={GASTO}
+          onDone={onDone}
+        />,
+        { wrapper: createWrapper() },
+      )
+
+      expect(screen.getByRole("form", { name: "Corregir gasto" })).toBeInTheDocument()
+      expect(opcionesDe("Rubro")).toEqual(["R12 · Transporte"])
+      expect(screen.getByLabelText("Rubro")).toHaveValue("r12")
+
+      await user.clear(screen.getByLabelText("Descripción"))
+      await user.type(screen.getByLabelText("Descripción"), "Tiquetes corregidos")
+      await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patchBody()).not.toBeNull())
+      expect(patchBody()).toMatchObject({ rubro_id: "r12", descripcion: "Tiquetes corregidos" })
+      expect(postedBody()).toBeNull()
+      await waitFor(() => expect(onDone).toHaveBeenCalled())
+    })
   })
 })

@@ -16,6 +16,11 @@
 // S9 export so both answer the very same numbers: per rubro and total row A / P / E / D, E/P, E/A, the
 // red threshold and the financial color through the pure `computeFicha`; `base=original` reads the A and P
 // frozen in version 0 with the same live E (S8). Aggregates only: no per-gasto or support data (P04).
+// S10 (EV-06): the same sheet answers per activity too, in a new `actividades` field next to the per-rubro
+// rows. Each activity (and the «Sin actividad» row of D4) is one call to the same `computeFicha` over the
+// budget lines of that activity, so A, P, E, the threshold and the color follow the very same rules and the
+// executed total of both views is the same rows added up. Transversal activities carry no objective and are
+// grouped under «Gestión del proyecto», like the lines that have no activity at all.
 
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
@@ -24,12 +29,13 @@ import { loadGastosEjecutados } from "@/lib/api/financiera";
 import { loadTecnicoStatus } from "@/lib/api/tecnico";
 import { BASE_INVALIDA_MESSAGE, BASE_ORIGINAL_MESSAGE, resolverBase } from "@/lib/api/versiones";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
-import { computeFicha, type FichaRow, type FichaRubroInput } from "@/lib/proyectos/ficha-financiera";
+import { cuentaTecnico, type TipoActividad } from "@/lib/proyectos/actividad";
+import { computeFicha, type Ficha, type FichaRow, type FichaRubroInput } from "@/lib/proyectos/ficha-financiera";
 import { fromCents, toCents } from "@/lib/proyectos/money";
 import { alertaRetraso, toleranciaBp } from "@/lib/proyectos/semaforo-v2";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import type { SnapshotV1 } from "@/lib/proyectos/versiones";
-import { periodOf, projectPeriods, todayInBogota, type IsoDate } from "@/lib/proyectos/weeks";
+import { periodOf, projectPeriods, todayInBogota, type IsoDate, type Periodo } from "@/lib/proyectos/weeks";
 
 export const SIN_FECHAS_MESSAGE = "El proyecto aún no tiene fechas de inicio y fin.";
 export const CORTE_INVALIDO_MESSAGE = "El corte no es válido. Usa el formato AAAA-MM dentro del rango del proyecto.";
@@ -48,6 +54,13 @@ export function serializeRow(row: FichaRow, disponible: boolean) {
     rubro_id: row.rubroId,
     codigo: row.codigo,
     nombre: row.nombre,
+    ...serializeMoney(row, disponible),
+  };
+}
+
+/** A / P / E / D, the percentages, the threshold and the color: the numbers shared by both rows. */
+function serializeMoney(row: FichaRow, disponible: boolean) {
+  return {
     asignado: fromCents(row.asignado),
     programado: fromCents(row.programado),
     ejecutado: fromCents(row.ejecutado),
@@ -63,6 +76,115 @@ type LineaViva = {
   rubro_id: string;
   rubro: { codigo: string | null; nombre: string; orden: number; activo: boolean };
 };
+
+/** La actividad de la línea presupuestal, tal como la vista «Por actividad» la necesita (S10). */
+type ActividadDeLinea = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: TipoActividad;
+  objetivo: { id: string; codigo: string; orden: number } | null;
+};
+
+/** Una línea del presupuesto con su actividad: la unidad de la que salen las dos vistas. */
+type LineaConActividad = LineaViva & {
+  id: string;
+  actividad_id: string | null;
+  actividad: ActividadDeLinea | null;
+};
+
+/** D4: la fila de las líneas cargadas antes de la Parte 2, que no tienen actividad. */
+const SIN_ACTIVIDAD = "Sin actividad";
+
+/** Una fila de `actividades`: la actividad y sus números, con lo que la UI necesita para agrupar. */
+type GrupoActividad = {
+  actividadId: string | null;
+  codigo: string | null;
+  nombre: string;
+  /** Null en «Gestión del proyecto»: una transversal no lleva objetivo (S6/T12). */
+  objetivo: { id: string; codigo: string; orden: number } | null;
+  /** True en «Gestión del proyecto»: una actividad TRANSVERSAL o la fila «Sin actividad». */
+  gestion: boolean;
+};
+
+function compararCodigos(a: string, b: string): number {
+  return a.localeCompare(b, "es", { numeric: true });
+}
+
+/** Objectives in their order, «Gestión del proyecto» last and «Sin actividad» at the end of its group. */
+function compararGrupos(a: GrupoActividad, b: GrupoActividad): number {
+  if (a.gestion !== b.gestion) return a.gestion ? 1 : -1;
+  if (a.objetivo && b.objetivo) {
+    const porObjetivo = a.objetivo.orden - b.objetivo.orden || compararCodigos(a.objetivo.codigo, b.objetivo.codigo);
+    if (porObjetivo !== 0) return porObjetivo;
+  }
+  if (a.codigo === null || b.codigo === null) return a.codigo === null ? (b.codigo === null ? 0 : 1) : -1;
+  return compararCodigos(a.codigo, b.codigo);
+}
+
+/** One row per activity — and one for the lines without activity — in a deterministic order. */
+function gruposDeActividad(lineas: readonly LineaConActividad[]): GrupoActividad[] {
+  const grupos = new Map<string, GrupoActividad>();
+  for (const linea of lineas) {
+    const clave = linea.actividad_id ?? "";
+    if (grupos.has(clave)) continue;
+    const actividad = linea.actividad;
+    // S6/T12: una transversal se agrupa en «Gestión del proyecto» y no lleva objetivo.
+    const gestion = actividad === null || !cuentaTecnico(actividad);
+    grupos.set(clave, {
+      actividadId: actividad?.id ?? null,
+      codigo: actividad?.codigo ?? null,
+      nombre: actividad?.nombre ?? SIN_ACTIVIDAD,
+      objetivo: actividad !== null && !gestion ? actividad.objetivo : null,
+      gestion,
+    });
+  }
+  return [...grupos.values()].sort(compararGrupos);
+}
+
+/**
+ * S10: the per-activity rows. Each group runs the same `computeFicha` as the per-rubro view over the REAL
+ * rubro inputs of its lines, so the activity's own numbers are that ficha's `total` and its children are
+ * the actual rubro rows: no merged row, no formula or threshold of its own, and the drill-down «al abrir
+ * una actividad se ve el detalle por rubro» comes out of the same call. `base=original` only changes
+ * `rubros`/`total`: the frozen v0 does not say which line a peso came from, so the activity view always
+ * reads the live (vigente) budget with the same live E.
+ */
+function filasPorActividad(
+  porLinea: readonly { linea: LineaConActividad; input: FichaRubroInput }[],
+  corte: Periodo,
+  tolerancia: bigint,
+): { grupo: GrupoActividad; fila: Ficha }[] {
+  return gruposDeActividad(porLinea.map((entrada) => entrada.linea)).map((grupo) => ({
+    grupo,
+    fila: computeFicha({
+      rubros: porLinea
+        .filter((entrada) => (entrada.linea.actividad_id ?? null) === grupo.actividadId)
+        .map((entrada) => entrada.input),
+      corte,
+      toleranciaBp: tolerancia,
+    }),
+  }));
+}
+
+function serializeActividadRow(grupo: GrupoActividad, fila: Ficha, disponible: boolean) {
+  return {
+    actividad_id: grupo.actividadId,
+    codigo: grupo.codigo,
+    nombre: grupo.nombre,
+    objetivo_id: grupo.objetivo?.id ?? null,
+    objetivo_codigo: grupo.objetivo?.codigo ?? null,
+    gestion: grupo.gestion,
+    // El total de la misma `computeFicha`: las mismas fórmulas aplicadas a las sumas de los hijos.
+    ...serializeMoney(fila.total, disponible),
+    /** Asignado − ejecutado: saldo mientras los gastos están abiertos (S11/T14.5 añade el ahorro). */
+    saldo: fromCents(fila.total.asignado - fila.total.ejecutado),
+    /** S10: el detalle por rubro que se abre al elegir la actividad, con la forma del nivel superior. */
+    rubros: fila.rubros.map((row) => serializeRow(row, disponible)),
+  };
+}
+
+type FichaActividadJson = ReturnType<typeof serializeActividadRow>;
 
 /**
  * A and P of the frozen v0 per rubro, E from the live validated expenses. The rubros of the vigente
@@ -118,6 +240,8 @@ export type FinancialSheet = {
   ejecucion_disponible: boolean;
   rubros: FichaRowJson[];
   total: FichaRowJson;
+  /** S10: una fila por actividad (y una «Sin actividad»), agrupables por objetivo y «Gestión del proyecto». */
+  actividades: FichaActividadJson[];
   alerta_retraso: boolean;
   parametros: { tolerancia: number; retraso: number; confirmado: boolean };
 };
@@ -159,8 +283,19 @@ export async function calcularFichaFinanciera(
       select: {
         id: true,
         rubro_id: true,
+        // S10: la actividad de la línea, para agrupar la vista «Por actividad» sin otra consulta.
+        actividad_id: true,
         monto_proyectado_cop: true,
         rubro: { select: { codigo: true, nombre: true, orden: true, activo: true } },
+        actividad: {
+          select: {
+            id: true,
+            codigo: true,
+            nombre: true,
+            tipo: true,
+            objetivo: { select: { id: true, codigo: true, orden: true } },
+          },
+        },
       },
     }),
     db.programacionPeriodo.findMany({
@@ -180,23 +315,33 @@ export async function calcularFichaFinanciera(
   const gastosDe = (rubroId: string) => (fuente.disponible ? fuente.gastos.filter((gasto) => gasto.rubroId === rubroId) : []);
   const gastosDeLinea = (lineaId: string) =>
     fuente.disponible ? fuente.gastos.filter((gasto) => gasto.lineaId === lineaId) : [];
+
+  // Una entrada por línea: la vista por rubro las usa tal cual y la vista por actividad las agrupa por
+  // la actividad de la línea. Las dos parten de las mismas filas de gastos, así que su E total coincide.
+  const porLinea = [...lineas]
+    .sort((a, b) => compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro }))
+    .map((linea) => ({
+      linea,
+      input: {
+        rubroId: linea.rubro_id,
+        codigo: linea.rubro.codigo,
+        nombre: linea.rubro.nombre,
+        asignado: toCents(linea.monto_proyectado_cop),
+        programacion: celdas
+          .filter((celda) => celda.linea_id === linea.id)
+          .map((celda) => ({ periodo: celda.periodo, valor: toCents(celda.valor) })),
+        gastos: gastosDeLinea(linea.id),
+      } satisfies FichaRubroInput,
+    }));
   const rubros: FichaRubroInput[] = original
     ? rubrosDelOriginal(original, lineas, gastosDe)
-    : [...lineas]
-        .sort((a, b) => compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro }))
-        .map((linea) => ({
-          rubroId: linea.rubro_id,
-          codigo: linea.rubro.codigo,
-          nombre: linea.rubro.nombre,
-          asignado: toCents(linea.monto_proyectado_cop),
-          programacion: celdas
-            .filter((celda) => celda.linea_id === linea.id)
-            .map((celda) => ({ periodo: celda.periodo, valor: toCents(celda.valor) })),
-          gastos: gastosDeLinea(linea.id),
-        }));
+    : porLinea.map((entrada) => entrada.input);
 
   const tolerancia = toleranciaBp(parametros.tolerancia);
   const ficha = computeFicha({ rubros, corte, toleranciaBp: tolerancia });
+  const actividades = filasPorActividad(porLinea, corte, tolerancia).map(({ grupo, fila }) =>
+    serializeActividadRow(grupo, fila, fuente.disponible),
+  );
 
   let alerta = false;
   if (fuente.disponible) {
@@ -220,6 +365,7 @@ export async function calcularFichaFinanciera(
       ejecucion_disponible: fuente.disponible,
       rubros: ficha.rubros.map((row) => serializeRow(row, fuente.disponible)),
       total: serializeRow(ficha.total, fuente.disponible),
+      actividades,
       alerta_retraso: alerta,
       parametros: {
         tolerancia: parametros.tolerancia.valor,

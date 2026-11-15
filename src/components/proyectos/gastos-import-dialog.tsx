@@ -268,9 +268,10 @@ export function GastosImportDialog({ proyectoId }: { proyectoId: string }) {
               Importar gastos
             </DialogTitle>
             <DialogDescription>
-              Registra varios gastos desde un Excel con una fila por gasto. El archivo no lleva los soportes: se
-              adjuntan después, gasto por gasto. Primero valida el archivo y revisa cada fila; nada se guarda hasta que
-              confirmes.
+              Registra varios gastos desde un Excel con una fila por gasto y el enlace de su soporte. Una factura
+              repartida entre actividades ocupa varias filas con el mismo tercero y número de documento: su «Total» es
+              el de la factura completa y va en la primera fila. Primero valida el archivo y revisa cada fila; nada se
+              guarda hasta que confirmes.
             </DialogDescription>
           </DialogHeader>
 
