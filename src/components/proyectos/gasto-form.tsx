@@ -767,9 +767,9 @@ export function GastoForm({
               </Campo>
             )}
             {enDistribucion && (
-              <Campo id={idCampo("iva")} label={`IVA de la línea${sufijo}`}>
+              <Campo id={idCampo("iva-linea")} label={`IVA de la línea${sufijo}`}>
                 <Input
-                  id={idCampo("iva")}
+                  id={idCampo("iva-linea")}
                   inputMode="decimal"
                   value={ivaDeFila(fila, indice)}
                   onChange={(e) => cambiarIvaDeFila(fila.clave, formatearMontoAlEscribir(e.target.value))}

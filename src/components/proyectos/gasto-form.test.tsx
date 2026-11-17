@@ -1123,6 +1123,8 @@ describe("GastoForm", () => {
         await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
         await user.type(screen.getByLabelText("Valor 2"), "840.000")
 
+        // Its own field, not the invoice's IVA (ids must not collide: the label would point at the invoice field).
+        expect(screen.getByLabelText("IVA de la línea")).not.toBe(screen.getByLabelText("IVA"))
         // Proposed in proportion: 190.000 × 350/1.190 and the rest.
         expect(screen.getByLabelText("IVA de la línea")).toHaveValue("55.882,35")
         expect(screen.getByLabelText("IVA de la línea 2")).toHaveValue("134.117,65")
