@@ -13,6 +13,12 @@ Un criterio con `Estado: cubierto` significa que alguien corrió ese comando y l
 > escribir salida (pasó tres veces el 2026-11-12, siempre tras suspender la máquina). Conviene correr por área,
 > como indica cada renglón, y dejar la suite completa al CI del PR.
 
+> **Actualización 2026-11-17.** Todos los criterios de AJ-07 a EV-07 (35) se comprueban en pantalla con
+> `e2e/proyectos-v2/aceptacion-po-261110.spec.ts` (26 pruebas, una por criterio o por par de criterios), que corre
+> en el job `e2e` del CI. Esa verificación reemplaza los estados «por confirmar» y «parcial» de abajo y la tabla
+> «no verificable todavía» de la Parte 2; EV-08 sigue pendiente porque es una carga sobre datos de producción.
+> Detalle y hallazgos: `odd/tasks/e2e-aceptacion-po-261110.md`.
+
 ---
 
 ## Parte 1 — Ajustes (implementados)

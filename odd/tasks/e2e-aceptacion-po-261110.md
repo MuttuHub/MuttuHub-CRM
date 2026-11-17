@@ -50,8 +50,8 @@ Cada S# es un criterio del PO, citado textualmente. EV-08 queda fuera: es una ca
 | ID | S# | Ruta | Estado | Evidencia |
 |---|---|---|---|---|
 | T1 | — | inline | hecho | stack local + worktree sin `.env`, migración EV-07 aplicada en local |
-| T2 | S1–S35 | inline | en curso | spec `e2e/proyectos-v2/aceptacion-po-261110.spec.ts` |
-| T3 | — | inline | pendiente | actualizar informe y checklist con la evidencia |
+| T2 | S1–S35 | inline | hecho | spec `e2e/proyectos-v2/aceptacion-po-261110.spec.ts`: 26/26 en verde (b04a476) |
+| T3 | — | inline | hecho | informe Word regenerado; checklist apunta al spec |
 | F1 | S17, S18, S21 | inline | hecho (RED→GREEN) | V-03 exigía «Valor total» > 0 en la hoja 2. Proyecto nuevo = 0, así que no importaba (EV-01: «no se digitan») |
 | F2 | S30, S31 | inline | hecho (RED→GREEN) | la vista «Por rubro» pintaba una fila por línea; EV-06: «la suma de ese rubro en todas las actividades» |
 | F3 | S28 | inline | hecho (RED→GREEN) | la factura distribuida no dejaba consultar sus líneas; ahora lista actividad · rubro · valor |
@@ -69,3 +69,8 @@ Cada S# es un criterio del PO, citado textualmente. EV-08 queda fuera: es una ca
   importación ya tomaba como total la suma del presupuesto (W-02). (F2) La vista por rubro con base vigente
   repetía el rubro una vez por actividad: `financial-sheet.ts` le pasaba `porLinea` tal cual. (F3) La fila de la
   factura distribuida decía «Distribuida en 2 líneas» sin decir cuáles. Los tres se corrigieron con TDD.
+- L6 (2026-11-17): evidencia final. e2e de aceptación 26/26. Resto del e2e del CI: 55/57; las 2 que fallan
+  son del entorno local (invitation-flow pasa con las variables de Supabase exportadas; oportunidad-ciclo busca
+  una tarea sembrada que una corrida anterior ya vinculó). Vitest por áreas (la suite de una vez se cuelga en
+  WSL): src/lib 1239, scripts 134, src/hooks 145, src/app + src/components 3667, prisma 283; 0 fallos.
+  Commits: 6d171ee (F1), 2ee1949 (F2), 92d8727 (F3), fb1f184 (F4), b04a476 (spec).
