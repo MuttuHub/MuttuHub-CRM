@@ -19,7 +19,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { db } from "@/lib/db";
-import { guardDocumentCreate, MAX_TITULO_LENGTH } from "./documents";
+import { guardDocumentCreate, loadDocumentForWrite, MAX_TITULO_LENGTH } from "./documents";
 
 const gerencia = { id: "gerencia-1", nombre: "Gerencia", rol: "GERENCIA" } as Usuario;
 const colaborador = { id: "colab-1", nombre: "Colab", rol: "COLABORADOR" } as Usuario;
@@ -152,5 +152,36 @@ describe("guardDocumentCreate", () => {
         }),
       }),
     );
+  });
+});
+
+describe("loadDocumentForWrite", () => {
+  // Previous behavior (PATCH /documents/:id): without options the gate only
+  // finds live documents, so a document in the trash answers NOT_FOUND.
+  it("only looks at live documents by default", async () => {
+    const result = await loadDocumentForWrite("doc-1", gerencia);
+
+    expect(result).toEqual({ ok: false, code: "NOT_FOUND" });
+    expect(vi.mocked(db.documento.findFirst).mock.calls[0]![0]!.where).toEqual({
+      id: "doc-1",
+      deleted_at: null,
+    });
+  });
+
+  it("with deleted: true applies the same rule to documents in the trash", async () => {
+    vi.mocked(db.documento.findFirst).mockResolvedValue({
+      id: "doc-1",
+      categoria: "Comercial",
+      autor_id: "someone-else",
+      carpeta_id: null,
+    } as never);
+
+    const result = await loadDocumentForWrite("doc-1", colaborador, { deleted: true });
+
+    expect(result).toEqual({ ok: false, code: "FORBIDDEN" });
+    expect(vi.mocked(db.documento.findFirst).mock.calls[0]![0]!.where).toEqual({
+      id: "doc-1",
+      deleted_at: { not: null },
+    });
   });
 });

@@ -27,7 +27,13 @@ import { db } from "@/lib/db";
 // reader filter conversions without parsing `cambios` — same precedent as the
 // close-phase-1 "exportar" widening above.
 export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad" | "dashboard";
-export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar" | "convertir";
+export type AuditAccion =
+  | "crear"
+  | "editar"
+  | "eliminar"
+  | "restaurar"
+  | "exportar"
+  | "convertir";
 
 export async function logAudit(params: {
   entidad: AuditEntidad;
