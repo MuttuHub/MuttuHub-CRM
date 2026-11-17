@@ -213,8 +213,9 @@ describe("calcularFichaFinanciera — A, P y E por rubro", () => {
     mocks.celdas.mockResolvedValue([celda("l1", "2026-10", "15000000.00"), celda("l2", "2026-11", "8000000.00")])
     mocks.gastos.mockResolvedValue([gasto("r12", "2026-11", "6500000.00", "VALIDADO", "l1")])
     const value = await ficha()
-    expect(value.rubros.map((fila) => fila.codigo)).toEqual(["R12", "R12"])
-    expect(value.rubros.map((fila) => fila.ejecutado)).toEqual(["6500000.00", "0.00"])
+    // EV-06: «El valor de cada rubro es la suma de ese rubro en todas las actividades»: one R12 row.
+    expect(value.rubros.map((fila) => fila.codigo)).toEqual(["R12"])
+    expect(value.rubros[0]).toMatchObject({ asignado: "23000000.00", programado: "23000000.00", ejecutado: "6500000.00" })
     expect(value.total.asignado).toBe("23000000.00")
     expect(value.total.programado).toBe("23000000.00")
     expect(value.total.ejecutado).toBe("6500000.00")
@@ -487,8 +488,9 @@ describe("calcularFichaFinanciera — por actividad (S10)", () => {
     expect(filaDe(value, "1.3").rubros.map((fila) => [fila.rubro_id, fila.ejecutado])).toEqual([["r12", "650000.00"]])
     expect(filaDe(value, "1.2").ejecutado).toBe("350000.00")
     expect(filaDe(value, "1.3").ejecutado).toBe("650000.00")
-    // La vista por rubro sigue con una fila por línea y el mismo total ejecutado.
-    expect(value.rubros.map((fila) => fila.ejecutado)).toEqual(["350000.00", "650000.00"])
+    // EV-06: la vista por rubro suma el rubro en todas las actividades (una fila R12 con 1.000.000), y el total
+    // ejecutado es el mismo que el de la vista por actividad.
+    expect(value.rubros.map((fila) => [fila.codigo, fila.ejecutado])).toEqual([["R12", "1000000.00"]])
     expect(sumaEjecutado(value.actividades)).toBe(toCents(value.total.ejecutado))
   })
 

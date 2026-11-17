@@ -241,6 +241,30 @@ function rubrosDelOriginal(
 }
 
 
+/**
+ * EV-06: «El valor de cada rubro es la suma de ese rubro en todas las actividades». The vigente budget comes
+ * one entry per line (activity + rubro); the rubro view merges the lines of a rubro into one row, keeping the
+ * order of the first line. Each expense still belongs to exactly one line, so nothing is counted twice.
+ */
+function sumarPorRubro(lineas: readonly FichaRubroInput[]): FichaRubroInput[] {
+  const porRubro = new Map<string, FichaRubroInput>()
+  for (const linea of lineas) {
+    const previa = porRubro.get(linea.rubroId)
+    porRubro.set(
+      linea.rubroId,
+      previa
+        ? {
+            ...previa,
+            asignado: previa.asignado + linea.asignado,
+            programacion: [...previa.programacion, ...linea.programacion],
+            gastos: [...previa.gastos, ...linea.gastos],
+          }
+        : linea,
+    )
+  }
+  return [...porRubro.values()]
+}
+
 export type FinancialSheetInput = {
   id: string;
   estado: string;
@@ -339,8 +363,8 @@ export async function calcularFichaFinanciera(
   const gastosDeLinea = (lineaId: string) =>
     fuente.disponible ? fuente.gastos.filter((gasto) => gasto.lineaId === lineaId) : [];
 
-  // Una entrada por línea: la vista por rubro las usa tal cual y la vista por actividad las agrupa por
-  // la actividad de la línea. Las dos parten de las mismas filas de gastos, así que su E total coincide.
+  // Una entrada por línea: la vista por rubro las suma por rubro (EV-06) y la vista por actividad las agrupa
+  // por la actividad de la línea. Las dos parten de las mismas filas de gastos, así que su E total coincide.
   const porLinea = [...lineas]
     .sort((a, b) => compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro }))
     .map((linea) => ({
@@ -358,7 +382,7 @@ export async function calcularFichaFinanciera(
     }));
   const rubros: FichaRubroInput[] = original
     ? rubrosDelOriginal(original, lineas, gastosDe)
-    : porLinea.map((entrada) => entrada.input);
+    : sumarPorRubro(porLinea.map((entrada) => entrada.input));
 
   const tolerancia = toleranciaBp(parametros.tolerancia);
   const ficha = computeFicha({ rubros, corte, toleranciaBp: tolerancia });
