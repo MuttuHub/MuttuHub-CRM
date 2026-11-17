@@ -402,16 +402,16 @@ export function v03(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
     )
   }
 
+  // EV-01: the project total is the budget sum and is never typed, so an empty or zero cell (the template of a
+  // new project) is fine. Only a typed value that is not an amount is reported.
   const total = leerDecimal(p.proyecto.valorTotal.valor)
-  if (!total.ok) {
+  if (!total.ok && total.motivo !== "vacio") {
     const mensaje =
       total.motivo === "decimales"
         ? "El valor total admite máximo dos decimales."
         : "El valor total no es un monto válido."
     errores.push(error("V-03", HOJAS.proyecto, p.proyecto.valorTotal.fila, "B", textoDe(p.proyecto.valorTotal.valor), mensaje))
-  } else if (total.cents <= ZERO) {
-    errores.push(error("V-03", HOJAS.proyecto, p.proyecto.valorTotal.fila, "B", total.dec, "El valor total debe ser mayor que cero."))
-  } else if (total.cents > MONTO_MAXIMO_CENTS) {
+  } else if (total.ok && total.cents > MONTO_MAXIMO_CENTS) {
     errores.push(error("V-03", HOJAS.proyecto, p.proyecto.valorTotal.fila, "B", total.dec, "El valor total es demasiado alto."))
   }
 
@@ -989,11 +989,15 @@ export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] 
 // V-12 / W-02 — the budget sum against the project total
 // ---------------------------------------------------------------------------
 
-/** The template total and the budget sum, or `null` when either cannot be read. */
+/**
+ * The template total and the budget sum, or `null` when either cannot be read. An empty total counts as 0:
+ * not typed (EV-01).
+ */
 function totalYSuma(p: ParsedTemplate): { total: Cents; suma: Cents } | null {
   if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "proyecto")) return null
-  const total = leerDecimal(p.proyecto.valorTotal.valor)
-  if (!total.ok) return null
+  const leido = leerDecimal(p.proyecto.valorTotal.valor)
+  if (!leido.ok && leido.motivo !== "vacio") return null
+  const total = leido.ok ? leido : { cents: ZERO }
 
   const asignados: Cents[] = []
   for (const fila of p.presupuesto) {
@@ -1011,12 +1015,25 @@ function mensajeDiferencia(total: Cents, suma: Cents): string {
  * V-12: an empty budget cannot back the project total. A funded budget that
  * differs from the total is not an error (PO feedback 2026-10-23): the executed
  * budget is the value the project tracks, so the import takes its sum (W-02).
+ * EV-01: with the total not typed (0 or empty) an empty budget is still reported.
  */
 export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
   void _c
   const cifras = totalYSuma(p)
-  if (!cifras || cifras.suma !== ZERO || cifras.total === ZERO) return []
+  if (!cifras || cifras.suma !== ZERO) return []
 
+  if (cifras.total <= ZERO) {
+    return [
+      error(
+        "V-12",
+        HOJAS.presupuesto,
+        null,
+        "C",
+        fromCents(ZERO),
+        "El presupuesto está vacío: agrega al menos una línea con actividad, rubro y valor. El valor total del proyecto es la suma de esas líneas.",
+      ),
+    ]
+  }
   return [
     error("V-12", HOJAS.presupuesto, null, "C", fromCents(cifras.total - cifras.suma), mensajeDiferencia(cifras.total, cifras.suma)),
   ]
@@ -1026,7 +1043,8 @@ export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 export function w02(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
   void _c
   const cifras = totalYSuma(p)
-  if (!cifras || cifras.suma === ZERO || cifras.suma === cifras.total) return []
+  // EV-01: a total left at 0 or empty was never typed, so there is nothing to replace.
+  if (!cifras || cifras.total <= ZERO || cifras.suma === ZERO || cifras.suma === cifras.total) return []
 
   return [
     error(

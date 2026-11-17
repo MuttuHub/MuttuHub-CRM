@@ -105,7 +105,10 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
   const fechaFin = parseFechaCelda(p.proyecto.fechaFin.valor)
   if (!fechaInicio || !fechaFin) throw new Error("La plantilla no tiene fechas de proyecto válidas.")
 
-  const valorTotal = decimalDe(p.proyecto.valorTotal.valor)
+  // EV-01: the total is the budget sum (valorTotalCents below); the cell only has to be empty or an amount.
+  const celdaTotal = p.proyecto.valorTotal.valor
+  const totalVacio = celdaTotal === null || (typeof celdaTotal === "string" && celdaTotal.trim() === "")
+  const valorTotal = totalVacio ? "0" : decimalDe(celdaTotal)
   const beneficiariosMeta = enteroDe(p.proyecto.metaBeneficiarios.valor)
   if (valorTotal === null || beneficiariosMeta === null) {
     throw new Error("La plantilla no tiene valor total o meta de beneficiarios válidos.")

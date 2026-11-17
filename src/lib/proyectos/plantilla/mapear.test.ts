@@ -165,6 +165,14 @@ describe("construirPlan of the valid F-X1", () => {
     expect(p.actividades.map((a) => a.tipo)).toEqual(["NORMAL", "NORMAL", "NORMAL", "NORMAL"])
   })
 
+  it("takes the budget sum as the total when the template total is 0 or empty (EV-01)", async () => {
+    for (const valor of [0, null]) {
+      const parsed = await parsePlantilla(bufferValido)
+      parsed.proyecto.valorTotal.valor = valor
+      expect(construirPlan(parsed, fixtureContextoFX1()).proyecto.valorTotalCents).toBe(toCents("177360000"))
+    }
+  })
+
   it("rejects a scientific-notation total with a domain error, not a RangeError", async () => {
     const parsed = await parsePlantilla(bufferValido)
     parsed.proyecto.valorTotal.valor = 1e21
