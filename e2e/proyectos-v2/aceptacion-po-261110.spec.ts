@@ -1152,3 +1152,606 @@ test.describe("AJ-10 «Posible retraso»", () => {
     return actividades.find((a) => a.codigo === "A1.1")!.id;
   }
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// «Debe quedar» (S36–S53): what each requirement says the screen keeps, beyond its «Se acepta si»
+// ---------------------------------------------------------------------------------------------------------------
+
+test.describe("«Debe quedar»", () => {
+  const anchoLinea = (codigoActividad: string, rubro: string) => new RegExp(`${codigoActividad.replace(".", "\\.")}.*${rubro}|${rubro}.*${codigoActividad.replace(".", "\\.")}`);
+
+  test("S36 AJ-07 «El cálculo se aplica igual en la tarjeta del periodo, la curva S técnica, la tabla por periodo y el semáforo técnico.»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    // The Resumen's technical health reads the same 24,7 % the table, the card and the curve show (S2).
+    const salud = page.getByTestId("salud-tecnico");
+    await expect(salud).toBeVisible({ timeout: 30_000 });
+    await expect(salud).toContainText(pctTexto(24.7));
+    const color = await salud.getAttribute("data-color");
+    await pestana(page, "Actividades").click();
+    const chip = page.getByRole("button", { name: /^Semáforo técnico: / });
+    await expect(chip).toBeVisible();
+    const palabra = { verde: "Verde", amarillo: "Amarillo", rojo: "Rojo" }[String(color)];
+    await expect(chip).toHaveAccessibleName(`Semáforo técnico: ${palabra}`);
+  });
+
+  test("S37 AJ-08 «Sin aprobación: se eliminan los estados Validado, Rechazado y Pendiente por revisión, y la columna “Por validar”.»", async ({ page }) => {
+    await abrirFicha(page, "gerencia");
+    await abrirFinanzas(page, "Gastos");
+    const filtros = page.getByRole("group", { name: "Filtrar gastos" });
+    await expect(filtros.getByRole("button", { name: /^Registrado/ })).toBeVisible();
+    await expect(filtros.getByRole("button", { name: /^Anulado/ })).toBeVisible();
+    for (const viejo of [/^Validado/, /^Rechazado/, /Pendiente por revisión/]) {
+      await expect(filtros.getByRole("button", { name: viejo })).toHaveCount(0);
+    }
+    await expect(page.getByRole("columnheader", { name: /Por validar/ })).toHaveCount(0);
+    await abrirFinanzas(page, "Resumen");
+    await expect(page.getByText(/Por validar/)).toHaveCount(0);
+  });
+
+  test("S38 AJ-08 «Validadores al digitar: valores numéricos, mayores que 0, mostrados con separador de miles; el total lo calcula el sistema; advertencia si el IVA supera el 19 % del subtotal.»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    await abrirFinanzas(page, "Gastos");
+    await page.getByTestId("gastos").getByRole("button", { name: "Registrar gasto" }).click();
+    const form = page.getByRole("form", { name: "Registrar gasto" });
+    const subtotal = form.getByLabel("Subtotal", { exact: true });
+    // Greater than 0 and numeric.
+    await subtotal.fill("0");
+    await expect(form).toContainText("Ingresa un subtotal válido con máximo dos decimales; usa coma para los decimales (1.500,50).");
+    await subtotal.fill("abc");
+    await expect(form).toContainText("Ingresa un subtotal válido con máximo dos decimales");
+    // Thousands separator while typing.
+    await subtotal.fill("");
+    await subtotal.pressSequentially("1500000");
+    await expect(subtotal).toHaveValue("1.500.000");
+    // The total is the system's: read-only, Subtotal + IVA.
+    const iva = form.getByLabel("IVA", { exact: true });
+    await iva.fill("");
+    await iva.pressSequentially("285000");
+    const total = form.getByLabel("Total", { exact: true });
+    await expect(total).toHaveJSProperty("readOnly", true);
+    await expect(total).toHaveValue(cop(1_785_000));
+    // 19 % exactly: no warning; above it: the warning.
+    const aviso = "El IVA supera el 19 % del subtotal. Revisa los valores; puedes registrar el gasto igualmente.";
+    await expect(form.getByText(aviso)).toHaveCount(0);
+    await iva.fill("");
+    await iva.pressSequentially("300000");
+    await expect(form.getByText(aviso)).toBeVisible();
+    await form.getByRole("button", { name: "Cancelar" }).click();
+  });
+
+  test("S39 AJ-08 «advertencia si el ejecutado acumulado del rubro supera lo programado hasta ese periodo»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    await abrirFinanzas(page, "Gastos");
+    // A2.2 Suministros starts after this month: nothing is programmed up to now, so any expense passes it
+    // while staying far below the assigned value (no critical alert).
+    const form = await llenarGasto(page, {
+      lineas: [{ objetivo: /O2/, actividad: /A2\.2/, rubro: /R13/ }],
+      subtotal: "100.000",
+      doc: `FV-PROG-${RUN}`,
+      tercero: `Papelería E2E ${RUN}`,
+    });
+    const aviso = await registrar(page, form);
+    expect(aviso).toContain("Este gasto supera lo programado del rubro hasta este periodo.");
+    expect(aviso).not.toContain("Solicita un traslado al Gerente");
+  });
+
+  const DOC_AJENO = `FV-AJENO-${RUN}`;
+  const MOTIVO_CORRECCION = `Corrige la descripción ${RUN}`;
+  const MOTIVO_ANULACION = `Gasto de otro proyecto ${RUN}`;
+
+  test("S40 AJ-08 «Corrección: el Gestor del proyecto puede editar o anular un gasto, con motivo obligatorio y registro en auditoría. El gasto anulado no suma al ejecutado, pero no se borra.»", async ({ browser }) => {
+    // Gerencia registers an expense; the Gestor (coordinador, a member) corrects and then annuls it.
+    const gerencia = await como(browser, "gerencia");
+    try {
+      const { lineas } = await api<{ lineas: { linea_id: string; actividad_codigo: string | null; rubro_id: string; rubro_codigo: string | null }[] }>(
+        gerencia.page,
+        "GET",
+        `/api/v1/projects/${proyectoId}/budget`,
+      );
+      const linea = lineas.find((l) => l.actividad_codigo === "A1.3" && l.rubro_codigo === "R12")!;
+      await api(gerencia.page, "POST", `/api/v1/projects/${proyectoId}/expenses`, {
+        rubro_id: linea.rubro_id,
+        linea_id: linea.linea_id,
+        fecha_documento: hoyIso(),
+        periodo: mesActual(),
+        tipo_soporte: "FACTURA_PROVEEDOR",
+        tercero_nombre: `Transportes Gerencia ${RUN}`,
+        tercero_tipo_id: "NIT",
+        tercero_numero_id: `903${String(RUN).slice(-6)}`,
+        numero_documento: DOC_AJENO,
+        descripcion: "Registrado por Gerencia",
+        subtotal: "200000",
+        iva: "0",
+        soportes: [{ url_externa: "https://example.com/ajeno.pdf", nombre: `Soporte ${DOC_AJENO}` }],
+      });
+    } finally {
+      await gerencia.close();
+    }
+
+    const gestor = await como(browser, "coordinador");
+    try {
+      const page = gestor.page;
+      await page.goto(`/proyectos/${proyectoId}`);
+      const ejecutadoAntes = montoDe((await (await ejecutadoRubro(page, "Transporte")).textContent()) ?? "");
+      await abrirFinanzas(page, "Gastos");
+      const fila = page.getByRole("row", { name: new RegExp(DOC_AJENO) });
+      // Correct somebody else's expense: the motivo is required.
+      await fila.getByRole("button", { name: "Corregir" }).click();
+      const dialogo = page.getByRole("dialog", { name: "Corregir gasto" });
+      const form = dialogo.getByRole("form", { name: "Corregir gasto" });
+      await form.getByLabel("Descripción").fill("Corregido por el Gestor");
+      await form.getByRole("button", { name: "Guardar cambios" }).click();
+      await expect(dialogo).toContainText("Escribe el motivo de la corrección.");
+      await form.getByLabel("Motivo de la corrección").fill(MOTIVO_CORRECCION);
+      await form.getByRole("button", { name: "Guardar cambios" }).click();
+      await expect(dialogo).toBeHidden({ timeout: 30_000 });
+      await expect(page.getByRole("row", { name: new RegExp(DOC_AJENO) })).toContainText("Corregido por el Gestor");
+
+      // Annul it with a motivo: it stays in the list and stops adding up.
+      const filaCorregida = page.getByRole("row", { name: new RegExp(DOC_AJENO) });
+      await filaCorregida.getByRole("button", { name: "Anular" }).click();
+      await filaCorregida.getByLabel("Motivo de anulación").fill(MOTIVO_ANULACION);
+      await filaCorregida.getByRole("button", { name: "Confirmar anulación" }).click();
+      await expect(page.getByRole("row", { name: new RegExp(DOC_AJENO) })).toContainText(MOTIVO_ANULACION, { timeout: 30_000 });
+      await expect(page.getByRole("row", { name: new RegExp(DOC_AJENO) })).toContainText("Anulado");
+      // The 200.000 Gerencia registered (already in `ejecutadoAntes`) no longer adds up.
+      await expect(await ejecutadoRubro(page, "Transporte")).toHaveText(cop(ejecutadoAntes - 200_000));
+
+      // Both in the audit (Historial › Registro de cambios), with their motivos.
+      await pestana(page, "Historial").click();
+      const registro = page.getByRole("tabpanel", { name: "Historial" });
+      await expect(registro.getByText(`Motivo corrección: ${MOTIVO_CORRECCION}`).first()).toBeVisible({ timeout: 30_000 });
+      await expect(registro.getByText(new RegExp(`Motivo: ${MOTIVO_ANULACION}`)).first()).toBeVisible();
+    } finally {
+      await gestor.close();
+    }
+  });
+
+  test("S41 AJ-08 «Propuesto: en la ficha financiera, un resumen de cambios del periodo (gastos editados y anulados) con acceso al detalle y los motivos»", async ({ page }) => {
+    await abrirFicha(page, "gerencia");
+    await abrirFinanzas(page, "Resumen");
+    const seccion = page.locator('section[aria-labelledby="finanzas-cambios-periodo"]');
+    await expect(seccion).toBeVisible({ timeout: 30_000 });
+    await expect(seccion.getByRole("heading", { name: "Cambios del periodo" })).toBeVisible();
+    const lista = seccion.getByRole("list", { name: "Gastos editados y anulados" });
+    const anulado = lista.getByRole("listitem").filter({ hasText: DOC_AJENO }).filter({ hasText: "Anulado" });
+    await expect(anulado).toContainText(`Motivo: ${MOTIVO_ANULACION}`);
+    const corregido = lista.getByRole("listitem").filter({ hasText: DOC_AJENO }).filter({ hasText: "Corregido" });
+    await expect(corregido).toContainText(`Motivo: ${MOTIVO_CORRECCION}`);
+    await corregido.getByRole("button", { name: /^Ver detalle/ }).click();
+    await expect(seccion.getByRole("list", { name: `Detalle del cambio ${DOC_AJENO}` })).toContainText("Corregido por el Gestor");
+  });
+
+  const MOTIVO_RECHAZO = `Traslado a rechazar ${RUN}`;
+  const COMENTARIO_RECHAZO = `No hay saldo que mover en esa línea ${RUN}`;
+
+  test("S44 AJ-09 «El Gerente ve las solicitudes pendientes de forma visible, por ejemplo como alerta en la ficha del proyecto.»", async ({ browser }) => {
+    const gestor = await como(browser, "coordinador");
+    try {
+      await gestor.page.goto(`/proyectos/${proyectoId}`);
+      const dialog = await abrirTraslado(gestor.page);
+      await elegir(dialog.getByLabel("Actividad y rubro de origen"), anchoLinea("A1.2", "R08"));
+      await elegir(dialog.getByLabel("Actividad y rubro de destino"), anchoLinea("A2.2", "R13"));
+      await dialog.getByLabel("Valor", { exact: true }).fill("100.000");
+      await dialog.getByLabel("Motivo").fill(MOTIVO_RECHAZO);
+      await dialog.getByRole("button", { name: "Enviar solicitud" }).click();
+      await expect(dialog).toBeHidden({ timeout: 30_000 });
+    } finally {
+      await gestor.close();
+    }
+    const gerencia = await como(browser, "gerencia");
+    try {
+      await gerencia.page.goto(`/proyectos/${proyectoId}`);
+      const atencion = gerencia.page.getByTestId("atencion-modificacion_pendiente");
+      await expect(atencion).toBeVisible({ timeout: 30_000 });
+      await expect(atencion).toContainText("Solicitud de modificación pendiente");
+      await expect(atencion).toContainText("Traslado entre rubros");
+      await atencion.getByRole("button", { name: "Ver solicitudes" }).click();
+      await expect(gerencia.page.getByTestId("solicitud").filter({ hasText: MOTIVO_RECHAZO })).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await gerencia.close();
+    }
+  });
+
+  test("S42 AJ-09 «El Gerente aprueba o rechaza. Al aprobar se genera una nueva versión del presupuesto; si rechaza, el comentario es obligatorio.» + S43 «El Gestor ve el estado de sus solicitudes (pendiente, aprobada, rechazada) con el comentario.»", async ({ browser }) => {
+    const gerencia = await como(browser, "gerencia");
+    try {
+      const page = gerencia.page;
+      await page.goto(`/proyectos/${proyectoId}`);
+      const solicitud = await solicitudDe(page, MOTIVO_RECHAZO);
+      await solicitud.getByRole("button", { name: "Rechazar" }).click();
+      const confirmar = solicitud.getByRole("button", { name: "Confirmar rechazo" });
+      await expect(confirmar).toBeDisabled();
+      await solicitud.getByLabel("Comentario del rechazo").fill(COMENTARIO_RECHAZO);
+      await confirmar.click();
+      await expect(solicitud).toHaveAttribute("data-estado", "RECHAZADA", { timeout: 30_000 });
+      // The approvals of S11 and S33 created new versions of the plan.
+      await page.getByRole("tabpanel", { name: "Historial" }).getByRole("tab", { name: /^Versiones/ }).click();
+      const versiones = page.getByTestId("versiones");
+      await expect(versiones.getByRole("heading", { name: "Versión original" })).toBeVisible({ timeout: 30_000 });
+      await expect(versiones.getByRole("heading", { name: "Versión 1" })).toBeVisible();
+      await expect(versiones.getByRole("heading", { name: "Versión 2" })).toBeVisible();
+      // The rejected request created no version: still original + 2 approvals.
+      await expect(versiones.getByTestId("version-tarjeta")).toHaveCount(3);
+    } finally {
+      await gerencia.close();
+    }
+    const gestor = await como(browser, "coordinador");
+    try {
+      const page = gestor.page;
+      await page.goto(`/proyectos/${proyectoId}`);
+      await expect(await solicitudDe(page, MOTIVO_RECHAZO)).toHaveAttribute("data-estado", "RECHAZADA");
+      await expect(await solicitudDe(page, MOTIVO_RECHAZO)).toContainText(COMENTARIO_RECHAZO);
+      await expect(await solicitudDe(page, MOTIVO_TRASLADO)).toHaveAttribute("data-estado", "APROBADA");
+    } finally {
+      await gestor.close();
+    }
+  });
+
+  test("S45 AJ-10 «El porcentaje es un parámetro del Administrador. Propuesto: valor inicial de 60 %.»", async ({ page }) => {
+    await login(page, "admin", "/administracion");
+    await page.goto("/administracion");
+    const retraso = page.getByLabel("Retraso (%)", { exact: true });
+    await expect(retraso).toBeVisible({ timeout: 30_000 });
+    await expect(retraso).toHaveValue("60");
+    await expect(retraso).toBeEditable();
+  });
+
+  test("S46 EV-01 «El asignado por rubro y el valor total del proyecto se calculan sumando las líneas; no se digitan.»", async ({ page }) => {
+    // Gerencia: the role that can open «Editar datos generales» (and still cannot type the total there).
+    await abrirFicha(page, "gerencia");
+    const suma = PRESUPUESTO.reduce((s, [, , v]) => s + v, 0);
+    await expect(page.getByTestId("datos-generales")).toContainText(cop(suma));
+    await abrirFinanzas(page, "Presupuesto");
+    await expect(page.getByTestId("presupuesto-resumen")).toContainText("Se calcula sumando las líneas");
+    await expect(page.getByTestId("presupuesto-resumen")).toContainText(cop(suma));
+    // Nowhere to type it: the general-data dialog shows it as text.
+    await pestana(page, "Resumen").click();
+    await page.getByRole("button", { name: "Editar datos generales" }).click();
+    const dialogo = page.getByRole("dialog", { name: "Editar datos generales" });
+    await expect(dialogo.getByRole("definition").filter({ hasText: cop(suma) })).toBeVisible();
+    await expect(dialogo.getByText("Se calcula sumando las líneas del presupuesto.")).toBeVisible();
+    await expect(dialogo.getByRole("textbox", { name: /Valor total/ })).toHaveCount(0);
+    await expect(dialogo.getByRole("spinbutton", { name: /Valor total/ })).toHaveCount(0);
+    await dialogo.getByRole("button", { name: "Cancelar" }).click();
+  });
+
+  test("S50 EV-04 «Cada movimiento queda en auditoría (línea, mes de origen, mes de destino, valor, usuario, fecha).»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    await pestana(page, "Historial").click();
+    const panel = page.getByRole("tabpanel", { name: "Historial" });
+    // The move is filed under «Cambios del plan»; a busy day folds its older entries.
+    await panel.getByRole("button", { name: "Cambios del plan" }).click();
+    const mas = panel.getByRole("button", { name: /^Ver \d+ cambios? más de este día$/ });
+    while ((await mas.count()) > 0) await mas.first().click();
+    const largo = (periodo: string) => `${MESES_LARGOS[Number(periodo.slice(5, 7)) - 1].replace(/^./, (c) => c.toUpperCase())} ${periodo.slice(0, 4)}`;
+    const frase = panel.getByText(
+      `movió $ 2.000.000 de la línea A1.2 · R12 Transporte de ${largo(ACTUAL)} a ${largo(mesSiguiente(ACTUAL))}.`,
+      { exact: false },
+    );
+    await expect(frase.first()).toBeVisible({ timeout: 30_000 });
+    // The user and the date are the entry's own: «Laura Jiménez» (the coordinador) under today's day heading.
+    await expect(panel.getByText(/Laura Jiménez movió \$ 2\.000\.000 de la línea A1\.2/).first()).toBeVisible();
+    const [y, m, d] = hoyIso().split("-");
+    await expect(panel.getByRole("heading", { level: 4 }).first()).toContainText(`${Number(d)} ${MESES_CORTOS[Number(m) - 1]} ${y}`);
+  });
+
+  test("S51 EV-05 «En Rubro solo aparecen los rubros presupuestados en la actividad elegida.» + IVA de cada línea proporcional y corregible + «El control de duplicados y la anulación se aplican a la factura completa.»", async ({ browser }) => {
+    const gestor = await como(browser, "coordinador");
+    const doc = `FV-IVA-${RUN}`;
+    try {
+      const page = gestor.page;
+      await page.goto(`/proyectos/${proyectoId}`);
+      await abrirFinanzas(page, "Gastos");
+      await page.getByTestId("gastos").getByRole("button", { name: "Registrar gasto" }).click();
+      const form = page.getByRole("form", { name: "Registrar gasto" });
+      await elegir(form.getByLabel("Objetivo", { exact: true }), /O1/);
+      await elegir(form.getByLabel("Actividad", { exact: true }), /A1\.2/);
+      const rubros = (await form.getByLabel("Rubro", { exact: true }).locator("option").allTextContents()).filter((t) => t !== "Elige un rubro");
+      expect(rubros.length).toBe(2);
+      expect(rubros.every((t) => /R08|R12/.test(t))).toBe(true);
+      await form.getByRole("button", { name: "Cancelar" }).click();
+
+      // A distributed invoice with IVA: each line gets its share, and it can be corrected.
+      const factura = await llenarGasto(page, {
+        lineas: [
+          { objetivo: /O1/, actividad: /A1\.2/, rubro: /R12/, valor: "350.000" },
+          { objetivo: /O1/, actividad: /A1\.3/, rubro: /R12/, valor: "840.000" },
+        ],
+        subtotal: "1.000.000",
+        doc,
+        tercero: `Transportes IVA ${RUN}`,
+      });
+      await factura.getByLabel("IVA", { exact: true }).fill("");
+      await factura.getByLabel("IVA", { exact: true }).pressSequentially("190000");
+      await expect(factura.getByLabel("IVA de la línea", { exact: true })).toHaveValue("55.882,35");
+      await expect(factura.getByLabel("IVA de la línea 2", { exact: true })).toHaveValue("134.117,65");
+      await factura.getByLabel("IVA de la línea", { exact: true }).fill("50.000");
+      await factura.getByLabel("IVA de la línea 2", { exact: true }).fill("140.000");
+      await registrar(page, factura);
+      const fila = page.getByRole("row", { name: new RegExp(doc) });
+      await expect(fila.getByTestId("gasto-reparto-linea")).toHaveText([
+        /^A1\.2 · R12 Transporte · \$\s?350\.000 · IVA \$\s?50\.000$/,
+        /^A1\.3 · R12 Transporte · \$\s?840\.000 · IVA \$\s?140\.000$/,
+      ]);
+
+      // Duplicates on the whole invoice: the same third party + document warns once, for the invoice.
+      await page.getByTestId("gastos").getByRole("button", { name: "Registrar gasto" }).click();
+      const otra = page.getByRole("form", { name: "Registrar gasto" });
+      await otra.getByLabel("Número de documento").fill(doc);
+      await otra.getByLabel("Tipo de identificación").selectOption("NIT");
+      await otra.getByLabel("Número de identificación").fill(`900${String(RUN).slice(-6)}`);
+      await expect(otra.getByRole("status").filter({ hasText: "Posible duplicado" })).toBeVisible({ timeout: 30_000 });
+      await otra.getByRole("button", { name: "Cancelar" }).click();
+    } finally {
+      await gestor.close();
+    }
+
+    // Annulment on the whole invoice: both activities lose their line.
+    const gerencia = await como(browser, "gerencia");
+    try {
+      const page = gerencia.page;
+      await page.goto(`/proyectos/${proyectoId}`);
+      const a12 = montoDe(await celda(await filaActividad(page, "A1.2"), 3));
+      const a13 = montoDe(await celda(await filaActividad(page, "A1.3"), 3));
+      await abrirFinanzas(page, "Gastos");
+      const fila = page.getByRole("row", { name: new RegExp(doc) });
+      await fila.getByRole("button", { name: "Anular" }).click();
+      await fila.getByLabel("Motivo de anulación").fill(`Prueba de anulación ${RUN}`);
+      await fila.getByRole("button", { name: "Confirmar anulación" }).click();
+      await expect(page.getByRole("row", { name: new RegExp(doc) })).toContainText("Anulado", { timeout: 30_000 });
+      // Each line's value already includes its IVA (the lines add up to the invoice total, 1.190.000).
+      await expect.poll(async () => montoDe(await celda(await filaActividad(page, "A1.2"), 3))).toBe(a12 - 350_000);
+      await expect.poll(async () => montoDe(await celda(await filaActividad(page, "A1.3"), 3))).toBe(a13 - 840_000);
+    } finally {
+      await gerencia.close();
+    }
+  });
+
+  test("S51 EV-05 «Plantilla de gastos: columna Código de actividad. Varias filas con el mismo tercero y el mismo número de documento se leen como una sola factura distribuida»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    const res = await page.request.get(`/api/v1/projects/${proyectoId}/expenses/template`);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await res.body()) as never);
+    const hoja = wb.getWorksheet("Gastos")!;
+    const encabezados = (hoja.getRow(1).values as unknown[]).map((v) => String(v ?? ""));
+    expect(encabezados).toContain("Código de actividad");
+    const rubros = Array.from(wb.getWorksheet("Rubros")!.getColumn(1).values, (v) => String(v ?? ""));
+    const transporte = rubros.find((r) => r.includes("Transporte"))!;
+    const doc = `PL-REP-${RUN}`;
+    const fila = (codigo: string, subtotal: number, totalFactura: number | null) =>
+      [transporte, hoyIso(), "Factura de proveedor", `Transportes plantilla ${RUN}`, "NIT", `904${String(RUN).slice(-6)}`, doc, "Factura repartida", subtotal, 0, totalFactura ?? "", mesActual(), "https://example.com/rep.pdf", codigo];
+    hoja.getRow(2).values = fila("A1.2", 300_000, 1_000_000);
+    hoja.getRow(3).values = fila("A1.3", 700_000, null);
+    await abrirFinanzas(page, "Gastos");
+    await page.getByRole("button", { name: "Importar gastos" }).click();
+    const dialog = page.getByRole("dialog", { name: "Importar gastos" });
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: `gastos-rep-${RUN}.xlsx`,
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: Buffer.from(await wb.xlsx.writeBuffer()),
+    });
+    await dialog.getByRole("button", { name: "Validar" }).click();
+    await expect(dialog.getByTestId("gastos-import-resumen")).toContainText("2 filas válidas", { timeout: 60_000 });
+    await dialog.getByRole("button", { name: /^Importar \d+ gastos?$/ }).click();
+    await expect(dialog.getByTestId("gastos-import-resultado")).toBeVisible({ timeout: 60_000 });
+    await dialog.getByRole("button", { name: "Cerrar" }).first().click();
+    const filas = page.getByRole("row", { name: new RegExp(doc) });
+    await expect(filas).toHaveCount(1, { timeout: 30_000 });
+    await expect(filas.getByTestId("gasto-distribuido")).toContainText("Distribuida en 2 líneas");
+  });
+
+  test("S52 EV-06 «Por actividad: agrupada por objetivo y por “Gestión del proyecto”. … Al abrir una actividad se ve el detalle por rubro.» + «Por rubro: la vista actual (curva S, tabla por periodo, semáforo).»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    await filaActividad(page, "A1.2");
+    const grupos = page.locator('[data-testid^="actividad-grupo-"]');
+    await expect(page.getByTestId("actividad-grupo-O1")).toContainText("Objetivo O1");
+    await expect(page.getByTestId("actividad-grupo-O2")).toContainText("Objetivo O2");
+    await expect(grupos.last()).toHaveAttribute("data-testid", "actividad-grupo-gestion");
+    await expect(page.getByTestId("actividad-grupo-gestion")).toContainText("Gestión del proyecto");
+    const a12 = page.locator('table[data-testid="actividad-tabla"] tr[data-testid="actividad-fila"]').filter({ hasText: "A1.2" });
+    await a12.getByRole("button", { name: /A1\.2/ }).click();
+    const detalle = page.locator('tr[data-testid="actividad-detalle"]').filter({ hasText: "Detalle por rubro" }).first();
+    await expect(detalle).toBeVisible();
+    await expect(detalle.getByTestId("actividad-rubro")).toHaveCount(2);
+
+    // Por rubro: its table with the semáforo, and the curve S with its per-period table (Actividades).
+    await page.getByRole("radio", { name: "Por rubro" }).check();
+    await expect(page.locator('table[data-testid="financiero-rubros"]')).toBeVisible();
+    await expect(page.getByTestId("cifra-programado")).toContainText(/Verde|Amarillo|Rojo/);
+    await expect(page.locator('table[data-testid="financiero-rubros"]').getByRole("progressbar").first()).toBeVisible();
+    await abrirCurva(page);
+    await expect(page.getByTestId("curve-s-financiero-svg")).toBeVisible();
+    await expect(page.getByTestId("curve-s-tabla").getByRole("columnheader", { name: "Fin. ejec" })).toBeVisible();
+  });
+
+  test("S53 EV-07 «Con los gastos cerrados, la actividad muestra ahorro (si sobró) o sobreejecución (si se gastó de más), con su nota.» + «el Gestor puede reabrirla con motivo, y queda en auditoría.»", async ({ page }) => {
+    await abrirFicha(page, "coordinador");
+    // A1.1 executed 2.438.000 over 2.000.000 assigned (S6): closing it shows the overspend.
+    let fila = await filaActividad(page, "A1.1");
+    await fila.getByRole("button", { name: "Cerrar gastos de la actividad" }).click();
+    let dialog = page.getByRole("dialog", { name: "Cerrar gastos de la actividad" });
+    const nota = `La campaña necesitó una segunda pieza ${RUN}`;
+    await dialog.getByLabel("Nota").fill(nota);
+    await dialog.getByRole("button", { name: "Cerrar gastos" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+    fila = await filaActividad(page, "A1.1");
+    await expect(fila.getByTestId("actividad-cierre")).toContainText("Sobreejecución");
+    await expect(fila.getByTestId("actividad-cierre")).toContainText(cop(438_000));
+    await expect(fila.getByTestId("actividad-cierre-nota")).toContainText(nota);
+
+    // Reopen: the motivo is required, then it is open again and the audit keeps the motivo.
+    await fila.getByRole("button", { name: "Reabrir" }).click();
+    dialog = page.getByRole("dialog", { name: "Reabrir gastos de la actividad" });
+    await dialog.getByRole("button", { name: "Reabrir gastos" }).click();
+    await expect(dialog).toContainText("El motivo de la reapertura es obligatorio.");
+    const motivo = `Llegó una factura pendiente ${RUN}`;
+    await dialog.getByLabel("Motivo").fill(motivo);
+    await dialog.getByRole("button", { name: "Reabrir gastos" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+    fila = await filaActividad(page, "A1.1");
+    await expect(fila.getByRole("button", { name: "Cerrar gastos de la actividad" })).toBeVisible();
+    await pestana(page, "Historial").click();
+    await expect(page.getByRole("tabpanel", { name: "Historial" }).getByText(`Motivo reapertura: ${motivo}`).first()).toBeVisible({ timeout: 30_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// EV-01 · EV-02 · EV-03 «Debe quedar» on a second project in Borrador: template validations, transversals without
+// deliverables nor weeks, Gerencia approving the baseline from the screen, schedule compliance without transversals
+// ---------------------------------------------------------------------------------------------------------------
+
+test.describe("«Debe quedar» de la plantilla y la línea base", () => {
+  let borradorId = "";
+  let plantilla: Buffer;
+  const NOMBRE = `E2E plantilla debe quedar · ${RUN}`;
+
+  /** Template rows: A1.1 weeks 1–2 (already over), T1 Transversal with no weeks, T2 Transversal weeks 1–2. */
+  async function llenar(presupuesto: (string | number)[][], actividades?: (string | number)[][]) {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(plantilla as never);
+    const poner = (nombre: string, filas: (string | number)[][]) => {
+      const hoja = wb.getWorksheet(nombre)!;
+      for (let r = hoja.actualRowCount; r >= 2; r--) hoja.spliceRows(r, 1);
+      filas.forEach((f, i) => {
+        const row = hoja.getRow(i + 2);
+        f.forEach((v, c) => (row.getCell(c + 1).value = v));
+        row.commit();
+      });
+    };
+    poner("3. Objetivos", [["O1", "Objetivo único"]]);
+    poner(
+      "4. Actividades",
+      actividades ?? [
+        ["A1.1", "O1", "Diagnóstico inicial", 1, 2, "", "Normal"],
+        ["T1", "", "Coordinación general", "", "", "", "Transversal"],
+        ["T2", "", "Arranque administrativo", 1, 2, "", "Transversal"],
+      ],
+    );
+    // Only A1.1 has a deliverable: the transversals need none (EV-02).
+    poner("5. Entregables", [["E1", "A1.1", "Informe de diagnóstico", 1, "Informe"]]);
+    poner("7. Presupuesto", presupuesto);
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+
+  test.beforeAll(async ({ browser }) => {
+    const gestor = await como(browser, "coordinador");
+    try {
+      const p = gestor.page;
+      const { items: clientes } = await api<{ items: { id: string }[] }>(p, "GET", "/api/v1/clients");
+      const { lineas } = await api<{ lineas: { id: string }[] }>(p, "GET", "/api/v1/strategic-lines");
+      const { municipios } = await api<{ municipios: { id: string }[] }>(p, "GET", "/api/v1/municipalities");
+      const { proyecto } = await api<{ proyecto: { id: string } }>(p, "POST", "/api/v1/projects", {
+        nombre: NOMBRE,
+        cliente_id: clientes[0].id,
+        lineas: [{ id: lineas[0].id, principal: true }],
+        municipio_ids: [municipios[0].id],
+        fecha_inicio: FECHA_INICIO,
+        fecha_fin: FECHA_FIN,
+        beneficiarios_meta: 25,
+      });
+      borradorId = proyecto.id;
+      const res = await p.request.get(`/api/v1/projects/${borradorId}/template`);
+      plantilla = Buffer.from(await res.body());
+    } finally {
+      await gestor.close();
+    }
+  });
+
+  async function importar(page: Page, bytes: Buffer): Promise<Locator> {
+    await page.goto(`/proyectos/${borradorId}`);
+    await pestana(page, "Actividades").click();
+    await page.getByRole("button", { name: /^(Importar plantilla|Cargar desde Excel)$/ }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Importar plantilla de proyecto" });
+    await subirPlantilla(dialog, bytes);
+    return dialog;
+  }
+
+  test("S47 EV-01 «hoja Presupuesto: columnas Código de actividad, Rubro y Valor» · «Se elimina de la plantilla la hoja de Programación mensual» · «Validaciones: la actividad existe, el rubro está activo …»", async ({ page }) => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(plantilla as never);
+    expect(wb.worksheets.map((h) => h.name)).not.toContain("8. Programación");
+    expect(wb.worksheets.some((h) => /programaci/i.test(h.name))).toBe(false);
+    const encabezado = (wb.getWorksheet("7. Presupuesto")!.getRow(1).values as unknown[]).filter(Boolean).map(String);
+    expect(encabezado).toEqual(["Código de actividad", "Rubro", "Valor"]);
+
+    await login(page, "coordinador");
+    const dialog = await importar(page, await llenar([["A9.9", "R01", 1_000_000], ["A1.1", "R99", 500_000]]));
+    await expect(dialog.getByRole("alert")).toContainText("La plantilla tiene", { timeout: 60_000 });
+    await expect(dialog).toContainText("La actividad «A9.9» no existe en la hoja 4. Actividades.");
+    await expect(dialog).toContainText("El rubro «R99» no existe o está suspendido.");
+    await expect(dialog.getByRole("button", { name: "Confirmar importación" })).toHaveCount(0);
+  });
+
+  test("S48 EV-02 «Una actividad transversal no requiere entregables …» + «Propuesto: sus fechas son, por defecto, las del proyecto.» + S49 EV-03 «En las transversales la propuesta sale pareja por mes» · grupos que se pliegan · «Después el Gerente aprueba la línea base, como hoy.»", async ({ browser }) => {
+    const gestor = await como(browser, "coordinador");
+    try {
+      const page = gestor.page;
+      const dialog = await importar(page, await llenar([["A1.1", "R01", 1_000_000], ["T1", "R01", 2_000_000], ["T2", "R04", 500_000]]));
+      await expect(dialog.getByText("La plantilla es válida.")).toBeVisible({ timeout: 60_000 });
+      await dialog.getByRole("button", { name: "Confirmar importación" }).click();
+      await expect(dialog).toBeHidden({ timeout: 60_000 });
+
+      // T1 without weeks runs the whole project.
+      const { actividades } = await api<{ actividades: { codigo: string; semana_inicio: number; semana_fin: number }[] }>(
+        page,
+        "GET",
+        `/api/v1/projects/${borradorId}/activities`,
+      );
+      expect(actividades.find((a) => a.codigo === "T1")).toMatchObject({ semana_inicio: 1, semana_fin: 20 });
+      await page.goto(`/proyectos/${borradorId}`);
+      await pestana(page, "Actividades").click();
+      await expect(page.getByRole("tabpanel", { name: "Lista" }).getByText("Gestión del proyecto").first()).toBeVisible();
+
+      // The proposal of a transversal is even across its months; the grid folds by activity.
+      await page.goto(`/proyectos/${borradorId}`);
+      await abrirFinanzas(page, "Presupuesto");
+      const t1 = page.getByTestId("programacion-fila").filter({ hasText: "T1" });
+      const valores = (await t1.getByRole("textbox").evaluateAll((es) => es.map((e) => (e as HTMLInputElement).value))).filter((v) => v !== "");
+      expect(valores.length).toBe(mesesEntre(FECHA_INICIO, FECHA_FIN).length);
+      const montos = valores.map((v) => montoDe(v));
+      expect(Math.max(...montos) - Math.min(...montos)).toBeLessThanOrEqual(1);
+      const grupo = page.getByTestId("programacion-grupo").filter({ hasText: "T1" }).getByRole("button");
+      await expect(grupo).toHaveAttribute("aria-expanded", "true");
+      await grupo.click();
+      await expect(grupo).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByTestId("programacion-fila").filter({ hasText: "T1" })).toHaveCount(0);
+      await grupo.click();
+      await page.getByRole("button", { name: "Confirmar programación" }).click();
+      await expect(page.getByText("Programación confirmada")).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await gestor.close();
+    }
+
+    // Gerencia approves the baseline from the screen, with transversals that have no deliverables.
+    const gerencia = await como(browser, "gerencia");
+    try {
+      const page = gerencia.page;
+      await page.goto(`/proyectos/${borradorId}`);
+      await page.getByRole("button", { name: "Aprobar línea base" }).click();
+      const dialog = page.getByRole("dialog", { name: "Aprobar línea base" });
+      await expect(dialog.getByTestId("baseline-precondiciones")).toHaveCount(0);
+      await dialog.getByRole("button", { name: "Aprobar", exact: true }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toContainText("En ejecución", { timeout: 30_000 });
+    } finally {
+      await gerencia.close();
+    }
+  });
+
+  test("S48 EV-02 «… y no entra en … el cumplimiento del cronograma.»", async ({ page, browser }) => {
+    await abrirFicha(page, "coordinador", borradorId);
+    // A1.1 (weeks 1–2, already over) reached the tope by its end; T2 (also over) reported nothing.
+    await registrarAvance(page, "A1.1", sumarDias(FECHA_INICIO, 10), 90);
+    const gerencia = await como(browser, "gerencia");
+    try {
+      await gerencia.page.goto("/proyectos?vista=tablero");
+      const tarjeta = gerencia.page.getByTestId("tablero-cronograma");
+      await expect(tarjeta.getByLabel(`Cumplimiento del cronograma de ${NOMBRE}`).first()).toBeVisible({ timeout: 60_000 });
+      // 100 % (1 of 1 normal activity on time); counting the transversal T2 it would be 50 %.
+      const fila = tarjeta.locator("li, div").filter({ hasText: NOMBRE }).last();
+      await expect(fila).toContainText(/100\s?%/);
+    } finally {
+      await gerencia.close();
+    }
+  });
+});
