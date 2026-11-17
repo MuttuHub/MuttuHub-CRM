@@ -28,6 +28,7 @@ function deletedRow(
 ) {
   return {
     id: "doc-1",
+    titulo: "Propuesta.pdf",
     categoria: overrides.categoria ?? "Comercial",
     autor_id: overrides.autor_id ?? "user-1",
     carpeta_id: overrides.carpeta_id ?? null,
@@ -150,6 +151,7 @@ describe("POST /api/v1/documents/:id/restore", () => {
       entidad_id: "doc-1",
       accion: "restaurar",
       usuario_id: "admin-1",
+      cambios: { titulo: "Propuesta.pdf" },
     });
   });
 });

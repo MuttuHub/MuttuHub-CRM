@@ -110,6 +110,8 @@ export const DELETE = withApiErrorHandling(
       entidad_id: id,
       accion: "eliminar",
       usuario_id: auth.usuario.id,
+      // The title lets the activity feed name a document that is now in the trash.
+      cambios: { titulo: access.documento.titulo },
     });
     return new NextResponse(null, { status: 204 });
   },

@@ -208,7 +208,7 @@ export async function loadDocumentForRead(id: string, usuario: Usuario) {
 export async function loadDocumentForDelete(id: string, usuario: Usuario) {
   const documento = await db.documento.findFirst({
     where: { id, deleted_at: null },
-    select: { id: true, categoria: true, autor_id: true },
+    select: { id: true, titulo: true, categoria: true, autor_id: true },
   });
   if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
   const { restringidas } = await loadDocCategories();
@@ -240,7 +240,7 @@ export async function loadDocumentForWrite(
 ) {
   const documento = await db.documento.findFirst({
     where: { id, deleted_at: options.deleted ? { not: null } : null },
-    select: { id: true, categoria: true, autor_id: true, carpeta_id: true },
+    select: { id: true, titulo: true, categoria: true, autor_id: true, carpeta_id: true },
   });
   if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
   const { restringidas } = await loadDocCategories();

@@ -51,6 +51,7 @@ export const POST = withApiErrorHandling(
       entidad_id: id,
       accion: ACCION_RESTAURAR,
       usuario_id: auth.usuario.id,
+      cambios: { titulo: access.documento.titulo },
     });
     return new NextResponse(null, { status: 204 });
   },
