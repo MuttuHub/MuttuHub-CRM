@@ -24,13 +24,17 @@ Out of scope (recorded so it is not lost): storage KPIs, permanent delete, per-f
 
 | ID | Specs | Route | Status | Evidence |
 |----|-------|-------|--------|----------|
-| T1 | S3, S8 backend + hooks (sort param, trash list, restore, update/trash/activity hooks) | delegated (parallel writer: backend unit, disjoint surface) | pending | |
-| T2 | S1, S2, S4, S5, S6, S7, S9, S10 UI | delegated (parallel writer: UI unit) | pending | |
-| T3 | Seam check: full suite, typecheck, lint, browser verification | inline | pending | |
+| T1 | S3, S8 backend + hooks (sort param, trash list, restore, update/trash/activity hooks) | delegated (parallel writer: backend unit, disjoint surface) | done | `3b5ede65`; 5 sort + 5 trash + 7 restore + 2 gate + hook tests |
+| T2 | S1, S2, S4, S5, S6, S7, S9, S10 UI | delegated (parallel writer: UI unit) | done | `fec5f7dc` + fix `f1afde3e`; RED: 14 new tests failed on base UI |
+| T3 | Seam check: full suite, typecheck, lint, browser verification | inline | partial | tests/lint/tsc green; browser pending (no `.env.local` in worktree) |
 
 ## Log
 
 - **L1 (2026-11-17, user):** "Revisa esta ruta del proyecto: https://muttu-hub.vercel.app/documentos — A mi jefe no le gustó el diseño, entonces crea unas alternativas en claude design y cambiar el diseño. Este fue el feedback que el me dió: Joda mas normal y estructurado. y mejores funcionalidades de administración."
 - **L2 (2026-11-17, user):** Chose "A con extras de B".
 - **L3:** Main checkout was switched to `test/e2e-aceptacion-po-261110` by someone else during this session, so the work runs in an isolated worktree from `origin/main`. `.env.local` copy into the worktree was blocked by a deny rule; browser verification needs the user to provide env for the worktree or run from the main checkout.
+- **L5 (seam):** Integration added `MutationToastOptions { silent }` to the move/update/trash hooks so bulk actions show one summary toast, and widened `AuditAccion` with `"restaurar"`. Checks (run in WSL, node_modules has Linux bindings only): vitest 261/261 on documents scope, then 98/98 on UI+hooks after the fix; eslint clean; `tsc --noEmit` 0 errors.
+- **L6 (verifier):** Independent verifier: S3, S5, S7, S8, S9, S10 pass; security of trash/restore/shared write gate holds. Blocker fixed in `f1afde3e`: single-row move/trash ran through the silent batch hooks and gave no feedback. Advisories not fixed (recorded): concurrent restores both succeed (double audit row); restore skips the duplicate-title check; `nombre_*` sort has no `id` tiebreaker; documents stay draggable for users who cannot move them (baseline behavior); empty `orden=` now returns 400.
+- **L7 (review):** Native review of the whole branch refused with `lens_context_budget_exceeded` (~6k lines). The high-risk backend commit `3b5ede65` is reviewed alone (risk + reliability lenses), user granted consent. The UI commit is not reviewed natively (too large; client gating is UX-only, server enforces).
+- **L8 (review blocked):** The native reviewer subprocess could not run in this environment: first it rejected the inherited `CLAUDE_CODE_AUTO_COMPACT_WINDOW` and the model `auto[1m]`; with an explicit model it failed with `401 Invalid bearer token`. Lineage `review-bb2fa6cbb3a87213` (backend commit, temp worktree) stays in `reviewing` with both lens slots open; no verdict was produced. Needs the user's decision.
 - **L4 (map):** `FolderTree` exists but is not rendered; PATCH already accepts metadata; `/api/v1/auditoria` is ADMINISTRADOR-only; no restore endpoint exists; list orders by `created_at desc` only; Documento has no `updated_at`.
