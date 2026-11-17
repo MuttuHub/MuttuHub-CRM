@@ -421,6 +421,36 @@ describe("ProjectGastos", () => {
       )
     })
 
+    it("la factura repartida se consulta con cada línea: 1.2 con $ 350.000 y 1.3 con $ 650.000 (S9 / EV-05)", async () => {
+      setup({
+        gastos: [
+          gasto("g1", {
+            valor: "1000000.00",
+            subtotal: "1000000.00",
+            iva: "0.00",
+            repartos: [
+              { linea_id: "l-12-r12", actividad_id: "a12", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "350000.00" },
+              { linea_id: "l-13-r12", actividad_id: "a13", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "650000.00" },
+            ],
+          }),
+        ],
+        s9: {
+          lineas: [
+            { linea_id: "l-12-r12", actividad_id: "a12", actividad_codigo: "1.2", actividad_nombre: "Talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "8000000.00" },
+            { linea_id: "l-13-r12", actividad_id: "a13", actividad_codigo: "1.3", actividad_nombre: "Visitas", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "5000000.00" },
+          ],
+          actividades: [],
+          objetivos: [],
+        },
+      })
+      const fila = await screen.findByTestId("gasto-fila")
+      const lineas = await within(fila).findAllByTestId("gasto-reparto-linea")
+      expect(lineas.map((linea) => linea.textContent)).toEqual([
+        "1.2 · R12 Transporte · $ 350.000",
+        "1.3 · R12 Transporte · $ 650.000",
+      ])
+    })
+
     it("una factura de una sola línea se pinta como siempre, sin la marca de distribuida (regresión, S9)", async () => {
       setup({
         gastos: [
