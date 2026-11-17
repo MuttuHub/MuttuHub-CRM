@@ -160,6 +160,19 @@ describe("validarModificacion", () => {
     expect(valida(liveF_V1(), "TRASLADO", traslado(), { ejecutado: alLimite })).toEqual([])
   })
 
+  it("an overspent line the request does not lower never blocks it (AJ-08 lets it save, AJ-09 checks the origin)", () => {
+    // R15 is overspent (assigned 320.000, executed 500.000), which AJ-08 allows with the critical alert.
+    // An unrelated R12 → R13 traslado must still go through.
+    const ejecutado = new Map([["R15", toCents("500000")]])
+    expect(valida(liveF_V1(), "TRASLADO", traslado(), { ejecutado })).toEqual([])
+  })
+
+  it("a traslado into an overspent line is allowed even when it does not cover it all (it narrows the gap)", () => {
+    // R13 executed 20.000.000 over 12.800.000; receiving 1.000.000 leaves it at 13.800.000, still below, but higher.
+    const ejecutado = new Map([["R13", toCents("20000000")]])
+    expect(valida(liveF_V1(), "TRASLADO", traslado(), { ejecutado })).toEqual([])
+  })
+
   it("rejects a rubro that vanishes while it has validated expenses", () => {
     const detalle = [presupuesto("R15", "320000", "0"), ...["2026-10", "2026-11", "2026-12", "2027-01"].map((p) => celda(`R15|${p}`, "80000", "0"))]
     const errores = valida(liveF_V1(), "REDUCCION", detalle, { ejecutado: new Map([["R15", toCents("1")]]) })

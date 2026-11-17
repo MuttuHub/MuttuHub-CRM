@@ -535,9 +535,11 @@ base esté aprobada." y "La línea base aún no está aprobada."
    (`v0` ... `Vigente`). Muestra las diferencias agrupadas (Presupuesto, Programación, Actividades, ...), con
    "Desaparece" / "Aparece" para elementos nuevos o eliminados.
 5. Reglas a comprobar (el formulario lista cada una en rojo):
-   - **REQ-GAS-06**: pide un traslado que deje un rubro por debajo de lo ya ejecutado: "El valor
+   - **REQ-GAS-06**: pide un traslado que deje el rubro **de origen** por debajo de lo ya ejecutado: "El valor
      asignado de «R01» no puede quedar por debajo de lo ya ejecutado ($ ...)." Hace falta tener antes un gasto
-     **Registrado** en ese rubro (§E).
+     **Registrado** en ese rubro (§E). La regla solo mira las líneas que la solicitud **baja**: un rubro que ya
+     está sobreejecutado (AJ-08 lo permite) no bloquea los demás traslados, y un traslado **hacia** ese rubro se
+     acepta aunque no alcance a cubrir todo lo gastado de más.
    - "Un traslado no puede cambiar el valor total del proyecto (diferencia $ ...)."
    - "Una adición debe aumentar el valor total del proyecto." / "Una reducción debe disminuir el valor total del
      proyecto."
