@@ -402,10 +402,13 @@ export function validarModificacion(
     }
   }
 
-  // REQ-GAS-06: A never below the validated E, even when the rubro leaves the budget.
+  // REQ-GAS-06: the request never LOWERS a line's A below its executed E, even when the line leaves the budget
+  // (AJ-09: «el rubro de origen»). A line it does not lower is not its business: AJ-08 lets an expense leave a
+  // line overspent, and that line must not block every other request, nor a traslado that narrows its gap.
   for (const rubro of [...new Set([...nuevo.keys(), ...ejecutado.keys()])].sort()) {
     const validado = ejecutado.get(rubro) ?? ZERO
-    if ((nuevo.get(rubro) ?? ZERO) < validado) {
+    const asignado = nuevo.get(rubro) ?? ZERO
+    if (asignado < validado && asignado < (antes.get(rubro) ?? ZERO)) {
       errores.push({
         codigo: "A_MENOR_QUE_EJECUTADO",
         clave: rubro,

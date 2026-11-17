@@ -476,6 +476,38 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
     expect(logChange).not.toHaveBeenCalled();
   });
 
+  // EV-05 (Propuesto, D4): «el IVA de cada línea se calcula en proporción a su subtotal y se puede corregir».
+  it("stores each line's IVA in proportion when the request gives none, and keeps it when the user corrected it (EV-05)", async () => {
+    const montos = { subtotal: "1000000", iva: "190000" };
+    let res = await POST(post(facturaRepartida([{ linea_id: "lin-12", valor: "350000" }, { linea_id: "lin-13", valor: "840000" }], montos)), ctx);
+    expect(res.status).toBe(201);
+    expect(mocks.repartoCreate.mock.calls[0][0].data.map((fila: { iva: unknown }) => String(fila.iva))).toEqual(["55882.35", "134117.65"]);
+
+    mocks.repartoCreate.mockClear();
+    res = await POST(
+      post(facturaRepartida([{ linea_id: "lin-12", valor: "350000", iva: "50000" }, { linea_id: "lin-13", valor: "840000", iva: "140000" }], montos)),
+      ctx,
+    );
+    expect(res.status).toBe(201);
+    expect(mocks.repartoCreate.mock.calls[0][0].data.map((fila: { iva: unknown }) => String(fila.iva))).toEqual(["50000", "140000"]);
+  });
+
+  it("refuses corrected line IVAs that do not add up to the invoice IVA, writing nothing (EV-05)", async () => {
+    const res = await POST(
+      post(
+        facturaRepartida(
+          [{ linea_id: "lin-12", valor: "350000", iva: "50000" }, { linea_id: "lin-13", valor: "840000", iva: "100000" }],
+          { subtotal: "1000000", iva: "190000" },
+        ),
+      ),
+      ctx,
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("El IVA de las líneas de la distribución debe sumar exactamente el IVA de la factura.");
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.repartoCreate).not.toHaveBeenCalled();
+  });
+
   it("saves 350.000 on activity 1.2 and 650.000 on 1.3 as one invoice, header on the first row's line (S9)", async () => {
     const res = await POST(
       post(facturaRepartida([
@@ -500,8 +532,8 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
     // Two distribution rows, in the order the client sent them.
     expect(mocks.repartoCreate).toHaveBeenCalledWith({
       data: [
-        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-12", valor: new Prisma.Decimal("350000") },
-        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-13", valor: new Prisma.Decimal("650000") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-12", valor: new Prisma.Decimal("350000"), iva: new Prisma.Decimal("0") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-13", valor: new Prisma.Decimal("650000"), iva: new Prisma.Decimal("0") },
       ],
     });
     expect(json.gasto.repartos).toEqual([
@@ -510,12 +542,14 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
         actividad_id: "act-12",
         rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
         valor: "350000.00",
+        iva: "0.00",
       },
       {
         linea_id: "lin-13",
         actividad_id: "act-13",
         rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
         valor: "650000.00",
+        iva: "0.00",
       },
     ]);
   });
@@ -589,7 +623,7 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
     expect(createdData().linea_id).toBe("lin-1");
     expect(mocks.repartoCreate).toHaveBeenCalledWith({
       data: [
-        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-1", valor: new Prisma.Decimal("1500000.50") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-1", valor: new Prisma.Decimal("1500000.50"), iva: new Prisma.Decimal("0") },
       ],
     });
     expect(json.gasto.repartos).toEqual([
@@ -598,6 +632,7 @@ describe("POST expenses: the distributed invoice (S9, T14.2-B1)", () => {
         actividad_id: "act-12",
         rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
         valor: "1500000.50",
+        iva: "0.00",
       },
     ]);
   });
@@ -938,12 +973,14 @@ describe("GET expenses", () => {
         actividad_id: "act-12",
         rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
         valor: "350000.00",
+        iva: "0.00",
       },
       {
         linea_id: "lin-13",
         actividad_id: "act-13",
         rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
         valor: "650000.00",
+        iva: "0.00",
       },
     ]);
   });

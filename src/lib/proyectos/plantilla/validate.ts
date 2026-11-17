@@ -402,16 +402,16 @@ export function v03(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
     )
   }
 
+  // EV-01: the project total is the budget sum and is never typed, so an empty or zero cell (the template of a
+  // new project) is fine. Only a typed value that is not an amount is reported.
   const total = leerDecimal(p.proyecto.valorTotal.valor)
-  if (!total.ok) {
+  if (!total.ok && total.motivo !== "vacio") {
     const mensaje =
       total.motivo === "decimales"
         ? "El valor total admite máximo dos decimales."
         : "El valor total no es un monto válido."
     errores.push(error("V-03", HOJAS.proyecto, p.proyecto.valorTotal.fila, "B", textoDe(p.proyecto.valorTotal.valor), mensaje))
-  } else if (total.cents <= ZERO) {
-    errores.push(error("V-03", HOJAS.proyecto, p.proyecto.valorTotal.fila, "B", total.dec, "El valor total debe ser mayor que cero."))
-  } else if (total.cents > MONTO_MAXIMO_CENTS) {
+  } else if (total.ok && total.cents > MONTO_MAXIMO_CENTS) {
     errores.push(error("V-03", HOJAS.proyecto, p.proyecto.valorTotal.fila, "B", total.dec, "El valor total es demasiado alto."))
   }
 
@@ -563,6 +563,11 @@ export function v05(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
  * T13.8 (S7): the type an activity row's «Tipo» cell names — case and spaces do not matter, and an empty
  * cell (or a 2026.2 sheet without the column) is Normal — or `null` when it names neither type.
  */
+/** EV-02: both week cells of a row are empty (a Transversal row then takes the project's weeks). */
+export function semanasVacias(fila: Fila): boolean {
+  return textoDe(celdaDe(fila, "Semana inicio")?.valor) === "" && textoDe(celdaDe(fila, "Semana fin")?.valor) === ""
+}
+
 export function tipoActividadDe(fila: Fila): TipoActividad | null {
   const texto = textoCelda(fila, "Tipo").toLowerCase()
   if (texto === "" || texto === TIPOS_ACTIVIDAD.NORMAL.toLowerCase()) return "NORMAL"
@@ -677,6 +682,8 @@ export function v07(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 
   const errores: ErrorPlantilla[] = []
   for (const fila of p.actividades) {
+    // EV-02 (Propuesto, D4): a Transversal row may leave both weeks empty; it then runs the whole project.
+    if (tipoActividadDe(fila) === "TRANSVERSAL" && semanasVacias(fila)) continue
     const celdaInicio = celdaDe(fila, "Semana inicio")
     const celdaFin = celdaDe(fila, "Semana fin")
     const semanaInicio = enteroDeCelda(celdaInicio?.valor)
@@ -822,7 +829,7 @@ export function vH2(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 }
 
 // ---------------------------------------------------------------------------
-// V-08 — every activity has at least one deliverable
+// V-08 — every Normal activity has at least one deliverable (a Transversal needs none, EV-02)
 // ---------------------------------------------------------------------------
 
 export function v08(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
@@ -831,6 +838,8 @@ export function v08(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
   const conEntregables = new Set(p.entregables.map((fila) => textoCelda(fila, "Código actividad").toLowerCase()))
   const errores: ErrorPlantilla[] = []
   for (const fila of p.actividades) {
+    // EV-02: «Una actividad transversal no requiere entregables».
+    if (tipoActividadDe(fila) === "TRANSVERSAL") continue
     const codigo = textoCelda(fila, "Código")
     if (!conEntregables.has(codigo.toLowerCase())) {
       errores.push(
@@ -989,11 +998,15 @@ export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] 
 // V-12 / W-02 — the budget sum against the project total
 // ---------------------------------------------------------------------------
 
-/** The template total and the budget sum, or `null` when either cannot be read. */
+/**
+ * The template total and the budget sum, or `null` when either cannot be read. An empty total counts as 0:
+ * not typed (EV-01).
+ */
 function totalYSuma(p: ParsedTemplate): { total: Cents; suma: Cents } | null {
   if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "proyecto")) return null
-  const total = leerDecimal(p.proyecto.valorTotal.valor)
-  if (!total.ok) return null
+  const leido = leerDecimal(p.proyecto.valorTotal.valor)
+  if (!leido.ok && leido.motivo !== "vacio") return null
+  const total = leido.ok ? leido : { cents: ZERO }
 
   const asignados: Cents[] = []
   for (const fila of p.presupuesto) {
@@ -1011,12 +1024,25 @@ function mensajeDiferencia(total: Cents, suma: Cents): string {
  * V-12: an empty budget cannot back the project total. A funded budget that
  * differs from the total is not an error (PO feedback 2026-10-23): the executed
  * budget is the value the project tracks, so the import takes its sum (W-02).
+ * EV-01: with the total not typed (0 or empty) an empty budget is still reported.
  */
 export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
   void _c
   const cifras = totalYSuma(p)
-  if (!cifras || cifras.suma !== ZERO || cifras.total === ZERO) return []
+  if (!cifras || cifras.suma !== ZERO) return []
 
+  if (cifras.total <= ZERO) {
+    return [
+      error(
+        "V-12",
+        HOJAS.presupuesto,
+        null,
+        "C",
+        fromCents(ZERO),
+        "El presupuesto está vacío: agrega al menos una línea con actividad, rubro y valor. El valor total del proyecto es la suma de esas líneas.",
+      ),
+    ]
+  }
   return [
     error("V-12", HOJAS.presupuesto, null, "C", fromCents(cifras.total - cifras.suma), mensajeDiferencia(cifras.total, cifras.suma)),
   ]
@@ -1026,7 +1052,8 @@ export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 export function w02(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
   void _c
   const cifras = totalYSuma(p)
-  if (!cifras || cifras.suma === ZERO || cifras.suma === cifras.total) return []
+  // EV-01: a total left at 0 or empty was never typed, so there is nothing to replace.
+  if (!cifras || cifras.total <= ZERO || cifras.suma === ZERO || cifras.suma === cifras.total) return []
 
   return [
     error(

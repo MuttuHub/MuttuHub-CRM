@@ -8,10 +8,10 @@
  * it never throws on the F-X1 fixtures; money stays in exact `bigint` cents.
  */
 import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
-import { codigoRubroDe, resolverLineaToken, resolverMunicipioToken, tipoActividadDe, type ContextoValidacion } from "./validate"
+import { codigoRubroDe, resolverLineaToken, resolverMunicipioToken, semanasVacias, tipoActividadDe, type ContextoValidacion } from "./validate"
 import type { TipoActividad } from "../actividad"
 import { fromCents, sumCents, toCents, type Cents } from "../money"
-import { type IsoDate } from "../weeks"
+import { durationWeeks, type IsoDate } from "../weeks"
 
 export type PlanImportacion = {
   proyecto: {
@@ -105,7 +105,10 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
   const fechaFin = parseFechaCelda(p.proyecto.fechaFin.valor)
   if (!fechaInicio || !fechaFin) throw new Error("La plantilla no tiene fechas de proyecto válidas.")
 
-  const valorTotal = decimalDe(p.proyecto.valorTotal.valor)
+  // EV-01: the total is the budget sum (valorTotalCents below); the cell only has to be empty or an amount.
+  const celdaTotal = p.proyecto.valorTotal.valor
+  const totalVacio = celdaTotal === null || (typeof celdaTotal === "string" && celdaTotal.trim() === "")
+  const valorTotal = totalVacio ? "0" : decimalDe(celdaTotal)
   const beneficiariosMeta = enteroDe(p.proyecto.metaBeneficiarios.valor)
   if (valorTotal === null || beneficiariosMeta === null) {
     throw new Error("La plantilla no tiene valor total o meta de beneficiarios válidos.")
@@ -139,9 +142,13 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
     orden: indice + 1,
   }))
 
+  const duracion = durationWeeks(fechaInicio, fechaFin)
   const actividades = p.actividades.map((fila) => {
-    const semanaInicio = enteroDe(fila.celdas["Semana inicio"]?.valor) ?? 0
-    const semanaFin = enteroDe(fila.celdas["Semana fin"]?.valor) ?? 0
+    const tipo = tipoActividadDe(fila) ?? "NORMAL"
+    // EV-02 (Propuesto, D4): a Transversal row with both weeks empty runs the whole project.
+    const porDefecto = tipo === "TRANSVERSAL" && semanasVacias(fila)
+    const semanaInicio = porDefecto ? 1 : enteroDe(fila.celdas["Semana inicio"]?.valor) ?? 0
+    const semanaFin = porDefecto ? duracion : enteroDe(fila.celdas["Semana fin"]?.valor) ?? 0
     // AJ-02: no weight is read from the sheet — it is always the duration in weeks.
     const email = texto(fila, "Responsable (correo)").toLowerCase()
     return {
@@ -152,7 +159,7 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
       semanaFin,
       responsableId: email === "" ? null : usuarios.get(email) ?? null,
       // V-06 already rejected any other value, so a validated row is always one of the two.
-      tipo: tipoActividadDe(fila) ?? "NORMAL",
+      tipo,
     }
   })
 

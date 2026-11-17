@@ -34,6 +34,7 @@ import {
   useProjectBudget,
   useProjectExpenses,
   useVoidExpense,
+  type ProjectBudgetLinea,
   type ProjectExpense,
   type ProjectExpenseEstado,
   type ProjectListRow,
@@ -151,6 +152,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
                 gastos={visibles}
                 permisos={permisos}
                 onCorregir={setCorrigiendo}
+                actividadDeLinea={actividadDeLinea(budgetQuery.data?.lineas ?? [])}
               />
             )}
           </div>
@@ -193,7 +195,15 @@ type FilaProps = {
   gasto: ProjectExpense;
   permisos: Permisos;
   onCorregir: (gasto: ProjectExpense) => void;
+  /** EV-05: the activity code of each budget line, to show where each line of a split invoice went. */
+  actividadDeLinea: ReadonlyMap<string, string>;
 };
+
+function actividadDeLinea(lineas: readonly ProjectBudgetLinea[]): ReadonlyMap<string, string> {
+  return new Map(
+    lineas.flatMap((linea) => (linea.actividad_codigo ? [[linea.linea_id, linea.actividad_codigo] as const] : [])),
+  );
+}
 
 /** Debajo de `md` el libro se vuelve una lista de tarjetas (misma convención que el Portafolio). */
 function GastosListado({
@@ -201,11 +211,13 @@ function GastosListado({
   gastos,
   permisos,
   onCorregir,
+  actividadDeLinea,
 }: {
   proyectoId: string;
   gastos: readonly ProjectExpense[];
   permisos: Permisos;
   onCorregir: (gasto: ProjectExpense) => void;
+  actividadDeLinea: ReadonlyMap<string, string>;
 }) {
   const mobile = useIsMobile();
   // La columna de acciones también aparece si alguna fila es corregible por su autor, no solo para el Gestor.
@@ -220,6 +232,7 @@ function GastosListado({
             gasto={gasto}
             permisos={permisos}
             onCorregir={onCorregir}
+            actividadDeLinea={actividadDeLinea}
           />
         ))}
       </ul>
@@ -248,6 +261,7 @@ function GastosListado({
               permisos={permisos}
               onCorregir={onCorregir}
               conAcciones={conAcciones}
+              actividadDeLinea={actividadDeLinea}
             />
           ))}
         </TableBody>
@@ -368,17 +382,43 @@ function PeriodoModificado({ gasto, className }: { gasto: ProjectExpense; classN
 }
 
 /**
- * S9/T14.2-B2: una factura repartida se consulta como un solo documento: aquí se dice en cuántas líneas va y su
- * total (la suma de esas líneas). Una factura de una sola línea no lleva marca alguna: se pinta como siempre.
+ * S9/T14.2-B2: una factura repartida se consulta como un solo documento: aquí se dice en cuántas líneas va, su
+ * total (la suma de esas líneas) y, línea por línea, la actividad, el rubro y el valor que le tocó (EV-05: «la
+ * factura de $1.000.000 queda con $350.000 en la actividad 1.2 y $650.000 en la 1.3»). Una factura de una sola
+ * línea no lleva marca alguna: se pinta como siempre.
  */
-function RepartoDeFactura({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
+function RepartoDeFactura({
+  gasto,
+  actividadDeLinea,
+  className,
+}: {
+  gasto: ProjectExpense;
+  actividadDeLinea: ReadonlyMap<string, string>;
+  className?: string;
+}) {
   const repartos = gasto.repartos ?? [];
   if (repartos.length <= 1) return null;
   const total = sumCents(repartos.map((reparto) => toCents(reparto.valor)));
   return (
-    <span data-testid="gasto-distribuido" className={className}>
-      {`Distribuida en ${repartos.length} líneas · ${formatCOP(total)}`}
-    </span>
+    <div className={className}>
+      <span data-testid="gasto-distribuido" className="block">
+        {`Distribuida en ${repartos.length} líneas · ${formatCOP(total)}`}
+      </span>
+      <ul data-testid="gasto-reparto" className="mt-0.5 flex flex-col">
+        {repartos.map((reparto) => (
+          <li key={reparto.linea_id} data-testid="gasto-reparto-linea">
+            {[
+              // A legacy line has no activity; one whose code is not loaded yet shows «…», never «Sin actividad».
+              reparto.actividad_id === null ? "Sin actividad" : (actividadDeLinea.get(reparto.linea_id) ?? "…"),
+              `${reparto.rubro.codigo ? `${reparto.rubro.codigo} ` : ""}${reparto.rubro.nombre}`,
+              formatCOP(toCents(reparto.valor)),
+              // EV-05: the line's IVA, when the invoice has IVA.
+              ...(toCents(reparto.iva ?? "0") > BigInt(0) ? [`IVA ${formatCOP(toCents(reparto.iva))}`] : []),
+            ].join(" · ")}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -406,7 +446,7 @@ function GastoFila({ conAcciones, ...props }: FilaProps & { conAcciones: boolean
       </TableCell>
       <TableCell className="min-w-[120px] align-top whitespace-normal text-[13px] text-ink-900">
         {nombreRubro(gasto.rubro)}
-        <RepartoDeFactura gasto={gasto} className="block text-[11.5px] text-ink-600" />
+        <RepartoDeFactura gasto={gasto} actividadDeLinea={props.actividadDeLinea} className="block text-[11.5px] text-ink-600" />
       </TableCell>
       <TableCell className="align-top font-mono text-[12.5px] text-ink-700">
         <span title="Periodo contable">{gasto.periodo}</span>
@@ -452,7 +492,7 @@ function GastoTarjeta(props: FilaProps) {
         {" — "}
         {gasto.descripcion}
       </p>
-      <RepartoDeFactura gasto={gasto} className="text-[11.5px] text-ink-600" />
+      <RepartoDeFactura gasto={gasto} actividadDeLinea={props.actividadDeLinea} className="text-[11.5px] text-ink-600" />
       <p className="text-[12px] text-ink-600">
         {[
           gasto.tercero_nombre,

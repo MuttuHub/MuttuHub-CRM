@@ -421,6 +421,65 @@ describe("ProjectGastos", () => {
       )
     })
 
+    it("la factura repartida se consulta con cada línea: 1.2 con $ 350.000 y 1.3 con $ 650.000 (S9 / EV-05)", async () => {
+      setup({
+        gastos: [
+          gasto("g1", {
+            valor: "1000000.00",
+            subtotal: "1000000.00",
+            iva: "0.00",
+            repartos: [
+              { linea_id: "l-12-r12", actividad_id: "a12", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "350000.00" },
+              { linea_id: "l-13-r12", actividad_id: "a13", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "650000.00" },
+            ],
+          }),
+        ],
+        s9: {
+          lineas: [
+            { linea_id: "l-12-r12", actividad_id: "a12", actividad_codigo: "1.2", actividad_nombre: "Talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "8000000.00" },
+            { linea_id: "l-13-r12", actividad_id: "a13", actividad_codigo: "1.3", actividad_nombre: "Visitas", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "5000000.00" },
+          ],
+          actividades: [],
+          objetivos: [],
+        },
+      })
+      const fila = await screen.findByTestId("gasto-fila")
+      const lineas = await within(fila).findAllByTestId("gasto-reparto-linea")
+      expect(lineas.map((linea) => linea.textContent)).toEqual([
+        "1.2 · R12 Transporte · $ 350.000",
+        "1.3 · R12 Transporte · $ 650.000",
+      ])
+    })
+
+    it("names the IVA of each line when the invoice has IVA (EV-05)", async () => {
+      setup({
+        gastos: [
+          gasto("g1", {
+            valor: "1190000.00",
+            subtotal: "1000000.00",
+            iva: "190000.00",
+            repartos: [
+              { linea_id: "l-12-r12", actividad_id: "a12", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "350000.00", iva: "50000.00" },
+              { linea_id: "l-13-r12", actividad_id: "a13", rubro: { id: "r12", codigo: "R12", nombre: "Transporte" }, valor: "840000.00", iva: "140000.00" },
+            ],
+          }),
+        ],
+        s9: {
+          lineas: [
+            { linea_id: "l-12-r12", actividad_id: "a12", actividad_codigo: "1.2", actividad_nombre: "Talleres", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "8000000.00" },
+            { linea_id: "l-13-r12", actividad_id: "a13", actividad_codigo: "1.3", actividad_nombre: "Visitas", rubro_id: "r12", rubro_codigo: "R12", rubro_nombre: "Transporte", valor: "5000000.00" },
+          ],
+          actividades: [],
+          objetivos: [],
+        },
+      })
+      const lineas = await within(await screen.findByTestId("gasto-fila")).findAllByTestId("gasto-reparto-linea")
+      expect(lineas.map((linea) => linea.textContent)).toEqual([
+        "1.2 · R12 Transporte · $ 350.000 · IVA $ 50.000",
+        "1.3 · R12 Transporte · $ 840.000 · IVA $ 140.000",
+      ])
+    })
+
     it("una factura de una sola línea se pinta como siempre, sin la marca de distribuida (regresión, S9)", async () => {
       setup({
         gastos: [
@@ -616,11 +675,17 @@ describe("ProjectGastos", () => {
       expect(within(filas[1]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
     })
 
-    it("never shows Anular to a COORDINADOR member", async () => {
+    it("shows Anular to the project's Gestor, a COORDINADOR member (AJ-08 + D3), and never Revisar", async () => {
       setup({ rol: "COORDINADOR", miembro: true, gastos: [gasto("g1")] })
       const fila = await screen.findByTestId("gasto-fila")
-      expect(within(fila).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+      expect(within(fila).getByRole("button", { name: "Anular" })).toBeInTheDocument()
       expect(within(fila).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
+    it("never shows Anular to a COORDINADOR outside the project's team", async () => {
+      setup({ rol: "COORDINADOR", miembro: false, gastos: [gasto("g1")] })
+      const fila = await screen.findByTestId("gasto-fila")
+      expect(within(fila).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
 
     it("voids a REGISTRADO expense with its motivo and refreshes the list", async () => {
@@ -761,7 +826,7 @@ describe("ProjectGastos", () => {
       expect(within(filas[3]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
     })
 
-    it("shows Corregir to a team member only on their own expense", async () => {
+    it("shows Corregir to the project's Gestor, a team member, on any expense (AJ-08 + D3)", async () => {
       setup({
         rol: "COLABORADOR",
         miembro: true,
@@ -770,7 +835,7 @@ describe("ProjectGastos", () => {
       })
       const filas = await screen.findAllByTestId("gasto-fila")
       expect(within(filas[0]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
-      expect(within(filas[1]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
       expect(within(await screen.findByTestId("gastos-lista")).getByRole("columnheader", { name: "Acción" })).toBeInTheDocument()
     })
 

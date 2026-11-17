@@ -39,6 +39,7 @@ import {
   buscarDuplicados,
   clavesNormalizadas,
   evaluarRepartos,
+  ivaPorReparto,
   gastoAuditable,
   gateGastoRead,
   nivelSobregastoDeFactura,
@@ -122,6 +123,9 @@ export const POST = withApiErrorHandling(
       if (!linea.ok) return linea.response;
       repartos = [{ linea: linea.value, valor: montos.total }];
     }
+    // EV-05: the IVA each row is written with (what the request said, or in proportion to its value).
+    const ivas = ivaPorReparto(repartos, montos.iva);
+    if (!ivas.ok) return apiError(ivas.message, 400, "VALIDATION_ERROR");
     // `gastos.linea_id` keeps its NOT NULL and means «the line of the first distribution row».
     const cabecera = repartos[0].linea;
     // S11/T14.5: an activity with its expenses closed receives no new expenses. The check is the shared one the
@@ -175,11 +179,12 @@ export const POST = withApiErrorHandling(
 
         // The header and its distribution land in the same transaction: a failure leaves nothing written.
         await tx.gastoReparto.createMany({
-          data: repartos.map((reparto) => ({
+          data: repartos.map((reparto, i) => ({
             proyecto_id: id,
             gasto_id: created.id,
             linea_id: reparto.linea.id,
             valor: decimalFromCents(reparto.valor),
+            iva: decimalFromCents(ivas.value[i]),
           })),
         });
 

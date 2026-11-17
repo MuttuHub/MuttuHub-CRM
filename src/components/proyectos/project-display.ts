@@ -84,6 +84,7 @@ const PALABRAS_CON_TILDE: Record<string, string> = {
   planificacion: "planificación",
   suspension: "suspensión",
   anulacion: "anulación",
+  correccion: "corrección",
   creacion: "creación",
   edicion: "edición",
   conversion: "conversión",

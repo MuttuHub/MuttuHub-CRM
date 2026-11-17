@@ -87,6 +87,31 @@ describe("registro de cambios: sentences", () => {
     )
   })
 
+  it("reads a move between months with its line, months and value (EV-04 audit)", () => {
+    const mover = fila({
+      accion: "EDITAR",
+      entidad: "programacion",
+      entidad_id: "l-12-r12",
+      campo: "mover",
+      valor_anterior: { linea_id: "l-12-r12", origen: { periodo: "2026-11", valor: "4285714.00" }, destino: { periodo: "2026-12", valor: "1857143.00" } },
+      valor_nuevo: {
+        linea_id: "l-12-r12",
+        linea: "A1.2 · R12 Transporte",
+        valor: "2000000.00",
+        origen: { periodo: "2026-11", valor: "2285714.00" },
+        destino: { periodo: "2026-12", valor: "3857143.00" },
+      },
+    })
+    expect(describirEntrada(mover, ctx)).toMatchObject({
+      tipo: "plan",
+      predicado: "movió $ 2.000.000 de la línea A1.2 · R12 Transporte de Noviembre 2026 a Diciembre 2026.",
+      etiqueta: "Movimiento entre meses",
+    })
+    // A row written before the line label was stored still reads, without it.
+    const viejo = { ...mover, valor_nuevo: { ...(mover.valor_nuevo as object), linea: undefined } }
+    expect(describirEntrada(viejo, ctx)?.predicado).toBe("movió $ 2.000.000 de Noviembre 2026 a Diciembre 2026.")
+  })
+
   it("leaves the other movements to the generic reading, filed under their type", () => {
     expect(describirEntrada(fila({ accion: "EDITAR", entidad: "proyecto", campo: "nombre" }), ctx)).toBeNull()
     expect(tipoDeEntrada({ accion: "EDITAR", entidad: "gasto" })).toBe("gastos")

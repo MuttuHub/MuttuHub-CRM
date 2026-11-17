@@ -480,8 +480,9 @@ IVA) en su periodo; un gasto equivocado se anula con motivo (`admin@` y `gerenci
    insignia **Datos incompletos** y cuenta igual.
 6. **Gastos anteriores a AJ-08**: uno que estaba **Validado** se lee como **Registrado**. Uno **Rechazado** conserva
    su etiqueta y su motivo y no suma; pasará a **Anulado** en una tarea de datos aparte (decisión D2).
-7. **Anular** (admin/gerencia): botón **Anular** con motivo obligatorio; el gasto queda **Anulado**, sigue en la
-   lista y deja de sumar al ejecutado.
+7. **Anular** (admin/gerencia o un integrante del proyecto, que es su Gestor): botón **Anular** con motivo
+   obligatorio; el gasto queda **Anulado**, sigue en la lista y deja de sumar al ejecutado. Un coordinador o
+   colaborador que no es integrante no ve el botón y la API le responde 403.
 8. **Sobreejecución**: como `admin@` registra un gasto con Total (Subtotal + IVA) mayor que el asignado del rubro (o
    mayor que lo que queda). El gasto **se guarda y cuenta**; sale el aviso "Este gasto, sumado a los gastos ya
    ejecutados del rubro, superaría el valor asignado." y la fila lleva **Supera lo asignado**. Registrar ya no envía
@@ -535,9 +536,11 @@ base esté aprobada." y "La línea base aún no está aprobada."
    (`v0` ... `Vigente`). Muestra las diferencias agrupadas (Presupuesto, Programación, Actividades, ...), con
    "Desaparece" / "Aparece" para elementos nuevos o eliminados.
 5. Reglas a comprobar (el formulario lista cada una en rojo):
-   - **REQ-GAS-06**: pide un traslado que deje un rubro por debajo de lo ya ejecutado: "El valor
+   - **REQ-GAS-06**: pide un traslado que deje el rubro **de origen** por debajo de lo ya ejecutado: "El valor
      asignado de «R01» no puede quedar por debajo de lo ya ejecutado ($ ...)." Hace falta tener antes un gasto
-     **Registrado** en ese rubro (§E).
+     **Registrado** en ese rubro (§E). La regla solo mira las líneas que la solicitud **baja**: un rubro que ya
+     está sobreejecutado (AJ-08 lo permite) no bloquea los demás traslados, y un traslado **hacia** ese rubro se
+     acepta aunque no alcance a cubrir todo lo gastado de más.
    - "Un traslado no puede cambiar el valor total del proyecto (diferencia $ ...)."
    - "Una adición debe aumentar el valor total del proyecto." / "Una reducción debe disminuir el valor total del
      proyecto."

@@ -110,7 +110,7 @@ export function tipoDeEntrada(entrada: Pick<EntradaRegistro, "accion" | "entidad
   if (entrada.accion === "ANULAR") return "anulaciones";
   if (entrada.entidad === "gasto") return "gastos";
   if (["reporte_actividad", "avance", "medicion"].includes(entrada.entidad)) return "avances";
-  if (entrada.entidad === "solicitud" || entrada.entidad === "version") return "plan";
+  if (entrada.entidad === "solicitud" || entrada.entidad === "version" || entrada.entidad === "programacion") return "plan";
   return "otros";
 }
 
@@ -304,6 +304,25 @@ function fraseVersion(entrada: EntradaRegistro): Frase | null {
   };
 }
 
+/**
+ * EV-04: «Cada movimiento queda en auditoría (línea, mes de origen, mes de destino, valor, usuario, fecha)». The
+ * user and the date are the row's own; the line is the label stored at write time (older rows only have its id).
+ */
+function fraseProgramacion(entrada: EntradaRegistro): Frase | null {
+  if (entrada.campo !== "mover") return null;
+  const nuevo = objeto(entrada.valor_nuevo);
+  const monto = dinero(nuevo.valor);
+  const origen = periodo(objeto(nuevo.origen).periodo);
+  const destino = periodo(objeto(nuevo.destino).periodo);
+  const linea = texto(nuevo.linea);
+  return {
+    tipo: "plan",
+    predicado: `movió ${monto ?? "un valor"}${linea ? ` de la línea ${linea}` : ""} de ${origen} a ${destino}.`,
+    etiqueta: "Movimiento entre meses",
+    tono: "neutro",
+  };
+}
+
 /** One ledger row -> its sentence, or `null` when the row keeps the generic field reading. */
 export function describirEntrada(entrada: EntradaRegistro, ctx: ContextoFrases): Frase | null {
   switch (entrada.entidad) {
@@ -319,6 +338,8 @@ export function describirEntrada(entrada: EntradaRegistro, ctx: ContextoFrases):
       return fraseSolicitud(entrada, ctx);
     case "version":
       return fraseVersion(entrada);
+    case "programacion":
+      return fraseProgramacion(entrada);
     default:
       return null;
   }

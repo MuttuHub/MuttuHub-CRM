@@ -1319,6 +1319,8 @@ model GastoReparto {
   gasto_id    String
   linea_id    String
   valor       Decimal  @db.Decimal(15, 2)
+  /// EV-05: the IVA of this line; NULL on rows written before it (read in proportion to `valor`).
+  iva         Decimal? @db.Decimal(15, 2)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 

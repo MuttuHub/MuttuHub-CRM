@@ -184,6 +184,8 @@ describe("moverProgramacion (T13 S4, live DB)", () => {
     expect(fila.valor_anterior).toEqual({ linea_id: r.f.linea11, origen: { periodo: "2030-11", valor: "4000000.00" }, destino: { periodo: "2030-12", valor: "4000000.00" } })
     expect(fila.valor_nuevo).toEqual({
       linea_id: r.f.linea11,
+      // EV-04: the audit names the line («actividad · rubro»), not only its id.
+      linea: expect.stringMatching(/^1\.1 · MV-\S+ .+-Transporte$/),
       valor: "2000000.00",
       origen: { periodo: "2030-11", valor: "2000000.00" },
       destino: { periodo: "2030-12", valor: "6000000.00" },

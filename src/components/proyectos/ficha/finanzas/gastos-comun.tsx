@@ -38,16 +38,19 @@ export function usePermisosGastos(proyecto: ProjectListRow) {
   const userQuery = useCurrentUser();
   const membersQuery = useProjectMembers(proyecto.id);
   const usuario = userQuery.data ?? null;
-  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  const esManager = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
   // S6 (PO matrix 2026-10-19): membership, not the role, grants registering.
   const esMiembroDelEquipo = Boolean(
     usuario &&
       PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
+  // AJ-08 + D3: the project's Gestor (a COORDINADOR/COLABORADOR member) corrects and annuls any expense of the
+  // project, as managers do; the server applies the same rule (`gateGastoGestion`).
+  const esGestor = esManager || esMiembroDelEquipo;
   const enEjecucion = proyecto.estado === "EN_EJECUCION";
   const puedeRegistrar = (esGestor || esMiembroDelEquipo) && enEjecucion;
-  const permisosResueltos = Boolean(usuario) && (esGestor || membersQuery.isSuccess || membersQuery.isError);
+  const permisosResueltos = Boolean(usuario) && (esManager || membersQuery.isSuccess || membersQuery.isError);
   const soloConsulta = permisosResueltos && !puedeRegistrar && enEjecucion;
 
   const nombres = new Map<string, string>();
@@ -57,9 +60,11 @@ export function usePermisosGastos(proyecto: ProjectListRow) {
   return {
     usuarioId: usuario?.id ?? null,
     esGestor,
+    /** ADMINISTRADOR or GERENCIA: what the managers-only views (Cambios del periodo) still ask for. */
+    esManager,
     puedeRegistrar,
     /** Validar / Rechazar: a manager while the project is EN_EJECUCION (the API also refuses the registrant). */
-    puedeValidar: esGestor && enEjecucion,
+    puedeValidar: esManager && enEjecucion,
     soloConsulta,
     nombreDe: (id: string) => nombres.get(id) ?? null,
   };

@@ -185,16 +185,36 @@ describe("V-03 project dates, value and beneficiaries", () => {
     expect(v03(parsed, contexto()).some((e) => e.regla === "V-03")).toBe(true)
   })
 
-  it("rejects a non-positive total, too many decimals and a fractional meta", async () => {
+  it("rejects a fractional meta and too many decimals in a typed total", async () => {
     const parsed = await parsedValido()
-    parsed.proyecto.valorTotal.valor = 0
     parsed.proyecto.metaBeneficiarios.valor = 12.5
-    const reglas = v03(parsed, contexto()).filter((e) => e.regla === "V-03")
-    expect(reglas.length).toBeGreaterThanOrEqual(2)
+    expect(v03(parsed, contexto()).some((e) => e.regla === "V-03" && e.fila === parsed.proyecto.metaBeneficiarios.fila)).toBe(true)
 
     const decimales = await parsedValido()
     decimales.proyecto.valorTotal.valor = 1773600.001
     expect(v03(decimales, contexto()).some((e) => e.regla === "V-03" && /decimales/.test(e.mensaje))).toBe(true)
+  })
+})
+
+describe("V-03 the project total is the budget sum, never typed (EV-01)", () => {
+  it("accepts a total left at 0, as the template of a new project comes", async () => {
+    const parsed = await parsedValido()
+    parsed.proyecto.valorTotal.valor = 0
+    expect(v03(parsed, contexto())).toEqual([])
+    expect(validarPlantilla(parsed, contexto()).errores).toEqual([])
+  })
+
+  it("accepts an empty total", async () => {
+    const parsed = await parsedValido()
+    parsed.proyecto.valorTotal.valor = null
+    expect(v03(parsed, contexto())).toEqual([])
+    expect(validarPlantilla(parsed, contexto()).errores).toEqual([])
+  })
+
+  it("still rejects a total that is not an amount", async () => {
+    const parsed = await parsedValido()
+    parsed.proyecto.valorTotal.valor = "mucho"
+    expect(v03(parsed, contexto()).some((e) => e.regla === "V-03" && /no es un monto válido/.test(e.mensaje))).toBe(true)
   })
 })
 
@@ -371,6 +391,17 @@ describe("T13.8 (S7): the activity type («Tipo» column of 4. Actividades)", ()
 })
 
 describe("V-07 weeks inside the project duration", () => {
+  it("accepts a Transversal row with both weeks empty: it takes the project's dates (EV-02, Propuesto D4)", async () => {
+    const parsed = await parsePlantilla(await generarPlantilla(fixtureConTransversal()))
+    const transversal = parsed.actividades.find((f) => f.celdas["Tipo"]?.valor === "Transversal")!
+    transversal.celdas["Semana inicio"].valor = null
+    transversal.celdas["Semana fin"].valor = null
+    expect(v07(parsed, contexto())).toEqual([])
+    // A Normal row still needs its weeks.
+    parsed.actividades[0].celdas["Semana inicio"].valor = null
+    expect(v07(parsed, contexto()).map((e) => e.mensaje)).toEqual(["La semana inicial debe ser un número entero."])
+  })
+
   it("accepts the generated F-X1", async () => {
     expect(v07(await parsedValido(), contexto())).toEqual([])
   })
@@ -451,6 +482,18 @@ describe("V-08 activities without deliverables", () => {
     const errores = v08(parsed, contexto()).filter((e) => e.regla === "V-08")
     expect(errores).toHaveLength(1)
     expect(errores[0].valor).toBe("1.2")
+  })
+
+  it("does not ask a Transversal activity for deliverables (EV-02: «no requiere entregables»)", async () => {
+    const parsed = await parsePlantilla(await generarPlantilla(fixtureConTransversal()))
+    const transversal = parsed.actividades.find((f) => f.celdas["Tipo"]?.valor === "Transversal")!
+    const codigo = String(transversal.celdas["Código"].valor)
+    parsed.entregables = parsed.entregables.filter((e) => String(e.celdas["Código actividad"].valor) !== codigo)
+    expect(v08(parsed, contexto())).toEqual([])
+    // A Normal activity without deliverables is still reported.
+    const normal = String(parsed.actividades[0].celdas["Código"].valor)
+    parsed.entregables = parsed.entregables.filter((e) => String(e.celdas["Código actividad"].valor) !== normal)
+    expect(v08(parsed, contexto()).map((e) => e.valor)).toEqual([normal])
   })
 })
 
@@ -585,9 +628,29 @@ describe("V-12 an empty budget cannot back the project total", () => {
   })
 })
 
+describe("V-12 with the total not typed (EV-01)", () => {
+  it("still reports an empty budget when the total is 0", async () => {
+    const parsed = await parsedSinPresupuesto()
+    parsed.proyecto.valorTotal.valor = 0
+    const errores = v12(parsed, contexto())
+    expect(errores).toHaveLength(1)
+    expect(errores[0].regla).toBe("V-12")
+    expect(errores[0].hoja).toBe(HOJAS.presupuesto)
+    expect(errores[0].mensaje).toMatch(/presupuesto está vacío/)
+  })
+})
+
 describe("W-02 the budget sum replaces a different project total", () => {
   it("is silent when the budget equals the total", async () => {
     expect(w02(await parsedValido(), contexto())).toEqual([])
+  })
+
+  it("is silent when the total is not typed: 0 or empty means the budget sum (EV-01)", async () => {
+    for (const valor of [0, null]) {
+      const parsed = await parsedValido()
+      parsed.proyecto.valorTotal.valor = valor
+      expect(w02(parsed, contexto())).toEqual([])
+    }
   })
 
   it("is silent for an empty budget (V-12 reports it)", async () => {

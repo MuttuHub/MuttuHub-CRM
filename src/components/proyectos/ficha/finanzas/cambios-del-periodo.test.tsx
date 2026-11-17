@@ -62,11 +62,12 @@ const CAMBIOS = [
 
 const fetchMock = vi.fn()
 
-function setup({ rol = "GERENCIA", cambios = CAMBIOS as unknown[] } = {}) {
+function setup({ rol = "GERENCIA", cambios = CAMBIOS as unknown[], miembro = false } = {}) {
   fetchMock.mockImplementation((input: unknown) => {
     const url = String(input)
     if (url.endsWith("/api/v1/auth/me")) return Promise.resolve(jsonResponse({ usuario: { id: "yo", nombre: "Yo", rol } }))
-    if (url.includes("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
+    if (url.includes("/members"))
+      return Promise.resolve(jsonResponse({ miembros: miembro ? [{ id: "m1", usuario: { id: "yo", nombre: "Yo" } }] : [] }))
     if (url.includes("/expense-changes")) {
       const periodo = new URL(url, "http://x").searchParams.get("periodo")
       return Promise.resolve(jsonResponse({ periodo, cambios: periodo === "2026-11" ? cambios : [] }))
@@ -123,6 +124,13 @@ describe("CambiosDelPeriodo (T7)", () => {
 
     expect(await screen.findByText("Ningún gasto se editó ni se anuló en oct 2026.")).toBeInTheDocument()
     expect(pedidos().at(-1)).toContain("periodo=2026-10")
+  })
+
+  it("is not shown, and asks nothing, to the project's Gestor either: the review is Gerencia's (AJ-08)", async () => {
+    setup({ rol: "COORDINADOR", miembro: true })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Cambios del periodo" })).not.toBeInTheDocument())
+    expect(pedidos()).toEqual([])
   })
 
   it("is not shown, and asks nothing, to a role without project authority", async () => {

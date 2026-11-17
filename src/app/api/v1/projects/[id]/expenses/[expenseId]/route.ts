@@ -41,6 +41,7 @@ import {
   buscarDuplicados,
   clavesNormalizadas,
   evaluarRepartos,
+  ivaPorReparto,
   gastoAuditable,
   gateGastoRead,
   nivelSobregastoDeFactura,
@@ -104,8 +105,8 @@ export const PATCH = withApiErrorHandling(
     // and a Gestor correcting somebody else's expense has to write down why.
     const esAutor = actual.registrado_por_id === auth.usuario.id;
     const anulado = actual.estado === "ANULADO";
-    // S2/T6 + D2: an annulled expense stays annulled but a manager may still fix its data, so it also
-    // goes through the managers-only gate — the registrant cannot reopen their own annulled row.
+    // S2/T6 + D2: an annulled expense stays annulled but the project's Gestor (a manager or, by AJ-08 + D3, a team
+    // member) may still fix its data, with a motivo; it goes through the same Gestor gate.
     if (!esAutor || anulado) {
       const gestion = await gateGastoGestion(auth.usuario, id, expenseId);
       if (!gestion.ok) return gestion.response;
@@ -167,8 +168,12 @@ export const PATCH = withApiErrorHandling(
       if (valor !== toCents(actual.monto_cop) || (input.rubro_id !== undefined && input.rubro_id !== rubroActual)) {
         return apiError(REPARTO_REQUERIDO_MESSAGE, 400, "VALIDATION_ERROR");
       }
-      repartos = null;
+      // EV-05: same rows, but a new invoice IVA re-splits the IVA of each row in proportion.
+      repartos = montos.iva === toCents(actual.iva_cop) ? null : repartosActuales.map((fila) => ({ ...fila, iva: null }));
     }
+    // EV-05: the IVA each rewritten row carries (what the request said, or in proportion to its value).
+    const ivas = repartos ? ivaPorReparto(repartos, montos.iva) : null;
+    if (ivas && !ivas.ok) return apiError(ivas.message, 400, "VALIDATION_ERROR");
     // The distribution in force after the write: the new rows, or the stored ones when nothing is re-split.
     const efectivos = repartos ?? repartosActuales;
     // `gastos.linea_id` means «the line of the first distribution row»; without a new distribution it is the
@@ -254,11 +259,12 @@ export const PATCH = withApiErrorHandling(
         if (repartos) {
           await tx.gastoReparto.deleteMany({ where: { gasto_id: expenseId } });
           await tx.gastoReparto.createMany({
-            data: repartos.map((reparto) => ({
+            data: repartos.map((reparto, i) => ({
               proyecto_id: id,
               gasto_id: expenseId,
               linea_id: reparto.linea.id,
               valor: decimalFromCents(reparto.valor),
+              iva: ivas?.ok ? decimalFromCents(ivas.value[i]) : null,
             })),
           });
         }

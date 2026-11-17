@@ -6,7 +6,9 @@ import type { Usuario } from "@prisma/client";
 import { z } from "zod";
 import { apiError } from "@/lib/api/errors";
 import { db } from "@/lib/db";
-import { gateEjecucionVoid } from "@/lib/api/ejecucion";
+import { EJECUCION_FORBIDDEN_MESSAGE, PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
+import { loadProjectScoped, projectReadActor } from "@/lib/api/projects";
+import { canExecuteProject } from "@/lib/permissions";
 import { GASTO_INCLUDE, GASTO_NO_EXISTE, type GastoConRelaciones } from "@/lib/api/gastos";
 import type { GateResult } from "@/lib/api/estructura";
 
@@ -24,16 +26,22 @@ export const MOTIVO_GASTO_SCHEMA = z
   .strict();
 
 /**
- * 404 (project) -> 403 (managers only) -> 404 (expense of that project). Any project estado: a mistake stays
- * correctable after a suspension or a close.
+ * 404 (project) -> 403 (not the project's Gestor) -> 404 (expense of that project). Any project estado: a mistake
+ * stays correctable after a suspension or a close.
+ *
+ * AJ-08: «el Gestor del proyecto puede editar o anular un gasto»; D3: the Gestor is a COORDINADOR or COLABORADOR
+ * member of the project's team. Managers (ADMINISTRADOR, GERENCIA) keep the authority on every project.
  */
 export async function gateGastoGestion(
   usuario: Usuario,
   proyectoId: string,
   gastoId: string,
 ): Promise<GateResult<GastoConRelaciones>> {
-  const gate = await gateEjecucionVoid(usuario, proyectoId);
-  if (!gate.ok) return gate;
+  const scoped = await loadProjectScoped(usuario, proyectoId, { id: true, estado: true });
+  if (!scoped) return { ok: false, response: apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND") };
+  if (!canExecuteProject(projectReadActor(usuario, scoped.es_miembro))) {
+    return { ok: false, response: apiError(EJECUCION_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
+  }
   const gasto = await db.gasto.findFirst({
     where: { id: gastoId, proyecto_id: proyectoId },
     include: GASTO_INCLUDE,
