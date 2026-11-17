@@ -44,7 +44,7 @@ Los permisos dependen del rol y de la pertenencia al proyecto (el **Equipo** del
 | Registrar cantidad de un entregable | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Registrar el avance de la actividad (la pasa a En curso) | Sí | Sí | Solo si es el responsable de la actividad | Solo si es el responsable de la actividad |
 | Registrar gastos | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
-| Anular un gasto (con motivo) | Sí | Sí | No | No |
+| Anular o corregir el gasto de otra persona (con motivo) | Sí | Sí | Sí, si es integrante (Gestor del proyecto) | Sí, si es integrante (Gestor del proyecto) |
 | Subir o eliminar documentos del proyecto | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Solicitar una modificación | — | — | Sí, si es integrante | Sí, si es integrante |
 | Aprobar una modificación | Sí | Sí | No | No |

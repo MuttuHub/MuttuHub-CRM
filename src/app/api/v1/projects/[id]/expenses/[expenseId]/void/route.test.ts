@@ -118,9 +118,21 @@ describe("POST void", () => {
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
-  it("answers 403 to non-managers", async () => {
+  it("answers 403 to a coordinador who is not on the project's team", async () => {
     authAs(coordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "EN_EJECUCION", miembros: [] } as never);
     expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(403);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("lets the project's Gestor, a team member, annul somebody else's expense (AJ-08 + D3)", async () => {
+    // AJ-08: «el Gestor del proyecto puede editar o anular un gasto»; D3: Gestor = COORDINADOR/COLABORADOR member.
+    authAs(coordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "EN_EJECUCION", miembros: [{ id: "m1" }] } as never);
+    current = existente({ estado: "REGISTRADO" });
+    const res = await POST(post({ motivo: "Factura duplicada" }), ctx);
+    expect(res.status).toBe(200);
+    expect(mocks.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("answers 404 for a missing expense", async () => {

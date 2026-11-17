@@ -646,11 +646,17 @@ describe("ProjectGastos", () => {
       expect(within(filas[1]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
     })
 
-    it("never shows Anular to a COORDINADOR member", async () => {
+    it("shows Anular to the project's Gestor, a COORDINADOR member (AJ-08 + D3), and never Revisar", async () => {
       setup({ rol: "COORDINADOR", miembro: true, gastos: [gasto("g1")] })
       const fila = await screen.findByTestId("gasto-fila")
-      expect(within(fila).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+      expect(within(fila).getByRole("button", { name: "Anular" })).toBeInTheDocument()
       expect(within(fila).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
+    it("never shows Anular to a COORDINADOR outside the project's team", async () => {
+      setup({ rol: "COORDINADOR", miembro: false, gastos: [gasto("g1")] })
+      const fila = await screen.findByTestId("gasto-fila")
+      expect(within(fila).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
 
     it("voids a REGISTRADO expense with its motivo and refreshes the list", async () => {
@@ -791,7 +797,7 @@ describe("ProjectGastos", () => {
       expect(within(filas[3]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
     })
 
-    it("shows Corregir to a team member only on their own expense", async () => {
+    it("shows Corregir to the project's Gestor, a team member, on any expense (AJ-08 + D3)", async () => {
       setup({
         rol: "COLABORADOR",
         miembro: true,
@@ -800,7 +806,7 @@ describe("ProjectGastos", () => {
       })
       const filas = await screen.findAllByTestId("gasto-fila")
       expect(within(filas[0]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
-      expect(within(filas[1]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
       expect(within(await screen.findByTestId("gastos-lista")).getByRole("columnheader", { name: "Acción" })).toBeInTheDocument()
     })
 

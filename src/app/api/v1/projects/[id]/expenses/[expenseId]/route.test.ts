@@ -603,10 +603,19 @@ describe("PATCH expenses/:expenseId", () => {
     expect((await PATCH(patch({ descripcion: "x", motivo: "Corrección de Gerencia" }), ctx)).status).toBe(200);
   });
 
-  it("answers 403 for a member COORDINADOR who did not register it", async () => {
+  it("lets the project's Gestor, a member COORDINADOR, correct an expense they did not register, with a motivo (AJ-08 + D3)", async () => {
     authAs(coordinador);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("EN_EJECUCION", true));
-    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(403);
+    const sinMotivo = await PATCH(patch({ descripcion: "x" }), ctx);
+    expect(sinMotivo.status).toBe(400);
+    expect((await sinMotivo.json()).error).toBe("Escribe el motivo de la corrección.");
+    expect((await PATCH(patch({ descripcion: "x", motivo: "Corregir la descripción" }), ctx)).status).toBe(200);
+  });
+
+  it("answers 403 to a COORDINADOR outside the team who did not register it", async () => {
+    authAs(coordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("EN_EJECUCION", false));
+    expect((await PATCH(patch({ descripcion: "x", motivo: "m" }), ctx)).status).toBe(403);
   });
 
   it("answers 409 for a VALIDADO expense and never updates", async () => {
