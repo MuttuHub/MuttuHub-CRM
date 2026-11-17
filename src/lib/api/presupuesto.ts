@@ -653,9 +653,14 @@ export async function moverProgramacion(
   }
   const linea = await tx.lineaPresupuestal.findFirst({
     where: { id: input.lineaId, proyecto_id: input.proyectoId },
-    select: { id: true },
+    select: { id: true, actividad: { select: { codigo: true } }, rubro: { select: { codigo: true, nombre: true } } },
   });
-  if (!linea) moverInvalido("La línea no está en el presupuesto del proyecto.");
+  if (!linea) return moverInvalido("La línea no está en el presupuesto del proyecto.");
+  // EV-04: the audit names the line as people read it («1.2 · R12 Transporte»), not only by its id.
+  const etiquetaLinea = [
+    linea.actividad?.codigo ?? "Sin actividad",
+    [linea.rubro.codigo, linea.rubro.nombre].filter(Boolean).join(" "),
+  ].join(" · ");
 
   const celdas = await tx.programacionPeriodo.findMany({
     where: { linea_id: input.lineaId, periodo: { in: [origen, destino] } },
@@ -700,6 +705,7 @@ export async function moverProgramacion(
       },
       valor_nuevo: {
         linea_id: input.lineaId,
+        linea: etiquetaLinea,
         valor: fromCents(valor),
         origen: { periodo: origen, valor: fromCents(origenDespues) },
         destino: { periodo: destino, valor: fromCents(destinoDespues) },

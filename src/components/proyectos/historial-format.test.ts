@@ -11,6 +11,9 @@ describe("etiquetas del historial", () => {
     expect(etiquetaCampoAuditoria("peso")).toBe("Peso")
     expect(etiquetaCampoAuditoria("alerta_sobregasto")).toBe("Alerta de sobregasto")
     expect(etiquetaCampoAuditoria("codigo")).toBe("Código")
+    // AJ-08 correction and EV-07 reopening motives, as the Registro reads them.
+    expect(etiquetaCampoAuditoria("motivo_correccion")).toBe("Motivo corrección")
+    expect(etiquetaCampoAuditoria("motivo_reapertura")).toBe("Motivo reapertura")
     expect(etiquetaCampoAuditoria("fecha_compromiso_pago")).toBe("Fecha compromiso pago")
     expect(etiquetaCampoAuditoria("objetivo_id")).toBe("Objetivo")
     expect(etiquetaCampoAuditoria("rubro_id")).toBe("Rubro")
