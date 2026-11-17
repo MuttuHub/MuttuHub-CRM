@@ -75,6 +75,14 @@ describe("precondicionesLineaBase", () => {
     expect(falla?.mensaje).toBe("La actividad 1.2 no tiene entregables.")
   })
 
+  it("a Transversal activity needs no deliverables (EV-02: «no requiere entregables»)", () => {
+    const entrada = {
+      ...valida(),
+      actividades: [...valida().actividades, { codigo: "T1", objetivoCodigo: "", tipo: "TRANSVERSAL" as const }],
+    }
+    expect(codigos(entrada)).not.toContain("ACTIVIDAD_SIN_ENTREGABLES")
+  })
+
   it("includes the budget preconditions (sum, control, pending programming)", () => {
     const entrada = { ...valida(), valorTotal: c("400"), programacion: [] }
     expect(codigos(entrada)).toEqual(

@@ -17,7 +17,8 @@ export type EntradaLineaBase = {
   fechaFin: string | null
   beneficiariosMeta: number | null
   objetivos: readonly { codigo: string }[]
-  actividades: readonly { codigo: string; objetivoCodigo: string }[]
+  /** `tipo` absent means Normal; a Transversal activity needs no deliverables (EV-02). */
+  actividades: readonly { codigo: string; objetivoCodigo: string; tipo?: "NORMAL" | "TRANSVERSAL" }[]
   entregables: readonly { codigo: string; actividadCodigo: string }[]
   lineas: readonly LineaControl[]
   programacion: readonly CeldaControl[]
@@ -70,6 +71,7 @@ export function precondicionesLineaBase(entrada: EntradaLineaBase): Precondicion
     }
   }
   for (const actividad of entrada.actividades) {
+    if (actividad.tipo === "TRANSVERSAL") continue
     if (!entrada.entregables.some((e) => e.actividadCodigo === actividad.codigo)) {
       fallas.push({
         codigo: "ACTIVIDAD_SIN_ENTREGABLES",

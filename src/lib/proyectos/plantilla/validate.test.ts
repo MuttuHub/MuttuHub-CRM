@@ -472,6 +472,18 @@ describe("V-08 activities without deliverables", () => {
     expect(errores).toHaveLength(1)
     expect(errores[0].valor).toBe("1.2")
   })
+
+  it("does not ask a Transversal activity for deliverables (EV-02: «no requiere entregables»)", async () => {
+    const parsed = await parsePlantilla(await generarPlantilla(fixtureConTransversal()))
+    const transversal = parsed.actividades.find((f) => f.celdas["Tipo"]?.valor === "Transversal")!
+    const codigo = String(transversal.celdas["Código"].valor)
+    parsed.entregables = parsed.entregables.filter((e) => String(e.celdas["Código actividad"].valor) !== codigo)
+    expect(v08(parsed, contexto())).toEqual([])
+    // A Normal activity without deliverables is still reported.
+    const normal = String(parsed.actividades[0].celdas["Código"].valor)
+    parsed.entregables = parsed.entregables.filter((e) => String(e.celdas["Código actividad"].valor) !== normal)
+    expect(v08(parsed, contexto()).map((e) => e.valor)).toEqual([normal])
+  })
 })
 
 describe("V-09 positive quantities and metas (AJ-02 dropped the weight column)", () => {

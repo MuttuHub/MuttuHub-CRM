@@ -66,7 +66,7 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     client.objetivo.findMany({ where: { proyecto_id: proyectoId, deleted_at: null }, select: { id: true, codigo: true } }),
     client.actividad.findMany({
       where: { proyecto_id: proyectoId, deleted_at: null },
-      select: { id: true, codigo: true, objetivo_id: true, nombre: true, semana_inicio: true, semana_fin: true },
+      select: { id: true, codigo: true, objetivo_id: true, nombre: true, semana_inicio: true, semana_fin: true, tipo: true },
     }),
     client.entregable.findMany({
       where: { proyecto_id: proyectoId, deleted_at: null },
@@ -97,7 +97,11 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     fechaFin,
     beneficiariosMeta: proyecto.beneficiarios_meta,
     objetivos: objetivos.map((o) => ({ codigo: o.codigo })),
-    actividades: actividades.map((a) => ({ codigo: a.codigo, objetivoCodigo: a.objetivo_id ? codigoObjetivo.get(a.objetivo_id) ?? "" : "" })),
+    actividades: actividades.map((a) => ({
+      codigo: a.codigo,
+      objetivoCodigo: a.objetivo_id ? codigoObjetivo.get(a.objetivo_id) ?? "" : "",
+      tipo: a.tipo,
+    })),
     entregables: entregables.map((e) => ({ codigo: e.codigo, actividadCodigo: codigoActividad.get(e.actividad_id) ?? "" })),
     // T11: the programming control is per line (a rubro can have one line per activity).
     lineas: lineas.map((l) => ({

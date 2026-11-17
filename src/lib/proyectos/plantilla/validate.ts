@@ -822,7 +822,7 @@ export function vH2(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 }
 
 // ---------------------------------------------------------------------------
-// V-08 — every activity has at least one deliverable
+// V-08 — every Normal activity has at least one deliverable (a Transversal needs none, EV-02)
 // ---------------------------------------------------------------------------
 
 export function v08(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
@@ -831,6 +831,8 @@ export function v08(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
   const conEntregables = new Set(p.entregables.map((fila) => textoCelda(fila, "Código actividad").toLowerCase()))
   const errores: ErrorPlantilla[] = []
   for (const fila of p.actividades) {
+    // EV-02: «Una actividad transversal no requiere entregables».
+    if (tipoActividadDe(fila) === "TRANSVERSAL") continue
     const codigo = textoCelda(fila, "Código")
     if (!conEntregables.has(codigo.toLowerCase())) {
       errores.push(
