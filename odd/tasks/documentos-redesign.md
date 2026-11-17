@@ -1,0 +1,36 @@
+# Documentos redesign (A + extras de B)
+
+Objective: rebuild /documentos as a structured explorer (tree + table) with admin features (bulk actions, metadata editing, trash, activity).
+Branch: `feat/documentos-redesign` (worktree `.claude/worktrees/documentos-redesign`). Delivery: work-unit commits; PR strategy decided at delivery (forecast > 400 lines).
+Test runner: `npx vitest run <path>` (suite: `npm test`), typecheck `npx tsc --noEmit`, lint `npx eslint <paths>`.
+Design reference: Claude Design canvas https://claude.ai/artifact/5wnwRT7qUQcnSMr6s25quc — artboard "A · Explorador clásico" is the base; "B · Consola de administración" supplies the filter chips, the tabs and the activity feed.
+
+## Specs
+
+- **S1 — Explorer layout (A).** The page shows a folder tree rail on the left (Todas, nested folders with document counts, the open folder highlighted) next to the content panel. The content panel has a toolbar with the breadcrumb ("Ruta de carpetas"), search, Filtros, sort control and the grid/list toggle. **List (table) is the default view**; grid stays available. Header keeps "Nueva carpeta" and "Subir documento". Existing behaviors (back/forward, drag & drop of files, documents and folders, folder context menu, upload targeting the open folder, full-text search with snippets, pagination) keep working.
+- **S2 — Table.** Columns: selection checkbox · Nombre (file-type badge, title, tags line) · Categoría (pill, lock icon when the category is restricted) · Versión (vN) · Tamaño · Modificado (date + author) · Acciones. Subfolders of the open folder render as the first rows (folder icon, "Carpeta · N docs", row actions).
+- **S3 — Sorting.** A sort control offers: Más recientes (default), Más antiguos, Nombre A–Z, Nombre Z–A. Sorting is server-side: `GET /api/v1/documents` accepts `orden=reciente|antiguo|nombre_asc|nombre_desc` (default `reciente`; unknown values rejected with the route's existing validation error shape).
+- **S4 — Row actions menu.** Each document row has an actions menu: Abrir detalle · Descargar · Subir nueva versión · Renombrar · Editar categoría y etiquetas · Vincular clientes · Mover a… · Eliminar. Rename / categoría y etiquetas / clientes use the existing `PATCH /api/v1/documents/:id` (`titulo`, `categoria`, `etiquetas`, `cliente_ids`) through one "Editar documento" dialog. "Mover a…" opens a folder picker and uses the existing `carpeta_id` PATCH. "Eliminar" sends the document to the trash (existing soft delete) after confirmation.
+- **S5 — Bulk actions.** Selecting documents in the table shows a bulk bar: "N seleccionados" · Mover a… · Cambiar categoría · Descargar .zip · Eliminar · Cancelar selección. Bulk operations reuse the per-document endpoints, report partial failures (e.g. "3 de 4 movidos; 1 sin permiso"), and clear the selection on success.
+- **S6 — Active filter chips (B).** Active filters (categoría, etiqueta, autor, cliente, fechas) show as removable chips under the toolbar, with "Limpiar filtros".
+- **S7 — Tabs (B).** The page has tabs: Documentos · Papelera · Actividad. Tabs the user cannot use are hidden.
+- **S8 — Trash (Papelera).** Lists soft-deleted documents (title, category, client, deleted date, who deleted it when the audit log knows) with "Restaurar". Backend: `GET /api/v1/documents/trash` (paginated like the list) and `POST /api/v1/documents/:id/restore`. Visible to ADMINISTRADOR, GERENCIA, COORDINADOR (assumption: the roles that can write any document). Restore follows the document write rule; restoring into a folder that no longer exists moves the document to the root (`carpeta_id = null`). Restore writes an Auditoria entry. No permanent delete (PRD: soft delete only).
+- **S9 — Activity (Actividad).** A feed of document audit events from the existing `GET /api/v1/auditoria?entidad=documento` (who, action, document, when). Visible only to ADMINISTRADOR (the endpoint's existing rule).
+- **S10 — Role-aware UI.** Actions the API would reject for the current user's role are hidden or disabled with a reason, instead of failing with a 403 toast.
+
+Out of scope (recorded so it is not lost): storage KPIs, permanent delete, per-folder permissions, server-side sort by size.
+
+## Tasks
+
+| ID | Specs | Route | Status | Evidence |
+|----|-------|-------|--------|----------|
+| T1 | S3, S8 backend + hooks (sort param, trash list, restore, update/trash/activity hooks) | delegated (parallel writer: backend unit, disjoint surface) | pending | |
+| T2 | S1, S2, S4, S5, S6, S7, S9, S10 UI | delegated (parallel writer: UI unit) | pending | |
+| T3 | Seam check: full suite, typecheck, lint, browser verification | inline | pending | |
+
+## Log
+
+- **L1 (2026-11-17, user):** "Revisa esta ruta del proyecto: https://muttu-hub.vercel.app/documentos — A mi jefe no le gustó el diseño, entonces crea unas alternativas en claude design y cambiar el diseño. Este fue el feedback que el me dió: Joda mas normal y estructurado. y mejores funcionalidades de administración."
+- **L2 (2026-11-17, user):** Chose "A con extras de B".
+- **L3:** Main checkout was switched to `test/e2e-aceptacion-po-261110` by someone else during this session, so the work runs in an isolated worktree from `origin/main`. `.env.local` copy into the worktree was blocked by a deny rule; browser verification needs the user to provide env for the worktree or run from the main checkout.
+- **L4 (map):** `FolderTree` exists but is not rendered; PATCH already accepts metadata; `/api/v1/auditoria` is ADMINISTRADOR-only; no restore endpoint exists; list orders by `created_at desc` only; Documento has no `updated_at`.
