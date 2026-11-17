@@ -563,6 +563,11 @@ export function v05(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
  * T13.8 (S7): the type an activity row's «Tipo» cell names — case and spaces do not matter, and an empty
  * cell (or a 2026.2 sheet without the column) is Normal — or `null` when it names neither type.
  */
+/** EV-02: both week cells of a row are empty (a Transversal row then takes the project's weeks). */
+export function semanasVacias(fila: Fila): boolean {
+  return textoDe(celdaDe(fila, "Semana inicio")?.valor) === "" && textoDe(celdaDe(fila, "Semana fin")?.valor) === ""
+}
+
 export function tipoActividadDe(fila: Fila): TipoActividad | null {
   const texto = textoCelda(fila, "Tipo").toLowerCase()
   if (texto === "" || texto === TIPOS_ACTIVIDAD.NORMAL.toLowerCase()) return "NORMAL"
@@ -677,6 +682,8 @@ export function v07(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 
   const errores: ErrorPlantilla[] = []
   for (const fila of p.actividades) {
+    // EV-02 (Propuesto, D4): a Transversal row may leave both weeks empty; it then runs the whole project.
+    if (tipoActividadDe(fila) === "TRANSVERSAL" && semanasVacias(fila)) continue
     const celdaInicio = celdaDe(fila, "Semana inicio")
     const celdaFin = celdaDe(fila, "Semana fin")
     const semanaInicio = enteroDeCelda(celdaInicio?.valor)

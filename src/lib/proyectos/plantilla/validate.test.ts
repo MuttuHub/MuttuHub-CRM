@@ -391,6 +391,17 @@ describe("T13.8 (S7): the activity type («Tipo» column of 4. Actividades)", ()
 })
 
 describe("V-07 weeks inside the project duration", () => {
+  it("accepts a Transversal row with both weeks empty: it takes the project's dates (EV-02, Propuesto D4)", async () => {
+    const parsed = await parsePlantilla(await generarPlantilla(fixtureConTransversal()))
+    const transversal = parsed.actividades.find((f) => f.celdas["Tipo"]?.valor === "Transversal")!
+    transversal.celdas["Semana inicio"].valor = null
+    transversal.celdas["Semana fin"].valor = null
+    expect(v07(parsed, contexto())).toEqual([])
+    // A Normal row still needs its weeks.
+    parsed.actividades[0].celdas["Semana inicio"].valor = null
+    expect(v07(parsed, contexto()).map((e) => e.mensaje)).toEqual(["La semana inicial debe ser un número entero."])
+  })
+
   it("accepts the generated F-X1", async () => {
     expect(v07(await parsedValido(), contexto())).toEqual([])
   })

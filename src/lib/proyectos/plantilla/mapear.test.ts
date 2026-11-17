@@ -173,6 +173,19 @@ describe("construirPlan of the valid F-X1", () => {
     }
   })
 
+  it("gives a Transversal row with empty weeks the whole project, week 1 to the last (EV-02, Propuesto D4)", async () => {
+    const parsed = await parsePlantilla(await generarPlantilla(fixtureConTransversal()))
+    const fila = parsed.actividades.find((f) => f.celdas["Tipo"]?.valor === "Transversal")!
+    fila.celdas["Semana inicio"].valor = null
+    fila.celdas["Semana fin"].valor = null
+    const plan = construirPlan(parsed, fixtureContextoFX1())
+    const transversal = plan.actividades.find((a) => a.tipo === "TRANSVERSAL")!
+    const inicio = parsed.proyecto.fechaInicio.valor as Date
+    const fin = parsed.proyecto.fechaFin.valor as Date
+    const semanas = Math.ceil((Math.round((fin.getTime() - inicio.getTime()) / 86_400_000) + 1) / 7)
+    expect([transversal.semanaInicio, transversal.semanaFin]).toEqual([1, semanas])
+  })
+
   it("rejects a scientific-notation total with a domain error, not a RangeError", async () => {
     const parsed = await parsePlantilla(bufferValido)
     parsed.proyecto.valorTotal.valor = 1e21
