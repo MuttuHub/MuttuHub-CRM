@@ -93,7 +93,9 @@ function Cambio({ cambio }: { cambio: CambioGasto }) {
 }
 
 export function CambiosDelPeriodo({ proyecto }: { proyecto: ProjectListRow }) {
-  const { esGestor } = usePermisosGastos(proyecto);
+  // «para que el Gerente pueda revisarlos»: the section and its endpoint are managers-only, even now that a team
+  // member is the project's Gestor for correcting and annulling (AJ-08 + D3).
+  const { esManager: esGestor } = usePermisosGastos(proyecto);
   const actual = periodOf(todayInBogota());
   const periodos = periodosDe(proyecto.fecha_inicio, proyecto.fecha_fin);
   // Changes keep happening after the project's last month (late corrections), so the current month is always offered.

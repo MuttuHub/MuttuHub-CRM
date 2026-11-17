@@ -105,8 +105,8 @@ export const PATCH = withApiErrorHandling(
     // and a Gestor correcting somebody else's expense has to write down why.
     const esAutor = actual.registrado_por_id === auth.usuario.id;
     const anulado = actual.estado === "ANULADO";
-    // S2/T6 + D2: an annulled expense stays annulled but a manager may still fix its data, so it also
-    // goes through the managers-only gate — the registrant cannot reopen their own annulled row.
+    // S2/T6 + D2: an annulled expense stays annulled but the project's Gestor (a manager or, by AJ-08 + D3, a team
+    // member) may still fix its data, with a motivo; it goes through the same Gestor gate.
     if (!esAutor || anulado) {
       const gestion = await gateGastoGestion(auth.usuario, id, expenseId);
       if (!gestion.ok) return gestion.response;

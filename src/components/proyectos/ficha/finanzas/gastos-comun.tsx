@@ -60,6 +60,8 @@ export function usePermisosGastos(proyecto: ProjectListRow) {
   return {
     usuarioId: usuario?.id ?? null,
     esGestor,
+    /** ADMINISTRADOR or GERENCIA: what the managers-only views (Cambios del periodo) still ask for. */
+    esManager,
     puedeRegistrar,
     /** Validar / Rechazar: a manager while the project is EN_EJECUCION (the API also refuses the registrant). */
     puedeValidar: esManager && enEjecucion,
