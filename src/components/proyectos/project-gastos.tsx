@@ -400,7 +400,7 @@ function RepartoDeFactura({
   if (repartos.length <= 1) return null;
   const total = sumCents(repartos.map((reparto) => toCents(reparto.valor)));
   return (
-    <span className={className}>
+    <div className={className}>
       <span data-testid="gasto-distribuido" className="block">
         {`Distribuida en ${repartos.length} líneas · ${formatCOP(total)}`}
       </span>
@@ -408,14 +408,15 @@ function RepartoDeFactura({
         {repartos.map((reparto) => (
           <li key={reparto.linea_id} data-testid="gasto-reparto-linea">
             {[
-              actividadDeLinea.get(reparto.linea_id) ?? "Sin actividad",
+              // A legacy line has no activity; one whose code is not loaded yet shows «…», never «Sin actividad».
+              reparto.actividad_id === null ? "Sin actividad" : (actividadDeLinea.get(reparto.linea_id) ?? "…"),
               `${reparto.rubro.codigo ? `${reparto.rubro.codigo} ` : ""}${reparto.rubro.nombre}`,
               formatCOP(toCents(reparto.valor)),
             ].join(" · ")}
           </li>
         ))}
       </ul>
-    </span>
+    </div>
   );
 }
 
