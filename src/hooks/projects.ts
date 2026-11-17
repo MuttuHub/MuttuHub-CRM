@@ -1772,6 +1772,8 @@ type ProjectExpenseReparto = {
   rubro: { id: string; codigo: string | null; nombre: string };
   /** Decimal como string. */
   valor: string;
+  /** EV-05: el IVA de la línea, decimal como string (proporcional en filas anteriores a la columna). */
+  iva: string;
 };
 
 export type ProjectExpense = {
@@ -1854,6 +1856,8 @@ type ProjectExpenseRepartoInput = {
   linea_id: string;
   /** Decimal como string. */
   valor: string;
+  /** EV-05: el IVA corregido de la línea; sin él, la API lo reparte en proporción. */
+  iva?: string;
 };
 
 export type ProjectExpenseInput = {

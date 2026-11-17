@@ -34,6 +34,7 @@ import { formatMontoInput, montoToInput, parseMontoInput } from "@/components/pr
 import { MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
 import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
+import { REPARTO_IVA_SUMA_MESSAGE, repartirIva } from "@/lib/proyectos/iva-reparto";
 import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
@@ -215,6 +216,8 @@ type FilaReparto = {
   rubro: string;
   /** Importe tecleado, como texto es-CO; se lee con `parseMontoInput`, nunca con `Number`. */
   valor: string;
+  /** EV-05: el IVA de la línea tal como lo corrigió la persona; solo cuenta cuando ya se corrigió alguno. */
+  iva: string;
 };
 
 /**
@@ -231,9 +234,25 @@ function filasIniciales(gasto?: ProjectExpense): FilaReparto[] {
       actividad: "",
       rubro: reparto.rubro.id,
       valor: formatMontoInput(montoToInput(reparto.valor)),
+      iva: formatMontoInput(montoToInput(reparto.iva)),
     }));
   }
-  return [{ clave: 1, linea: null, objetivo: "", actividad: "", rubro: gasto?.rubro.id ?? "", valor: "" }];
+  return [{ clave: 1, linea: null, objetivo: "", actividad: "", rubro: gasto?.rubro.id ?? "", valor: "", iva: "" }];
+}
+
+/**
+ * EV-05: una factura ya repartida abre con el IVA de cada línea «corregido» solo si lo guardado no es el reparto
+ * proporcional; si lo es, el formulario lo sigue proponiendo y se rehace al cambiar los valores.
+ */
+function ivaCorregidoAlAbrir(gasto?: ProjectExpense): boolean {
+  const repartos = gasto?.repartos ?? [];
+  if (repartos.length < 2) return false;
+  const propuesto = repartirIva(
+    repartos.map((reparto) => toCents(reparto.valor)),
+    toCents(gasto?.iva ?? "0"),
+    repartos.map(() => null),
+  );
+  return !propuesto.ok || propuesto.value.some((iva, i) => iva !== toCents(repartos[i].iva));
 }
 
 /** El valor tecleado de una fila en centavos; null cuando todavía no es un monto mayor que cero. */
@@ -371,7 +390,7 @@ export function GastoForm({
   function agregarFila() {
     const clave = proximaClaveLinea.current;
     proximaClaveLinea.current += 1;
-    setFilas((actuales) => [...actuales, { clave, linea: null, objetivo: "", actividad: "", rubro: "", valor: "" }]);
+    setFilas((actuales) => [...actuales, { clave, linea: null, objetivo: "", actividad: "", rubro: "", valor: "", iva: "" }]);
   }
 
   function quitarFila(clave: number) {
@@ -391,6 +410,8 @@ export function GastoForm({
   const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? "");
   const [subtotal, setSubtotal] = useState(gasto ? formatMontoInput(montoToInput(gasto.subtotal)) : "");
   const [iva, setIva] = useState(gasto ? formatMontoInput(montoToInput(gasto.iva)) : "0");
+  // EV-05: mientras nadie corrija el IVA de una línea, cada una muestra su parte proporcional del IVA de la factura.
+  const [ivaCorregido, setIvaCorregido] = useState(() => ivaCorregidoAlAbrir(gasto));
   const [motivo, setMotivo] = useState("");
   const [filasSoporte, setFilasSoporte] = useState<FilaSoporte[]>(() => [filaSoporteVacia(1)]);
   // Se enciende al intentar guardar con alguna fila a medias; solo entonces se marca la fila, nunca antes.
@@ -464,6 +485,13 @@ export function GastoForm({
     if (enDistribucion && sumarRepartos(filas) !== toCents(subtotalNormal) + toCents(ivaNormal)) {
       return setLocal(REPARTO_SUMA);
     }
+    // EV-05: el IVA corregido de las líneas tiene que sumar el IVA de la factura (la misma regla del servidor).
+    if (enDistribucion && ivaCorregido) {
+      const ivas = filas.map((fila) => normalizarIva(fila.iva));
+      if (ivas.some((valor) => valor === null) || sumCents(ivas.map((valor) => toCents(valor ?? "0"))) !== toCents(ivaNormal)) {
+        return setLocal(REPARTO_IVA_SUMA_MESSAGE);
+      }
+    }
     if (tercero.trim() === "") return setLocal("El nombre del tercero es obligatorio.");
     if (numeroDoc.trim() === "") return setLocal("El número de documento es obligatorio.");
     if (descripcion.trim() === "") return setLocal("La descripción es obligatoria.");
@@ -481,6 +509,8 @@ export function GastoForm({
               // La validación de arriba ya exigió una línea y un valor mayor que cero para cada fila.
               linea_id: derivar(fila).lineaElegida ?? "",
               valor: fromCents(valorDeReparto(fila) ?? BigInt(0)),
+              // EV-05: sin corregir, el servidor reparte el IVA en proporción (el mismo que se muestra).
+              ...(ivaCorregido ? { iva: fromCents(toCents(normalizarIva(fila.iva) ?? "0")) } : {}),
             })),
           }
         : unaFilaRepartida
@@ -598,6 +628,26 @@ export function GastoForm({
   const totalCents =
     (subtotalCents === null ? BigInt(0) : toCents(subtotalCents)) + (ivaCents === null ? BigInt(0) : toCents(ivaCents));
   const totalTexto = formatCOP(totalCents);
+  // EV-05: el IVA propuesto de cada línea, con la misma regla que aplica el servidor (`repartirIva`).
+  const ivaPropuesto = repartirIva(
+    filas.map((fila) => valorDeReparto(fila) ?? BigInt(0)),
+    ivaCents === null ? BigInt(0) : toCents(ivaCents),
+    filas.map(() => null),
+  );
+  const ivaDeFila = (fila: FilaReparto, indice: number): string =>
+    ivaCorregido
+      ? fila.iva
+      : ivaPropuesto.ok
+        ? formatMontoInput(montoToInput(fromCents(ivaPropuesto.value[indice])))
+        : "";
+  /** Al corregir el IVA de una línea, todas quedan fijas en lo que mostraban y esa toma lo tecleado. */
+  function cambiarIvaDeFila(clave: number, texto: string) {
+    if (ivaCorregido) return actualizarFila(clave, { iva: texto });
+    setFilas((actuales) =>
+      actuales.map((fila, indice) => ({ ...fila, iva: fila.clave === clave ? texto : ivaDeFila(fila, indice) })),
+    );
+    setIvaCorregido(true);
+  }
   // S9/T14.2-B2: la suma de la distribución a la vista mientras se reparte; un `faltante` positivo es lo que falta.
   const sumaRepartos = sumarRepartos(filas);
   const faltanteReparto = totalCents - sumaRepartos;
@@ -712,6 +762,17 @@ export function GastoForm({
                   value={fila.valor}
                   aria-describedby={`${p}-suma`}
                   onChange={(e) => actualizarFila(fila.clave, { valor: formatearMontoAlEscribir(e.target.value) })}
+                  className={FIELD}
+                />
+              </Campo>
+            )}
+            {enDistribucion && (
+              <Campo id={idCampo("iva")} label={`IVA de la línea${sufijo}`}>
+                <Input
+                  id={idCampo("iva")}
+                  inputMode="decimal"
+                  value={ivaDeFila(fila, indice)}
+                  onChange={(e) => cambiarIvaDeFila(fila.clave, formatearMontoAlEscribir(e.target.value))}
                   className={FIELD}
                 />
               </Campo>

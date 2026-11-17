@@ -161,6 +161,7 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
     const repartos = datos.repartos.map((fila) => ({
       linea: input.lineas.get(fila.linea_id) as LineaGasto,
       valor: fila.valor,
+      iva: fila.iva,
     }))
     // The overspend is checked against each row's own line and assigned amount, never the header's (S9).
     const criticos = repartos.map((reparto) => lote.critico(reparto.linea, reparto.valor))
@@ -200,6 +201,8 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
         gasto_id: created.id,
         linea_id: reparto.linea.id,
         valor: decimalFromCents(reparto.valor),
+        // EV-05: the IVA the file's rows gave this line.
+        iva: decimalFromCents(reparto.iva),
       })),
     })
 

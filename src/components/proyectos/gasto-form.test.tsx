@@ -158,12 +158,14 @@ const GASTO_REPARTIDO: ProjectExpense = {
       actividad_id: "a12",
       rubro: { id: "r12", codigo: "R12", nombre: "Transporte" },
       valor: "350000.00",
+      iva: "0.00",
     },
     {
       linea_id: "l-13-r01",
       actividad_id: "a13",
       rubro: { id: "r01", codigo: "R01", nombre: "Papelería" },
       valor: "650000.00",
+      iva: "0.00",
     },
   ],
 }
@@ -1104,6 +1106,43 @@ describe("GastoForm", () => {
         expect(postedBody().repartos).toEqual([
           { linea_id: "l-12-r12", valor: "350000.00" },
           { linea_id: "l-13-r01", valor: "650000.00" },
+        ])
+      })
+
+      // EV-05 (Propuesto, D4): «el IVA de cada línea se calcula en proporción a su subtotal y se puede corregir».
+      it("propone el IVA de cada línea en proporción y deja corregirlo, con la regla de la suma (EV-05)", async () => {
+        const user = userEvent.setup({ delay: null })
+        setup(undefined, undefined, { lineas: LINEAS_12_13, actividades: ACTIVIDADES_12_13 })
+        await waitFor(() => expect(opcionesDe("Actividad")).toEqual(["1.2 · Gestión de talleres", "1.3 · Suministros"]))
+        await elegir(user, "Actividad", "1.2 · Gestión de talleres")
+        await llenarCamposDeGasto(user, { rubro: "r12" })
+        await facturaDeUnMillon(user, "1.000.000", "190.000")
+        await user.click(screen.getByRole("button", { name: "Agregar línea de la distribución" }))
+        await user.type(screen.getByLabelText("Valor"), "350.000")
+        await elegir(user, "Actividad 2", "1.3 · Suministros")
+        await user.selectOptions(screen.getByLabelText("Rubro 2"), "r01")
+        await user.type(screen.getByLabelText("Valor 2"), "840.000")
+
+        // Proposed in proportion: 190.000 × 350/1.190 and the rest.
+        expect(screen.getByLabelText("IVA de la línea")).toHaveValue("55.882,35")
+        expect(screen.getByLabelText("IVA de la línea 2")).toHaveValue("134.117,65")
+
+        // Corrected so it no longer adds up: not sent.
+        await user.clear(screen.getByLabelText("IVA de la línea"))
+        await user.type(screen.getByLabelText("IVA de la línea"), "50.000")
+        await soporteEnlace(user)
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+        expect(await screen.findByText("El IVA de las líneas de la distribución debe sumar exactamente el IVA de la factura.")).toBeInTheDocument()
+        expect(postedBody()).toBeNull()
+
+        // Corrected so it adds up: sent line by line.
+        await user.clear(screen.getByLabelText("IVA de la línea 2"))
+        await user.type(screen.getByLabelText("IVA de la línea 2"), "140.000")
+        await user.click(screen.getByRole("button", { name: "Registrar" }))
+        await waitFor(() => expect(postedBody()).not.toBeNull())
+        expect(postedBody().repartos).toEqual([
+          { linea_id: "l-12-r12", valor: "350000.00", iva: "50000.00" },
+          { linea_id: "l-13-r01", valor: "840000.00", iva: "140000.00" },
         ])
       })
 

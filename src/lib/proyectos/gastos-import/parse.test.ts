@@ -512,7 +512,7 @@ describe("parseGastosImport — una factura distribuida (S9, T14.3)", () => {
       contextoDistribuido,
     )
     expect(r.filas.map((f) => f.error)).toEqual([null, null])
-    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1000000") }])
+    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1000000"), iva: BigInt(0) }])
   })
 
   // Review of T14: a code Excel turned into a number (1.10 → 1.1) or a date must never resolve to an activity.
@@ -591,15 +591,15 @@ describe("parseGastosImport — una factura distribuida (S9, T14.3)", () => {
     expect(r.filas.map((f) => f.error)).toEqual([null, null])
     expect(r.facturas).toHaveLength(2)
     expect(r.facturas.map((f) => f.datos?.repartos)).toEqual([
-      [{ linea_id: "lin-12", valor: toCents("1500000.50") }],
-      [{ linea_id: "lin-12", valor: toCents("1500000.50") }],
+      [{ linea_id: "lin-12", valor: toCents("1500000.50"), iva: BigInt(0) }],
+      [{ linea_id: "lin-12", valor: toCents("1500000.50"), iva: BigInt(0) }],
     ])
   })
 
   it("writes one row per invoice when the document has a single row, with its whole total (regresión)", async () => {
     const r = await parseGastosImport(await libro([fila({ "Código de actividad": "1.2" })]), contextoDistribuido)
     expect(r.facturas).toHaveLength(1)
-    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1500000.50") }])
+    expect(r.facturas[0].datos?.repartos).toEqual([{ linea_id: "lin-12", valor: toCents("1500000.50"), iva: BigInt(0) }])
     expect(r.facturas[0].datos).toMatchObject({ subtotal: toCents("1500000.50"), iva: BigInt(0), cents: toCents("1500000.50") })
   })
 

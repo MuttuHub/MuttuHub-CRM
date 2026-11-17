@@ -224,7 +224,8 @@ export type DatosFacturaImport = {
   /** The total of the invoice (subtotal + IVA): the sum its rows must add up to. */
   cents: Cents
   /** The distribution: one row per Excel row, in file order; the first one is the line of the header. */
-  repartos: readonly { linea_id: string; valor: Cents }[]
+  /** EV-05: each line with its share of the total and of the IVA (the rows' own IVA). */
+  repartos: readonly { linea_id: string; valor: Cents; iva: Cents }[]
   /** The support links of every row, once each, in file order. */
   enlaces: string[]
 }
@@ -549,10 +550,13 @@ function validarFila(
  * distribution row with their sum, in first-appearance order, so the per-line overspend check sees the whole
  * amount that line receives.
  */
-function unirPorLinea(datos: readonly DatosGastoImport[]): { linea_id: string; valor: Cents }[] {
-  const porLinea = new Map<string, Cents>()
-  for (const cada of datos) porLinea.set(cada.linea_id, (porLinea.get(cada.linea_id) ?? BigInt(0)) + cada.cents)
-  return [...porLinea].map(([linea_id, valor]) => ({ linea_id, valor }))
+function unirPorLinea(datos: readonly DatosGastoImport[]): { linea_id: string; valor: Cents; iva: Cents }[] {
+  const porLinea = new Map<string, { valor: Cents; iva: Cents }>()
+  for (const cada of datos) {
+    const previo = porLinea.get(cada.linea_id) ?? { valor: BigInt(0), iva: BigInt(0) }
+    porLinea.set(cada.linea_id, { valor: previo.valor + cada.cents, iva: previo.iva + cada.iva })
+  }
+  return [...porLinea].map(([linea_id, { valor, iva }]) => ({ linea_id, valor, iva }))
 }
 
 /**

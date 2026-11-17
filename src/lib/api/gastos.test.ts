@@ -23,6 +23,10 @@ import {
   evaluarPeriodo,
   evaluarRepartos,
   gastoAuditable,
+  repartirIva,
+  REPARTO_IVA_MEZCLA_MESSAGE,
+  REPARTO_IVA_SUMA_MESSAGE,
+  REPARTO_IVA_VALOR_MESSAGE,
   nivelSobregasto,
   superaAsignado,
   toGastoView,
@@ -219,12 +223,14 @@ describe("toGastoView", () => {
         actividad_id: "act-12",
         rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
         valor: "540000.00",
+        iva: "86218.49",
       },
       {
         linea_id: "lin-13",
         actividad_id: "act-13",
         rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
         valor: "650000.00",
+        iva: "103781.51",
       },
     ]);
   });
@@ -260,6 +266,43 @@ describe("periodo from the document date (AJ-05)", () => {
 
   it("keeps rejecting an explicit period outside the project months", () => {
     expect(evaluarPeriodo(proyecto, "2026-10-28", "2027-03")).toEqual({ ok: false, message: PERIODO_FUERA_MESSAGE });
+  });
+});
+
+// EV-05 (Propuesto, D4): «el IVA de cada línea se calcula en proporción a su subtotal y se puede corregir».
+describe("repartirIva", () => {
+  const c = toCents;
+  it("splits the invoice IVA in proportion to each line, the leftover cent to the last line", () => {
+    // 1.190.000 invoice with IVA 190.000: 350.000 + 840.000 → 55.882,35 + 134.117,65.
+    expect(repartirIva([c("350000"), c("840000")], c("190000"), [null, null])).toEqual({
+      ok: true,
+      value: [c("55882.35"), c("134117.65")],
+    });
+    expect(repartirIva([c("1"), c("1"), c("1")], c("1"), [null, null, null])).toEqual({ ok: true, value: [c("0.33"), c("0.33"), c("0.34")] });
+  });
+
+  it("gives every line IVA 0 when the invoice has none", () => {
+    expect(repartirIva([c("350000"), c("650000")], c("0"), [null, null])).toEqual({ ok: true, value: [c("0"), c("0")] });
+  });
+
+  it("keeps the IVA the user corrected when every line carries one and they add up to the invoice IVA", () => {
+    expect(repartirIva([c("350000"), c("840000")], c("190000"), [c("50000"), c("140000")])).toEqual({
+      ok: true,
+      value: [c("50000"), c("140000")],
+    });
+  });
+
+  it("refuses corrected IVAs that do not add up to the invoice IVA", () => {
+    expect(repartirIva([c("350000"), c("840000")], c("190000"), [c("50000"), c("100000")])).toEqual({
+      ok: false,
+      message: REPARTO_IVA_SUMA_MESSAGE,
+    });
+  });
+
+  it("refuses an IVA above its line's value, a negative one, and a mix of lines with and without IVA", () => {
+    expect(repartirIva([c("100"), c("200")], c("150"), [c("150"), c("0")])).toEqual({ ok: false, message: REPARTO_IVA_VALOR_MESSAGE });
+    expect(repartirIva([c("100"), c("200")], c("0"), [c("-1"), c("1")])).toEqual({ ok: false, message: REPARTO_IVA_VALOR_MESSAGE });
+    expect(repartirIva([c("100"), c("200")], c("30"), [c("10"), null])).toEqual({ ok: false, message: REPARTO_IVA_MEZCLA_MESSAGE });
   });
 });
 
@@ -299,8 +342,8 @@ describe("evaluarRepartos", () => {
     expect(result).toEqual({
       ok: true,
       value: [
-        { linea_id: "lin-12", valor: toCents("350000") },
-        { linea_id: "lin-13", valor: toCents("650000") },
+        { linea_id: "lin-12", valor: toCents("350000"), iva: null },
+        { linea_id: "lin-13", valor: toCents("650000"), iva: null },
       ],
     });
   });

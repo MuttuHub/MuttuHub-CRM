@@ -32,6 +32,7 @@ import {
   type EstadoGasto,
 } from "@/lib/proyectos/gastos";
 import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
+import { REPARTO_IVA_VALOR_MESSAGE, repartirIva } from "@/lib/proyectos/iva-reparto";
 import { assertIsoDate, projectPeriods } from "@/lib/proyectos/weeks";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 
@@ -58,6 +59,12 @@ export const REPARTO_LINEA_MESSAGE = "Cada línea de la distribución debe ser u
 export const REPARTO_LINEA_REPETIDA_MESSAGE =
   "Cada línea (actividad y rubro) puede aparecer una sola vez en la distribución de la factura.";
 /** S9/T14.2-B1: a split invoice is re-split only with its full distribution; otherwise its rows stop summing. */
+export {
+  REPARTO_IVA_MEZCLA_MESSAGE,
+  REPARTO_IVA_SUMA_MESSAGE,
+  REPARTO_IVA_VALOR_MESSAGE,
+  repartirIva,
+} from "@/lib/proyectos/iva-reparto";
 export const REPARTO_REQUERIDO_MESSAGE = "Envía la distribución completa para corregir una factura repartida.";
 export const PERIODO_FUERA_MESSAGE = "El periodo debe corresponder a un mes del proyecto.";
 const PROYECTO_SIN_FECHAS_MESSAGE = "El proyecto no tiene fechas definidas.";
@@ -125,6 +132,8 @@ const GASTO_REPARTO_SCHEMA = z
   .object({
     linea_id: z.string({ error: REPARTO_LINEA_MESSAGE }).min(1, REPARTO_LINEA_MESSAGE),
     valor: z.union([z.string(), z.number()], { error: REPARTO_VALOR_MESSAGE }),
+    /** EV-05: the IVA of this line; omitted on every line, it is split in proportion (`repartirIva`). */
+    iva: z.union([z.string(), z.number()], { error: REPARTO_IVA_VALOR_MESSAGE }).optional(),
   })
   .strict();
 
@@ -246,7 +255,7 @@ export function parseMontosGasto(subtotal: unknown, iva: unknown): MontosGasto |
 }
 
 /** One requested distribution row, already in exact cents. */
-export type RepartoPedido = { linea_id: string; valor: Cents };
+export type RepartoPedido = { linea_id: string; valor: Cents; iva?: Cents | null };
 
 /**
  * S9/T14.2-B1: the distribution of a distributed invoice. Every row is positive and exact, and the rows add up
@@ -254,7 +263,7 @@ export type RepartoPedido = { linea_id: string; valor: Cents };
  * the PO: 350.000 + 650.000 = 1.000.000 is saved; 990.000 for a 1.000.000 invoice is not. Without HTTP.
  */
 export function evaluarRepartos(
-  repartos: readonly { linea_id: string; valor: string | number }[],
+  repartos: readonly { linea_id: string; valor: string | number; iva?: string | number }[],
   total: Cents,
 ): { ok: true; value: RepartoPedido[] } | { ok: false; message: string } {
   const filas: RepartoPedido[] = [];
@@ -263,7 +272,13 @@ export function evaluarRepartos(
     if (!monto.ok || monto.cents <= BigInt(0) || monto.cents > MONTO_MAXIMO_CENTS) {
       return { ok: false, message: REPARTO_VALOR_MESSAGE };
     }
-    filas.push({ linea_id: fila.linea_id, valor: monto.cents });
+    let iva: Cents | null = null;
+    if (fila.iva !== undefined) {
+      const leido = parseMonto(fila.iva);
+      if (!leido.ok || leido.cents < BigInt(0)) return { ok: false, message: REPARTO_IVA_VALOR_MESSAGE };
+      iva = leido.cents;
+    }
+    filas.push({ linea_id: fila.linea_id, valor: monto.cents, iva });
   }
   if (new Set(filas.map((fila) => fila.linea_id)).size !== filas.length) {
     return { ok: false, message: REPARTO_LINEA_REPETIDA_MESSAGE };
@@ -321,7 +336,20 @@ export type LineaGasto = {
 export type LineaReparto = LineaGasto & { actividad_id: string | null };
 
 /** One row of a distributed invoice: the resolved line and the amount that belongs to it. */
-export type RepartoFactura = { linea: LineaReparto; valor: Cents };
+/** `iva`: what the request said for this line (EV-05); null or absent = split in proportion when written. */
+export type RepartoFactura = { linea: LineaReparto; valor: Cents; iva?: Cents | null };
+
+/** EV-05: the IVA each row of a distribution is written with, from what the request said (or in proportion). */
+export function ivaPorReparto(
+  repartos: readonly { valor: Cents; iva?: Cents | null }[],
+  ivaTotal: Cents,
+): ReturnType<typeof repartirIva> {
+  return repartirIva(
+    repartos.map((reparto) => reparto.valor),
+    ivaTotal,
+    repartos.map((reparto) => reparto.iva ?? null),
+  );
+}
 
 /** A rubro only takes expenses while its assigned amount is above zero. */
 export function tieneAsignado(monto: { toString(): string }): boolean {
@@ -403,6 +431,7 @@ export async function resolverRepartos(
         rubro: linea.rubro,
       },
       valor: fila.valor,
+      iva: fila.iva ?? null,
     });
   }
   return { ok: true, value };
@@ -731,6 +760,7 @@ export const GASTO_INCLUDE = {
     select: {
       linea_id: true,
       valor: true,
+      iva: true,
       linea: {
         select: {
           id: true,
@@ -750,6 +780,8 @@ export type GastoConRelaciones = Prisma.GastoGetPayload<{ include: typeof GASTO_
 export type RepartoConLinea = {
   linea_id: string;
   valor: { toString(): string };
+  /** EV-05: null on a row written before the IVA per line; it is then read in proportion. */
+  iva?: { toString(): string } | null;
   linea: { actividad_id: string | null; rubro: LineaGasto["rubro"] };
 };
 
@@ -772,6 +804,8 @@ type RepartoGastoView = {
   rubro: { id: string; codigo: string | null; nombre: string };
   /** Decimal(15,2) as a string. */
   valor: string;
+  /** EV-05: the IVA of this line, Decimal(15,2) as a string (in proportion on rows written before it). */
+  iva: string;
 };
 
 type SoporteGastoView = {
@@ -850,17 +884,29 @@ function toSoporteGastoView(row: GastoConRelaciones["soportes"][number]): Soport
 }
 
 /** S9/T14.2-B1: one distribution row of the payload, with the activity and the rubro the screen shows. */
-function toRepartoView(row: RepartoConLinea): RepartoGastoView {
+function toRepartoView(row: RepartoConLinea, iva: Cents): RepartoGastoView {
   return {
     linea_id: row.linea_id,
     actividad_id: row.linea.actividad_id,
     rubro: row.linea.rubro,
     valor: fromCents(toCents(row.valor)),
+    iva: fromCents(iva),
   };
 }
 
+/** EV-05: the stored IVA of each row, or the proportional split when a row predates the column. */
+function ivasDeFilas(filas: readonly RepartoConLinea[], ivaTotal: Cents): Cents[] {
+  if (filas.every((fila) => fila.iva !== undefined && fila.iva !== null)) {
+    return filas.map((fila) => toCents((fila.iva as { toString(): string }).toString()));
+  }
+  const repartido = repartirIva(filas.map((fila) => toCents(fila.valor)), ivaTotal, filas.map(() => null));
+  return repartido.ok ? repartido.value : filas.map(() => BigInt(0));
+}
+
 export function toGastoView(row: GastoVistaFuente, opts: { puedeVerSoportes: boolean }): GastoView {
-  const repartos = (row.repartos ?? []).map(toRepartoView);
+  const filas = row.repartos ?? [];
+  const ivas = ivasDeFilas(filas, toCents(row.iva_cop));
+  const repartos = filas.map((fila, i) => toRepartoView(fila, ivas[i]));
   // The header's line is the line of the first row the client sent: keep that row first in the payload.
   const cabecera = repartos.findIndex((reparto) => reparto.linea_id === row.linea_id);
   if (cabecera > 0) repartos.unshift(...repartos.splice(cabecera, 1));

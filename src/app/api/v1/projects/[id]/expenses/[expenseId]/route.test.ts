@@ -252,8 +252,8 @@ describe("PATCH expenses/:expenseId: the distributed invoice (S9, T14.2-B1)", ()
     expect(mocks.repartoDelete).toHaveBeenCalledWith({ where: { gasto_id: "gas-1" } });
     expect(mocks.repartoCreate).toHaveBeenCalledWith({
       data: [
-        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-12", valor: new Prisma.Decimal("350000") },
-        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-13", valor: new Prisma.Decimal("650000") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-12", valor: new Prisma.Decimal("350000"), iva: new Prisma.Decimal("0") },
+        { proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-13", valor: new Prisma.Decimal("650000"), iva: new Prisma.Decimal("0") },
       ],
     });
     expect(updatedData()).toMatchObject({ linea_id: "lin-12", monto_cop: new Prisma.Decimal("1000000") });
@@ -263,12 +263,14 @@ describe("PATCH expenses/:expenseId: the distributed invoice (S9, T14.2-B1)", ()
         actividad_id: "act-12",
         rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
         valor: "350000.00",
+        iva: "0.00",
       },
       {
         linea_id: "lin-13",
         actividad_id: "act-13",
         rubro: { id: "rub-2", codigo: "R13", nombre: "Alimentación" },
         valor: "650000.00",
+        iva: "0.00",
       },
     ]);
     // The audit keeps recording the changed header fields, exactly as before.
@@ -372,7 +374,7 @@ describe("PATCH expenses/:expenseId: the distributed invoice (S9, T14.2-B1)", ()
     expect(res.status).toBe(200);
     expect(mocks.repartoDelete).toHaveBeenCalledWith({ where: { gasto_id: "gas-1" } });
     expect(mocks.repartoCreate).toHaveBeenCalledWith({
-      data: [{ proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-1", valor: new Prisma.Decimal("2000000") }],
+      data: [{ proyecto_id: "pry-1", gasto_id: "gas-1", linea_id: "lin-1", valor: new Prisma.Decimal("2000000"), iva: new Prisma.Decimal("0") }],
     });
     expect(updatedData().linea_id).toBe("lin-1");
   });

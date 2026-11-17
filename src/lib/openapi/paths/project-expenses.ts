@@ -46,6 +46,13 @@ const RepartoGastoSchema = registry.register(
       .openapi({ description: "Actividad de la línea; nula en una línea heredada («Sin actividad»)." }),
     rubro: z.object({ id: z.string().uuid(), codigo: z.string().nullable(), nombre: z.string() }),
     valor: z.string().openapi({ example: "350000.00", description: "Valor de la fila, Decimal(15,2) como string." }),
+    iva: z.string().openapi({
+      example: "55882.35",
+      description:
+        "EV-05: IVA de la fila, Decimal(15,2) como string. Si el cuerpo no lo trae en ninguna fila, la API reparte el IVA " +
+        "de la factura en proporción al valor de cada fila (el centavo sobrante va a la última); si lo trae en todas, " +
+        "debe sumar el IVA de la factura.",
+    }),
   }),
 );
 

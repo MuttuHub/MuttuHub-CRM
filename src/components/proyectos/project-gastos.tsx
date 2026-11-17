@@ -412,6 +412,8 @@ function RepartoDeFactura({
               reparto.actividad_id === null ? "Sin actividad" : (actividadDeLinea.get(reparto.linea_id) ?? "…"),
               `${reparto.rubro.codigo ? `${reparto.rubro.codigo} ` : ""}${reparto.rubro.nombre}`,
               formatCOP(toCents(reparto.valor)),
+              // EV-05: the line's IVA, when the invoice has IVA.
+              ...(toCents(reparto.iva ?? "0") > BigInt(0) ? [`IVA ${formatCOP(toCents(reparto.iva))}`] : []),
             ].join(" · ")}
           </li>
         ))}
