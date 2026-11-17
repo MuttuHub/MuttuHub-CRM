@@ -17,6 +17,7 @@ const {
   updateDocMutation,
   trashMutation,
   restoreMutation,
+  silentSpy,
   useDocumentsMock,
   useTrashedMock,
   useActivityMock,
@@ -30,6 +31,8 @@ const {
   updateDocMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
   trashMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
   restoreMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
+  // Records which calls went through a `{ silent: true }` hook instance (bulk).
+  silentSpy: { move: vi.fn(), trash: vi.fn() },
   useDocumentsMock: vi.fn(),
   useTrashedMock: vi.fn(),
   useActivityMock: vi.fn(),
@@ -126,10 +129,28 @@ vi.mock("@/hooks/documents", async (importOriginal) => {
         { nombre: "Finanzas", restringida: false },
       ],
     }),
-    useMoveDocument: () => moveMutation,
+    useMoveDocument: (opts?: { silent?: boolean }) =>
+      opts?.silent
+        ? {
+            ...moveMutation,
+            mutateAsync: (input: unknown) => {
+              silentSpy.move(input)
+              return moveMutation.mutateAsync(input)
+            },
+          }
+        : moveMutation,
     useUpdateFolder: () => updateFolderMutation,
     useUpdateDocument: () => updateDocMutation,
-    useTrashDocument: () => trashMutation,
+    useTrashDocument: (opts?: { silent?: boolean }) =>
+      opts?.silent
+        ? {
+            ...trashMutation,
+            mutateAsync: (id: string) => {
+              silentSpy.trash(id)
+              return trashMutation.mutateAsync(id)
+            },
+          }
+        : trashMutation,
     useRestoreDocument: () => restoreMutation,
     useTrashedDocuments: useTrashedMock,
     useDocumentActivity: useActivityMock,
@@ -193,6 +214,8 @@ function resetMocks() {
   updateDocMutation.mutateAsync.mockReset()
   updateDocMutation.mutateAsync.mockResolvedValue({})
   trashMutation.mutateAsync.mockReset()
+  silentSpy.move.mockReset()
+  silentSpy.trash.mockReset()
   trashMutation.mutateAsync.mockResolvedValue({})
   restoreMutation.mutateAsync.mockReset()
   restoreMutation.mutateAsync.mockResolvedValue({})
@@ -678,6 +701,20 @@ describe("RepositoryList — explorer redesign (S1, S2, S4–S7, S9, S10)", () =
         carpeta_id: "f-renovaciones",
       }),
     )
+    // A single-document move keeps the hook's own success/error toasts.
+    expect(silentSpy.move).not.toHaveBeenCalled()
+  })
+
+  it("S4: «Eliminar» from the row menu trashes through the non-silent hook so its result is toasted", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("button", { name: "Acciones de Propuesta.pdf" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Eliminar" }))
+    await user.click(await screen.findByRole("button", { name: "Enviar a la papelera" }))
+
+    await waitFor(() => expect(trashMutation.mutateAsync).toHaveBeenCalledWith("doc-1"))
+    expect(silentSpy.trash).not.toHaveBeenCalled()
   })
 
   it("S5: the bulk bar trashes each selected document after confirming and reports partial failures", async () => {
@@ -706,6 +743,8 @@ describe("RepositoryList — explorer redesign (S1, S2, S4–S7, S9, S10)", () =
     )
     expect(trashMutation.mutateAsync).toHaveBeenCalledTimes(2)
     expect(trashMutation.mutateAsync).toHaveBeenCalledWith("doc-1")
+    // Bulk calls go through the silent hooks: one summary toast, not one per document.
+    expect(silentSpy.trash).toHaveBeenCalledTimes(2)
     expect(trashMutation.mutateAsync).toHaveBeenCalledWith("doc-3")
     // The failed one stays selected to retry.
     expect(screen.getByRole("region", { name: "Acciones en lote" })).toHaveTextContent(

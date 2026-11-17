@@ -196,7 +196,9 @@ export function RepositoryList() {
   const folders = useMemo(() => foldersQuery.data ?? [], [foldersQuery.data]);
   const moveDocument = useMoveDocument();
   const updateDocument = useUpdateDocument();
-  // Batch operations report one summary toast (runBatch), so their hooks stay silent.
+  const trashDocument = useTrashDocument();
+  // Batch operations report one summary toast (runBatch), so their hooks stay
+  // silent; a single-document action keeps the hooks' own toasts instead.
   const batchMove = useMoveDocument({ silent: true });
   const batchUpdate = useUpdateDocument({ silent: true });
   const batchTrash = useTrashDocument({ silent: true });
@@ -434,7 +436,9 @@ export function RepositoryList() {
       setBulkBusy(false);
     }
     const ok = permitidos.length - fallidos.length;
-    if (docs.length > 1) {
+    if (docs.length === 1 && denied === 1) {
+      toast.error("No tienes permiso para modificar este documento.");
+    } else if (docs.length > 1) {
       const message = bulkSummary(ok, docs.length, verbo, denied, fallidos.length);
       if (ok === docs.length) toast.success(message);
       else if (ok > 0) toast.warning(message);
@@ -458,7 +462,7 @@ export function RepositoryList() {
       return;
     }
     const { fallidos } = await runBatch(docs, "movidos", (doc) =>
-      batchMove.mutateAsync({ id: doc.id, carpeta_id: carpetaId }),
+      (docs.length > 1 ? batchMove : moveDocument).mutateAsync({ id: doc.id, carpeta_id: carpetaId }),
     );
     if (docs.length > 1 || fallidos.length === 0) setDocDialog(null);
   }
@@ -467,13 +471,15 @@ export function RepositoryList() {
     await runBatch(docs, "actualizados", (doc) =>
       doc.categoria === categoria
         ? Promise.resolve()
-        : batchUpdate.mutateAsync({ id: doc.id, categoria }),
+        : (docs.length > 1 ? batchUpdate : updateDocument).mutateAsync({ id: doc.id, categoria }),
     );
     setDocDialog(null);
   }
 
   async function confirmTrash(docs: DocumentItem[]) {
-    await runBatch(docs, "enviados a la papelera", (doc) => batchTrash.mutateAsync(doc.id));
+    await runBatch(docs, "enviados a la papelera", (doc) =>
+      (docs.length > 1 ? batchTrash : trashDocument).mutateAsync(doc.id),
+    );
     setDocDialog(null);
   }
 
