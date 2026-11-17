@@ -159,7 +159,7 @@ export function DocumentsTable({
       ) : (
         <>
           {/* min-w para que scrollee en vez de aplastarse (Table ya envuelve en overflow-x-auto) */}
-          <Table aria-label="Documentos de la carpeta" className="min-w-[860px]">
+          <Table aria-label="Documentos de la carpeta" className="min-w-[720px]">
             <TableHeader>
               <TableRow className="bg-ink-100/40 hover:bg-ink-100/40">
                 <TableHead className="w-12 pl-4">
@@ -359,7 +359,7 @@ function DocumentRow({
       <TableCell>
         <div className="flex items-center gap-2.5">
           <FileTypeBadge doc={doc} />
-          <div className="min-w-0 max-w-[300px] xl:max-w-[380px]">
+          <div className="min-w-0 max-w-[260px] 2xl:max-w-[380px]">
             <div className="truncate text-[13.5px] font-semibold text-ink-950" title={doc.titulo}>
               {doc.titulo}
             </div>
@@ -386,7 +386,7 @@ function DocumentRow({
       <TableCell>
         <span
           className={cn(
-            "inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-semibold whitespace-nowrap",
+            "inline-flex h-6 max-w-[150px] items-center gap-1 rounded-full px-2.5 text-[11.5px] font-semibold whitespace-nowrap 2xl:max-w-none",
             restricted
               ? "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300"
               : "bg-ink-100 text-ink-700",
@@ -397,7 +397,9 @@ function DocumentRow({
               <Lock aria-hidden="true" className="size-3" strokeWidth={2.2} />
             </span>
           )}
-          {doc.categoria}
+          <span className="truncate" title={doc.categoria}>
+            {doc.categoria}
+          </span>
         </span>
       </TableCell>
       <TableCell className="font-mono text-[12.5px] text-ink-800">

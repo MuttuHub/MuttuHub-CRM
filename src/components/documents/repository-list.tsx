@@ -657,10 +657,8 @@ export function RepositoryList() {
         handleDropFiles(local.carpeta || null, files);
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-[56ch] text-[13.5px] leading-relaxed text-ink-600">
-          Archivos versionados de la organización, organizados por cliente y carpeta.
-        </p>
+      {/* The page header already describes the repository; this row only holds actions. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"

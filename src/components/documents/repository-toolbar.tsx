@@ -410,7 +410,8 @@ export function ExplorerToolbar({
       </div>
 
       <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <div className="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">
+        {/* Full row on phones so the filter and sort buttons wrap below instead of squeezing it. */}
+        <div className="relative min-w-0 basis-full sm:w-[260px] sm:flex-none sm:basis-auto">
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500"
             strokeWidth={1.8}
