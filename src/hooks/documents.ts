@@ -17,6 +17,8 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
+// Same union the API parses, so the client cannot drift from the server.
+import type { DocumentOrder } from "@/lib/api/documents";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -99,7 +101,7 @@ export type FolderItem = {
 /* ── Trash (S8) and activity (S9) ──────────────────────────────────────── */
 
 /** GET /api/v1/documents/trash item: the list item plus when/who deleted it. */
-export type TrashedDocument = DocumentItem & {
+type TrashedDocument = DocumentItem & {
   deleted_at: string;
   eliminado_por_nombre: string | null;
 };
@@ -132,9 +134,6 @@ type AuditoriaRow = {
 };
 
 /* ── Filters (query params mirror parseDocumentFilters) ────────────────── */
-
-/** Server-side sort of GET /api/v1/documents (S3); default "reciente". */
-export type DocumentOrder = "reciente" | "antiguo" | "nombre_asc" | "nombre_desc";
 
 export type DocumentFilters = {
   orden?: DocumentOrder;

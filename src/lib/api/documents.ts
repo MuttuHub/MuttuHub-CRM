@@ -254,7 +254,7 @@ export async function loadDocumentForWrite(
 }
 
 /** Sort options of GET /documents (S3); `reciente` is the historical order. */
-export const DOCUMENT_ORDERS = ["reciente", "antiguo", "nombre_asc", "nombre_desc"] as const;
+const DOCUMENT_ORDERS = ["reciente", "antiguo", "nombre_asc", "nombre_desc"] as const;
 export type DocumentOrder = (typeof DOCUMENT_ORDERS)[number];
 
 /**
