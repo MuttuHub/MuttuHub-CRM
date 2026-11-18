@@ -36,7 +36,7 @@ import {
 } from "@/hooks/documents";
 
 /** Todas las carpetas en una lista plana con su path como label. */
-function flattenFolderOptions(nodes: FolderNode[], prefix = ""): { id: string; label: string }[] {
+export function flattenFolderOptions(nodes: FolderNode[], prefix = ""): { id: string; label: string }[] {
   const out: { id: string; label: string }[] = [];
   for (const n of nodes) {
     out.push({ id: n.id, label: `${prefix}${n.nombre}` });

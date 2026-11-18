@@ -41,12 +41,28 @@ import type { FolderNode } from "@/hooks/documents";
 export type FolderAction = "rename" | "move" | "delete";
 
 /** id del destino de @dnd-kit para una carpeta (null = "Todas", la raíz). */
-export const FOLDER_DROP_PREFIX = "carpeta:";
-export const ROOT_DROP_ID = `${FOLDER_DROP_PREFIX}raiz`;
+const FOLDER_DROP_PREFIX = "carpeta:";
+const ROOT_DROP_ID = `${FOLDER_DROP_PREFIX}raiz`;
 /** MIME propio para arrastrar carpetas dentro del árbol (mover jerarquía). */
 export const FOLDER_DRAG_TYPE = "application/x-muttuhub-folder";
-function folderDropId(id: string | null): string {
-  return id === null ? ROOT_DROP_ID : `${FOLDER_DROP_PREFIX}${id}`;
+/**
+ * Una misma carpeta puede ser destino en varios lugares a la vez (rail, ruta y
+ * contenido). @dnd-kit exige ids únicos, así que los destinos que no son del
+ * rail llevan un sufijo `@<scope>`; parseFolderDropId lo descarta.
+ */
+function folderDropId(id: string | null, scope?: string): string {
+  const base = id === null ? ROOT_DROP_ID : `${FOLDER_DROP_PREFIX}${id}`;
+  return scope ? `${base}@${scope}` : base;
+}
+
+/**
+ * Carpeta destino de un drop de @dnd-kit: `undefined` si el destino no es una
+ * carpeta, `null` para "Todas" (raíz), o el id de la carpeta.
+ */
+export function parseFolderDropId(overId: string): string | null | undefined {
+  if (!overId.startsWith(FOLDER_DROP_PREFIX)) return undefined;
+  const base = overId.split("@")[0];
+  return base === ROOT_DROP_ID ? null : base.slice(FOLDER_DROP_PREFIX.length);
 }
 
 type DropFiles = (folderId: string | null, files: File[]) => void;
@@ -70,8 +86,10 @@ export function useFolderDropTarget(
   onDropFiles?: DropFiles,
   onMoveFolder?: MoveFolder,
   canMoveFolder?: (sourceId: string, targetId: string | null) => boolean,
+  /** Sufijo para un destino fuera del rail (ver folderDropId). */
+  scope?: string,
 ) {
-  const { setNodeRef, isOver } = useDroppable({ id: folderDropId(folderId) });
+  const { setNodeRef, isOver } = useDroppable({ id: folderDropId(folderId, scope) });
   const [dragHighlight, setDragHighlight] = useState(false);
   const handlers =
     onDropFiles || onMoveFolder
@@ -104,6 +122,12 @@ export function useFolderDropTarget(
   return { setNodeRef, isOver: isOver || dragHighlight, handlers };
 }
 
+/** True when `id` is a descendant of `node` (the branch must open to show it). */
+function hasDescendant(node: FolderNode, id: string | null): boolean {
+  if (!id) return false;
+  return node.hijos.some((child) => child.id === id || hasDescendant(child, id));
+}
+
 function FolderBranch({
   node,
   depth,
@@ -125,7 +149,15 @@ function FolderBranch({
   canMoveFolder?: (sourceId: string, targetId: string | null) => boolean;
   defaultOpen: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const containsActive = hasDescendant(node, activeId);
+  const [open, setOpen] = useState(defaultOpen || containsActive);
+  // Navegar a una carpeta anidada (breadcrumb, tabla, cuadrícula) abre su rama
+  // para que la carpeta abierta quede visible y resaltada en el árbol.
+  const [prevActiveId, setPrevActiveId] = useState(activeId);
+  if (prevActiveId !== activeId) {
+    setPrevActiveId(activeId);
+    if (containsActive && !open) setOpen(true);
+  }
   const hasChildren = node.hijos.length > 0;
   const isActive = activeId === node.id;
   const { setNodeRef, isOver, handlers } = useFolderDropTarget(
@@ -180,10 +212,23 @@ function FolderBranch({
               className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left"
             >
               <FolderOpen
-                className={cn("size-3.5 shrink-0", isActive ? "text-exito" : "text-ink-400")}
+                className={cn(
+                  "size-3.5 shrink-0",
+                  isActive ? "text-rose-600 dark:text-rose-400" : "text-amber-500",
+                )}
                 strokeWidth={1.8}
               />
-              <span className="truncate text-[13px] font-medium text-ink-800">{node.nombre}</span>
+              <span
+                aria-current={isActive ? "true" : undefined}
+                className={cn(
+                  "truncate text-[13px]",
+                  isActive
+                    ? "font-semibold text-rose-700 dark:text-rose-400"
+                    : "font-medium text-ink-800",
+                )}
+              >
+                {node.nombre}
+              </span>
               {node.cliente_id && (
                 <UserRound
                   className="size-3 shrink-0 text-ink-400"
@@ -324,6 +369,9 @@ export function FolderTree({
 
   return (
     <nav aria-label="Carpetas" className="flex flex-col">
+      <span aria-hidden="true" className="px-2 pb-2 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+        Carpetas
+      </span>
       <button
         type="button"
         ref={setRootRef}
@@ -335,8 +383,18 @@ export function FolderTree({
           rootOver && "bg-exito-bg ring-2 ring-exito/40",
         )}
       >
-        <Folder className={cn("size-3.5 shrink-0", isRoot ? "text-exito" : "text-ink-400")} strokeWidth={1.8} />
-        <span className="text-[13px] font-medium text-ink-800">Todas</span>
+        <Folder
+          className={cn("size-3.5 shrink-0", isRoot ? "text-rose-600 dark:text-rose-400" : "text-ink-400")}
+          strokeWidth={1.8}
+        />
+        <span
+          className={cn(
+            "text-[13px]",
+            isRoot ? "font-semibold text-rose-700 dark:text-rose-400" : "font-medium text-ink-800",
+          )}
+        >
+          Todas
+        </span>
       </button>
       <ul role="tree" aria-label="Carpetas del repositorio" className="mt-1 flex flex-col gap-0.5">
         {folders.map((node) => (
