@@ -81,6 +81,38 @@ jobs:
           path: coverage/
           if-no-files-found: ignore
 
+  # L66 of odd/tasks/t14-gasto-por-actividad.md: until now the only place that
+  # compiled the app was the Build step inside `e2e`, so a PR could merge with
+  # `unit` and `e2e` green and the deployment broken (the S11 incident of
+  # 2026-11-15: 5205 tests green, Vercel preview dead). This job is that check on
+  # its own: no Supabase, no browser, a couple of minutes.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholders on purpose: the build only needs these to exist so the
+      # Supabase and Prisma clients can be constructed. Nothing connects here;
+      # `npm run build` runs `prisma generate` and `next build`.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
   # E1: the Playwright suite against the production build and a seeded local
   # Supabase (Postgres + Auth + Storage) started inside the runner. Nothing
   # here reaches a remote environment and no repository secret is needed: the
