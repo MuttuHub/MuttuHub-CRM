@@ -8,7 +8,7 @@ import { Download, FolderInput, LoaderCircle, Tags, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { WRITE_DENIED_REASON } from "@/components/documents/document-permissions";
 
-const ACTION_CLASS = "h-8 px-2.5 text-[12.5px] font-semibold text-ink-800";
+const ACTION_CLASS = "px-2.5 text-[12.5px] font-semibold text-ink-800";
 
 export function BulkBar({
   count,
@@ -83,7 +83,7 @@ export function BulkBar({
           size="sm"
           disabled={writeDisabled}
           onClick={onTrash}
-          className="h-8 border-destructivo/30 px-2.5 text-[12.5px] font-semibold text-destructivo hover:bg-destructivo-bg"
+          className="border-destructivo/30 px-2.5 text-[12.5px] font-semibold text-destructivo hover:bg-destructivo-bg"
         >
           <Trash2 className="size-3.5" strokeWidth={1.9} />
           Eliminar
@@ -102,7 +102,7 @@ export function BulkBar({
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          className="h-8 px-2 text-[12.5px] font-semibold text-rose-700 dark:text-rose-400"
+          className="px-2 text-[12.5px] font-semibold text-rose-700 dark:text-rose-400"
         >
           Cancelar selección
         </Button>

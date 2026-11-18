@@ -438,7 +438,7 @@ export function ExplorerToolbar({
           <SelectTrigger
             size="sm"
             aria-label="Ordenar documentos"
-            className="w-auto gap-1.5 px-3 text-[13px] font-semibold text-ink-800"
+            className="w-auto gap-1.5 px-3 text-base md:text-[13px] font-semibold text-ink-800"
           >
             <ArrowUpDown className="size-3.5 text-ink-600" strokeWidth={1.9} />
             <SelectValue />
@@ -540,7 +540,7 @@ export function FilterChips({
         variant="ghost"
         size="sm"
         onClick={onClear}
-        className="h-7 px-2 text-[12.5px] font-semibold text-rose-700 dark:text-rose-400"
+        className="px-2 text-[12.5px] font-semibold text-rose-700 dark:text-rose-400"
       >
         Limpiar filtros
       </Button>

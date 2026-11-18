@@ -145,7 +145,7 @@ export function TrashTab({ user }: { user: CurrentUser | null | undefined }) {
                         title={permitido ? undefined : WRITE_DENIED_REASON}
                         aria-label={`Restaurar ${doc.titulo}`}
                         onClick={() => void restaurar(doc.id)}
-                        className="h-8 px-2.5 text-[12.5px] font-semibold text-ink-800"
+                        className="px-2.5 text-[12.5px] font-semibold text-ink-800"
                       >
                         {pending ? (
                           <LoaderCircle className="size-3.5 animate-spin" />
