@@ -93,4 +93,107 @@ describe("email_outbox (live DB)", () => {
       await db.emailOutbox.deleteMany({ where: { clave_idempotencia: { startsWith: prefix } } })
     }
   })
+
+  it("keeps a row sent when a worker whose lease expired reports success after another worker's failure", async () => {
+    const key = `invariant-outbox/${randomUUID()}/stale-success`
+    const due = new Date("2000-01-01T00:00:00.000Z")
+    const first = new Date("2000-01-02T00:00:00.000Z")
+    const afterLease = new Date("2000-01-02T00:02:00.000Z")
+    const muchLater = new Date("2000-01-05T00:00:00.000Z")
+    const store = createPrismaOutboxStore(db)
+    const args = { limit: 10, leaseMs: 60_000, maxAttempts: 5 }
+
+    try {
+      await db.emailOutbox.create({
+        data: { destinatario_email: "s@example.test", asunto: "s", html: "<p>x</p>", tipo: TIPO, clave_idempotencia: key, proximo_intento_at: due },
+      })
+      const mine = <T extends { clave_idempotencia: string }>(rows: T[]) => rows.filter((r) => r.clave_idempotencia === key)
+
+      const [slow] = mine(await store.claimDue({ ...args, now: first }))
+      const [late] = mine(await store.claimDue({ ...args, now: afterLease }))
+      expect([slow?.intentos, late?.intentos]).toEqual([1, 2])
+
+      // The second worker fails first; the slow first worker then reports that its send went out.
+      await store.markRetry(late.id, { attempt: late.intentos, nextAttemptAt: afterLease, error: "boom" })
+      await store.markSent(slow.id, { now: afterLease, providerId: "slow" })
+
+      expect(await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })).toMatchObject({
+        estado: "ENVIADO",
+        proveedor_id: "slow",
+        bloqueado_hasta: null,
+      })
+      expect(mine(await store.claimDue({ ...args, now: muchLater }))).toEqual([])
+    } finally {
+      await db.emailOutbox.deleteMany({ where: { clave_idempotencia: key } })
+    }
+  })
+
+  it("ignores a failure reported by a worker whose lease another worker has since taken", async () => {
+    const key = `invariant-outbox/${randomUUID()}/stale-failure`
+    const due = new Date("2000-01-01T00:00:00.000Z")
+    const first = new Date("2000-01-02T00:00:00.000Z")
+    const afterLease = new Date("2000-01-02T00:02:00.000Z")
+    const store = createPrismaOutboxStore(db)
+    const args = { limit: 10, leaseMs: 60_000, maxAttempts: 5 }
+
+    try {
+      await db.emailOutbox.create({
+        data: { destinatario_email: "f@example.test", asunto: "f", html: "<p>x</p>", tipo: TIPO, clave_idempotencia: key, proximo_intento_at: due },
+      })
+      const mine = <T extends { clave_idempotencia: string }>(rows: T[]) => rows.filter((r) => r.clave_idempotencia === key)
+
+      const [slow] = mine(await store.claimDue({ ...args, now: first }))
+      const [late] = mine(await store.claimDue({ ...args, now: afterLease }))
+
+      await store.markRetry(slow.id, { attempt: slow.intentos, nextAttemptAt: afterLease, error: "stale retry" })
+      await store.markFailed(slow.id, { attempt: slow.intentos, error: "stale failure" })
+
+      const held = await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })
+      expect(held).toMatchObject({ estado: "ENVIANDO", intentos: 2, ultimo_error: null })
+      expect(held.bloqueado_hasta).not.toBeNull()
+
+      await store.markSent(late.id, { now: afterLease, providerId: "late" })
+      expect(await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })).toMatchObject({
+        estado: "ENVIADO",
+        proveedor_id: "late",
+      })
+    } finally {
+      await db.emailOutbox.deleteMany({ where: { clave_idempotencia: key } })
+    }
+  })
+
+  it("marks a row sent when its last-attempt worker reports success after the lease expired it to FALLIDO", async () => {
+    const key = `invariant-outbox/${randomUUID()}/stale-success-after-failed`
+    const due = new Date("2000-01-01T00:00:00.000Z")
+    const first = new Date("2000-01-02T00:00:00.000Z")
+    const afterLease = new Date("2000-01-02T00:02:00.000Z")
+    const muchLater = new Date("2000-01-05T00:00:00.000Z")
+    const store = createPrismaOutboxStore(db)
+    const args = { limit: 10, leaseMs: 60_000, maxAttempts: 1 }
+
+    try {
+      await db.emailOutbox.create({
+        data: { destinatario_email: "x@example.test", asunto: "x", html: "<p>x</p>", tipo: TIPO, clave_idempotencia: key, proximo_intento_at: due },
+      })
+      const mine = <T extends { clave_idempotencia: string }>(rows: T[]) => rows.filter((r) => r.clave_idempotencia === key)
+
+      // The only attempt is claimed; its lease expires, so the next run settles the row to FALLIDO.
+      const [slow] = mine(await store.claimDue({ ...args, now: first }))
+      expect(slow?.intentos).toBe(1)
+      expect(mine(await store.claimDue({ ...args, now: afterLease }))).toEqual([])
+      expect(await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })).toMatchObject({ estado: "FALLIDO" })
+
+      // The slow worker's send did go out: the row must record it and never be sent again.
+      await store.markSent(slow.id, { now: afterLease, providerId: "slow" })
+      expect(await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })).toMatchObject({
+        estado: "ENVIADO",
+        proveedor_id: "slow",
+        ultimo_error: null,
+        bloqueado_hasta: null,
+      })
+      expect(mine(await store.claimDue({ ...args, now: muchLater }))).toEqual([])
+    } finally {
+      await db.emailOutbox.deleteMany({ where: { clave_idempotencia: key } })
+    }
+  })
 })

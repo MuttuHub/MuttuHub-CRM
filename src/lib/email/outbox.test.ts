@@ -61,17 +61,17 @@ function createFakeStore(rows: FakeRow[]): OutboxStore & { rows: FakeRow[] } {
     },
     async markSent(id, { now, providerId }) {
       const row = rows.find((r) => r.id === id)!;
-      if (row.estado !== "ENVIANDO") return;
+      if (row.estado === "ENVIADO") return;
       Object.assign(row, { estado: "ENVIADO", enviado_at: now, proveedor_id: providerId ?? null, bloqueado_hasta: null });
     },
-    async markRetry(id, { nextAttemptAt, error }) {
+    async markRetry(id, { attempt, nextAttemptAt, error }) {
       const row = rows.find((r) => r.id === id)!;
-      if (row.estado !== "ENVIANDO") return;
+      if (row.estado !== "ENVIANDO" || row.intentos !== attempt) return;
       Object.assign(row, { estado: "PENDIENTE", proximo_intento_at: nextAttemptAt, ultimo_error: error, bloqueado_hasta: null });
     },
-    async markFailed(id, { error }) {
+    async markFailed(id, { attempt, error }) {
       const row = rows.find((r) => r.id === id)!;
-      if (row.estado !== "ENVIANDO") return;
+      if (row.estado !== "ENVIANDO" || row.intentos !== attempt) return;
       Object.assign(row, { estado: "FALLIDO", ultimo_error: error, bloqueado_hasta: null });
     },
   };
@@ -239,6 +239,54 @@ describe("processOutbox", () => {
     expect(after).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
     expect(sent).toHaveLength(1);
     expect(store.rows[0]).toMatchObject({ estado: "ENVIADO", intentos: 2 });
+  });
+
+  it("keeps a row sent when a worker whose lease expired reports success after a newer worker failed", async () => {
+    const store = createFakeStore([row("a")]);
+    let releaseSlow!: () => void;
+    const slowSender: EmailSender = {
+      send: () => new Promise<SendResult>((resolve) => (releaseSlow = () => resolve({ ok: true, id: "slow" }))),
+    };
+    const failing = recordingSender(() => ({ ok: false, error: "HTTP 500" }));
+
+    const slowRun = processOutbox(slowSender, NOW, 10, { store });
+    await Promise.resolve();
+    const lateRun = await processOutbox(failing.sender, new Date(NOW.getTime() + 11 * 60_000), 10, { store });
+    expect(lateRun).toEqual({ claimed: 1, sent: 0, retried: 1, failed: 0 });
+
+    releaseSlow();
+    expect(await slowRun).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
+    expect(store.rows[0]).toMatchObject({ estado: "ENVIADO", proveedor_id: "slow", bloqueado_hasta: null });
+
+    const resend = recordingSender(() => ({ ok: true }));
+    const nextDay = await processOutbox(resend.sender, new Date(NOW.getTime() + 24 * 60 * 60_000), 10, { store });
+    expect(nextDay.claimed).toBe(0);
+    expect(resend.sent).toHaveLength(0);
+  });
+
+  it("ignores a failure reported by a worker whose lease a newer worker has taken", async () => {
+    const store = createFakeStore([row("a")]);
+    let failSlow!: () => void;
+    const slowSender: EmailSender = {
+      send: () => new Promise<SendResult>((resolve) => (failSlow = () => resolve({ ok: false, error: "stale" }))),
+    };
+    let releaseLate!: () => void;
+    const lateSender: EmailSender = {
+      send: () => new Promise<SendResult>((resolve) => (releaseLate = () => resolve({ ok: true, id: "late" }))),
+    };
+
+    const slowRun = processOutbox(slowSender, NOW, 10, { store });
+    await Promise.resolve();
+    const lateRun = processOutbox(lateSender, new Date(NOW.getTime() + 11 * 60_000), 10, { store });
+    await Promise.resolve();
+
+    failSlow();
+    await slowRun;
+    expect(store.rows[0]).toMatchObject({ estado: "ENVIANDO", intentos: 2, ultimo_error: null });
+
+    releaseLate();
+    expect(await lateRun).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
+    expect(store.rows[0]).toMatchObject({ estado: "ENVIADO", proveedor_id: "late" });
   });
 });
 

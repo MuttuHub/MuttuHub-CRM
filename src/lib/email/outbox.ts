@@ -16,8 +16,13 @@
 //   3. ok → ENVIADO (terminal: never claimed again). Failure → back to PENDIENTE with an
 //      exponential backoff, or FALLIDO once `intentos` reaches OUTBOX_MAX_ATTEMPTS.
 //   A row whose worker died keeps ENVIANDO until its lease expires, then it is claimable again
-//   (or FALLIDO if it had no attempts left). Every state change after the claim is guarded by
-//   `estado = 'ENVIANDO'`, so a late writer cannot resurrect or overwrite a settled row.
+//   (or FALLIDO if it had no attempts left).
+//   A worker can also outlive its lease (a slow send) while another run reclaims the row. The
+//   claim's `intentos` is its fencing token:
+//     * a failure (retry or FALLIDO) applies only while the row is still ENVIANDO under that same
+//       attempt, so a stale worker cannot move a row another worker now holds;
+//     * a success applies to any row not yet ENVIADO: the mail did go out, so it must never be
+//       claimed and sent again, even if a newer worker already put the row back to PENDIENTE.
 
 import { Prisma, type PrismaClient } from "@prisma/client";
 
@@ -90,8 +95,9 @@ export type ClaimedEmail = {
 export interface OutboxStore {
   claimDue(args: { now: Date; limit: number; leaseMs: number; maxAttempts: number }): Promise<ClaimedEmail[]>;
   markSent(id: string, args: { now: Date; providerId?: string }): Promise<void>;
-  markRetry(id: string, args: { nextAttemptAt: Date; error: string }): Promise<void>;
-  markFailed(id: string, args: { error: string }): Promise<void>;
+  /** `attempt` is the claimed `intentos`; the update is a no-op once another claim holds the row. */
+  markRetry(id: string, args: { attempt: number; nextAttemptAt: Date; error: string }): Promise<void>;
+  markFailed(id: string, args: { attempt: number; error: string }): Promise<void>;
 }
 
 /** `timestamp(3)` columns hold UTC wall time (Prisma's convention); bind dates the same way. */
@@ -129,7 +135,7 @@ export function createPrismaOutboxStore(client: PrismaClient = db): OutboxStore 
     },
     async markSent(id, { now, providerId }) {
       await client.emailOutbox.updateMany({
-        where: { id, estado: "ENVIANDO" },
+        where: { id, estado: { not: "ENVIADO" } },
         data: {
           estado: "ENVIADO",
           enviado_at: now,
@@ -139,15 +145,15 @@ export function createPrismaOutboxStore(client: PrismaClient = db): OutboxStore 
         },
       });
     },
-    async markRetry(id, { nextAttemptAt, error }) {
+    async markRetry(id, { attempt, nextAttemptAt, error }) {
       await client.emailOutbox.updateMany({
-        where: { id, estado: "ENVIANDO" },
+        where: { id, estado: "ENVIANDO", intentos: attempt },
         data: { estado: "PENDIENTE", proximo_intento_at: nextAttemptAt, ultimo_error: error, bloqueado_hasta: null },
       });
     },
-    async markFailed(id, { error }) {
+    async markFailed(id, { attempt, error }) {
       await client.emailOutbox.updateMany({
-        where: { id, estado: "ENVIANDO" },
+        where: { id, estado: "ENVIANDO", intentos: attempt },
         data: { estado: "FALLIDO", ultimo_error: error, bloqueado_hasta: null },
       });
     },
@@ -186,10 +192,11 @@ export async function processOutbox(
       await store.markSent(email.id, { now, providerId: result.id });
       summary.sent += 1;
     } else if (email.intentos >= maxAttempts) {
-      await store.markFailed(email.id, { error: result.error.slice(0, 500) });
+      await store.markFailed(email.id, { attempt: email.intentos, error: result.error.slice(0, 500) });
       summary.failed += 1;
     } else {
       await store.markRetry(email.id, {
+        attempt: email.intentos,
         nextAttemptAt: new Date(now.getTime() + nextAttemptDelayMs(email.intentos)),
         error: result.error.slice(0, 500),
       });
