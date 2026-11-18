@@ -518,7 +518,7 @@ model Auditoria {
   id         String   @id @default(uuid())
   entidad    String // "cliente" | "tarea" | "documento"
   entidad_id String
-  accion     String // "crear" | "editar" | "eliminar"
+  accion     String // "crear" | "editar" | "eliminar" | "restaurar" (documento, S8)
   usuario_id String
   cambios    Json?
   created_at DateTime @default(now())

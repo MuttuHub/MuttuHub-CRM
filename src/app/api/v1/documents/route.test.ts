@@ -264,6 +264,65 @@ describe("GET /api/v1/documents", () => {
     expect(db.$queryRaw).toHaveBeenCalledTimes(2);
   });
 
+  // S3 — server-side sort (orden=reciente|antiguo|nombre_asc|nombre_desc).
+  it("keeps the newest-first order when no orden is sent", async () => {
+    baseListMocks();
+    vi.mocked(db.documento.findMany).mockResolvedValue([]);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents"));
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual({ created_at: "desc" });
+  });
+
+  it("orden=nombre_asc orders by titulo ascending", async () => {
+    baseListMocks();
+    vi.mocked(db.documento.findMany).mockResolvedValue([]);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents?orden=nombre_asc"));
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual({ titulo: "asc" });
+  });
+
+  it("orden=nombre_desc also orders the full-text search page", async () => {
+    baseListMocks();
+    vi.mocked(db.$queryRaw)
+      .mockResolvedValueOnce([{ id: "doc-1", match: "metadatos" }])
+      .mockResolvedValueOnce([]);
+    vi.mocked(db.documento.findMany).mockResolvedValue([docRow({ id: "doc-1" })]);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents?q=informe&orden=nombre_desc"));
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual({ titulo: "desc" });
+  });
+
+  it("keeps the existing filters when orden is combined with them", async () => {
+    baseListMocks();
+    vi.mocked(db.documento.findMany).mockResolvedValue([]);
+
+    const res = await GET(
+      new Request("http://localhost/api/v1/documents?carpeta=folder-1&categoria=Comercial&orden=antiguo"),
+    );
+
+    expect(res.status).toBe(200);
+    const args = vi.mocked(db.documento.findMany).mock.calls[0]![0]!;
+    expect(args.orderBy).toEqual({ created_at: "asc" });
+    const where = args.where as { carpeta_id?: string; categoria?: string; deleted_at?: unknown };
+    expect(where.carpeta_id).toBe("folder-1");
+    expect(where.categoria).toBe("Comercial");
+    expect(where.deleted_at).toBeNull();
+  });
+
+  it("rejects an unknown orden with the validation error shape", async () => {
+    const res = await GET(new Request("http://localhost/api/v1/documents?orden=tamano"));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR", error: "Orden no válido." });
+    expect(db.documento.findMany).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for an invalid page number", async () => {
     const res = await GET(new Request("http://localhost/api/v1/documents?page=0"));
 

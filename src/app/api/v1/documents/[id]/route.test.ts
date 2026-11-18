@@ -167,6 +167,10 @@ describe("DELETE /api/v1/documents/:id", () => {
     expect(logAudit).toHaveBeenCalledWith(
       expect.objectContaining({ entidad: "documento", entidad_id: "doc-1", accion: "eliminar" }),
     );
+    // The activity feed names trashed documents from the audit entry.
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ cambios: { titulo: "Informe final" } }),
+    );
   });
 
   it("returns 403 when a COLABORADOR deletes a document in a restricted category", async () => {

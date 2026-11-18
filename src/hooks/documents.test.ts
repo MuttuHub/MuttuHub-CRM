@@ -7,7 +7,13 @@ import {
   DocumentDuplicateTitleError,
   useClientFolder,
   useDeleteDocument,
+  useDocumentActivity,
+  useDocuments,
   useMoveDocument,
+  useRestoreDocument,
+  useTrashDocument,
+  useTrashedDocuments,
+  useUpdateDocument,
   useUploadDocument,
   type DocumentUploadResponse,
 } from "./documents"
@@ -381,6 +387,42 @@ describe("folder-aware document hooks (S3–S5)", () => {
     expect(invalidateSpy).not.toHaveBeenCalled()
   })
 
+  // S5: bulk actions show one summary toast, so a silent mutation toasts nothing
+  // on success or on error but still refreshes the lists.
+  it("a silent useMoveDocument does not toast on success or error", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ documento: UPLOADED }))
+      .mockResolvedValueOnce(jsonResponse({ error: "Sin permiso.", code: "FORBIDDEN" }, 403))
+    const { wrapper, invalidateSpy } = createWrapper()
+    const { result } = renderHook(() => useMoveDocument({ silent: true }), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ id: "doc-1", carpeta_id: "carpeta-1" })
+    })
+    await expect(
+      act(async () => {
+        await result.current.mutateAsync({ id: "doc-2", carpeta_id: "carpeta-1" })
+      }),
+    ).rejects.toBeTruthy()
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.all })
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it("a silent useTrashDocument does not toast its success", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useTrashDocument({ silent: true }), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync("doc-1")
+    })
+
+    expect(fetchMock.mock.calls[0]![1].method).toBe("DELETE")
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
   // S4: «One action creates (or opens, if it exists) the folder of a chosen client.»
   it("useClientFolder find-or-creates the client folder and refreshes the tree", async () => {
     const carpeta = { id: "carpeta-9", nombre: "Acme", parent_id: null, cliente_id: "cli-1", created_at: "2026-01-01" }
@@ -412,5 +454,201 @@ describe("folder-aware document hooks (S3–S5)", () => {
     })
 
     expect(toastSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe("explorer admin hooks (S3, S8, S4, S9)", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    toastSuccess.mockReset()
+    toastError.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // S3: sorting is server-side through `orden`.
+  it("useDocuments sends orden in the query string and keys the cache by it", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ page: 1, limit: 25, total: 0, items: [] }))
+    const { wrapper } = createWrapper()
+    const filters = { carpeta: "folder-1", orden: "nombre_asc" as const, page: 1 }
+    const { result } = renderHook(() => useDocuments(filters), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const url = new URL(String(fetchMock.mock.calls[0]![0]), "http://localhost")
+    expect(url.pathname).toBe("/api/v1/documents")
+    expect(url.searchParams.get("orden")).toBe("nombre_asc")
+    expect(url.searchParams.get("carpeta")).toBe("folder-1")
+    expect(documentQueryKeys.list(filters)).toEqual(["documents", "list", filters])
+  })
+
+  // S8: Papelera.
+  it("useTrashedDocuments GETs the requested trash page", async () => {
+    const page = { page: 2, limit: 25, total: 26, items: [] }
+    fetchMock.mockResolvedValueOnce(jsonResponse(page))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useTrashedDocuments({ page: 2 }), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("/api/v1/documents/trash?page=2")
+    expect(result.current.data).toEqual(page)
+  })
+
+  it("useTrashedDocuments does not fetch when disabled", async () => {
+    const { wrapper } = createWrapper()
+    renderHook(() => useTrashedDocuments({ page: 1, enabled: false }), { wrapper })
+
+    await new Promise((r) => setTimeout(r, 10))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("useRestoreDocument POSTs the restore and refreshes documents, trash and folders", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const { wrapper, invalidateSpy } = createWrapper()
+    const { result } = renderHook(() => useRestoreDocument(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync("doc-1")
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toBe("/api/v1/documents/doc-1/restore")
+    expect(init.method).toBe("POST")
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.all })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.trashAll })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.folders })
+    expect(toastSuccess).toHaveBeenCalledWith("Documento restaurado.")
+  })
+
+  it("useRestoreDocument toasts the server error", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "El documento no existe.", code: "NOT_FOUND" }, 404))
+    const { wrapper, invalidateSpy } = createWrapper()
+    const { result } = renderHook(() => useRestoreDocument(), { wrapper })
+
+    await expect(
+      act(async () => {
+        await result.current.mutateAsync("doc-1")
+      }),
+    ).rejects.toBeTruthy()
+
+    expect(toastError).toHaveBeenCalledWith("El documento no existe.")
+    expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+
+  // S4: one "Editar documento" dialog over the existing PATCH.
+  it("useUpdateDocument PATCHes only the metadata fields and refreshes list, detail and folders", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ documento: UPLOADED }))
+    const { wrapper, invalidateSpy } = createWrapper()
+    const { result } = renderHook(() => useUpdateDocument(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: "doc-1",
+        titulo: "Nuevo",
+        categoria: "Comercial",
+        etiquetas: ["a"],
+        cliente_ids: ["cli-1"],
+      })
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toBe("/api/v1/documents/doc-1")
+    expect(init.method).toBe("PATCH")
+    expect(JSON.parse(String(init.body))).toEqual({
+      titulo: "Nuevo",
+      categoria: "Comercial",
+      etiquetas: ["a"],
+      cliente_ids: ["cli-1"],
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.all })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.detail("doc-1") })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.folders })
+    expect(toastSuccess).toHaveBeenCalledWith("Documento actualizado.")
+  })
+
+  it("useTrashDocument DELETEs by id and refreshes list, trash, folders and nav counts", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const { wrapper, invalidateSpy } = createWrapper()
+    const { result } = renderHook(() => useTrashDocument(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync("doc-7")
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toBe("/api/v1/documents/doc-7")
+    expect(init.method).toBe("DELETE")
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.all })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.trashAll })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.folders })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["nav", "counts"] })
+    expect(toastSuccess).toHaveBeenCalledWith("Documento enviado a la papelera.")
+  })
+
+  // S9: Actividad, mapped from the real GET /api/v1/auditoria shape.
+  it("useDocumentActivity maps the auditoria rows of entidad=documento", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        registros: [
+          {
+            id: "aud-1",
+            entidad: "documento",
+            entidad_id: "doc-1",
+            accion: "crear",
+            cambios: { titulo: "Contrato marco", categoria: "Legal" },
+            created_at: "2026-11-10T12:00:00.000Z",
+            usuario: { email: "ana@example.com", nombre: "Ana" },
+          },
+          {
+            id: "aud-2",
+            entidad: "documento",
+            entidad_id: "doc-2",
+            accion: "eliminar",
+            cambios: null,
+            created_at: "2026-11-09T12:00:00.000Z",
+            usuario: null,
+          },
+        ],
+        next_before: null,
+      }),
+    )
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useDocumentActivity({ enabled: true }), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("/api/v1/auditoria?entidad=documento")
+    expect(result.current.data).toEqual([
+      {
+        id: "aud-1",
+        accion: "crear",
+        documento_id: "doc-1",
+        documento_titulo: "Contrato marco",
+        usuario_nombre: "Ana",
+        created_at: "2026-11-10T12:00:00.000Z",
+      },
+      {
+        id: "aud-2",
+        accion: "eliminar",
+        documento_id: "doc-2",
+        documento_titulo: null,
+        usuario_nombre: null,
+        created_at: "2026-11-09T12:00:00.000Z",
+      },
+    ])
+  })
+
+  it("useDocumentActivity does not fetch when disabled", async () => {
+    const { wrapper } = createWrapper()
+    renderHook(() => useDocumentActivity({ enabled: false }), { wrapper })
+
+    await new Promise((r) => setTimeout(r, 10))
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

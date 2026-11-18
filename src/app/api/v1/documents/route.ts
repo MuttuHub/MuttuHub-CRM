@@ -1,7 +1,8 @@
 // GET /api/v1/documents — listado del Repositorio (PRD §6.2) con búsqueda
 // (q sobre titulo, etiquetas, categoria, nombre de cliente y de autor),
 // filtros (categoria, etiqueta, cliente, autor, desde/hasta) y paginación
-// (page >= 1, limit 25 máx 100). Nunca trae filas borradas (deleted_at) y los
+// (page >= 1, limit 25 máx 100) y orden (S3: orden=reciente|antiguo|
+// nombre_asc|nombre_desc, default reciente). Nunca trae filas borradas (deleted_at) y los
 // COLABORADOR no ven las categorías restringidas del setting live
 // `doc_categories` (fallback RESTRICTED_DOC_CATEGORIES; también aplicado al
 // count).
@@ -34,6 +35,7 @@ import {
   buildDocumentWhere,
   DOCUMENT_BASE_SELECT,
   DOCUMENT_VERSION_SELECT,
+  documentOrderBy,
   guardDocumentCreate,
   loadActiveVersions,
   loadDocCategories,
@@ -467,7 +469,7 @@ export const GET = withApiErrorHandling(
         ? await db.documento.findMany({
             where: { id: { in: candidateIds }, deleted_at: null },
             select: DOCUMENT_BASE_SELECT,
-            orderBy: { created_at: "desc" },
+            orderBy: documentOrderBy(filters.orden ?? "reciente"),
             skip: (pagination.page - 1) * pagination.limit,
             take: pagination.limit,
           })
@@ -485,7 +487,7 @@ export const GET = withApiErrorHandling(
         db.documento.findMany({
           where,
           select: DOCUMENT_BASE_SELECT,
-          orderBy: { created_at: "desc" },
+          orderBy: documentOrderBy(filters.orden ?? "reciente"),
           skip: (pagination.page - 1) * pagination.limit,
           take: pagination.limit,
         }),

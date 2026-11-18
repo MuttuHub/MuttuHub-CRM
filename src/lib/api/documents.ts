@@ -208,7 +208,7 @@ export async function loadDocumentForRead(id: string, usuario: Usuario) {
 export async function loadDocumentForDelete(id: string, usuario: Usuario) {
   const documento = await db.documento.findFirst({
     where: { id, deleted_at: null },
-    select: { id: true, categoria: true, autor_id: true },
+    select: { id: true, titulo: true, categoria: true, autor_id: true },
   });
   if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
   const { restringidas } = await loadDocCategories();
@@ -228,11 +228,19 @@ export async function loadDocumentForDelete(id: string, usuario: Usuario) {
  * current category back so the PATCH can ALSO reject moving the document into
  * a restricted category: without that second check a COLABORADOR could write
  * a document whose result they cannot even read (escalation).
+ *
+ * `{ deleted: true }` (S8, POST /documents/:id/restore) applies the SAME rule
+ * to a document in the trash: it only finds rows with `deleted_at` set, so a
+ * live document answers NOT_FOUND there.
  */
-export async function loadDocumentForWrite(id: string, usuario: Usuario) {
+export async function loadDocumentForWrite(
+  id: string,
+  usuario: Usuario,
+  options: { deleted?: boolean } = {},
+) {
   const documento = await db.documento.findFirst({
-    where: { id, deleted_at: null },
-    select: { id: true, categoria: true, autor_id: true },
+    where: { id, deleted_at: options.deleted ? { not: null } : null },
+    select: { id: true, titulo: true, categoria: true, autor_id: true, carpeta_id: true },
   });
   if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
   const { restringidas } = await loadDocCategories();
@@ -245,8 +253,31 @@ export async function loadDocumentForWrite(id: string, usuario: Usuario) {
   return { ok: true as const, documento };
 }
 
+/** Sort options of GET /documents (S3); `reciente` is the historical order. */
+const DOCUMENT_ORDERS = ["reciente", "antiguo", "nombre_asc", "nombre_desc"] as const;
+export type DocumentOrder = (typeof DOCUMENT_ORDERS)[number];
+
+/**
+ * `orderBy` for each sort option. Prisma has no case-insensitive orderBy, so
+ * the name sort relies on the column collation (plain `titulo` order).
+ */
+export function documentOrderBy(orden: DocumentOrder): Prisma.DocumentoOrderByWithRelationInput {
+  switch (orden) {
+    case "antiguo":
+      return { created_at: "asc" };
+    case "nombre_asc":
+      return { titulo: "asc" };
+    case "nombre_desc":
+      return { titulo: "desc" };
+    case "reciente":
+      return { created_at: "desc" };
+  }
+}
+
 /** Parsed query params for GET /documents, mirrors the clients/tasks ones. */
 export type DocumentListFilters = {
+  /** Sort order (S3); parseDocumentFilters defaults it to "reciente". */
+  orden?: DocumentOrder;
   q?: string;
   categoria?: string;
   etiqueta?: string;
@@ -284,10 +315,16 @@ export function parseDocumentFilters(
   if (hasta && !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
     return { ok: false, response: apiError("Fecha 'hasta' no válida (YYYY-MM-DD).", 400, "VALIDATION_ERROR") };
   }
+  const ordenRaw = sp.get("orden");
+  if (ordenRaw !== null && !(DOCUMENT_ORDERS as readonly string[]).includes(ordenRaw)) {
+    return { ok: false, response: apiError("Orden no válido.", 400, "VALIDATION_ERROR") };
+  }
+  const orden: DocumentOrder = (ordenRaw as DocumentOrder | null) ?? "reciente";
 
   return {
     ok: true,
     filters: {
+      orden,
       q: sp.get("q")?.trim() || undefined,
       categoria,
       etiqueta: sp.get("etiqueta")?.trim() || undefined,
@@ -478,6 +515,26 @@ export async function loadUserNames(ids: string[]): Promise<Map<string, string>>
     select: { id: true, nombre: true },
   });
   return new Map(users.map((u) => [u.id, u.nombre]));
+}
+
+/**
+ * Who sent each document to the trash (S8): the name on the latest
+ * `documento`/`eliminar` Auditoria row per document. Documents without such a
+ * row (deleted before the audit log existed, or an orphaned upload) are absent
+ * from the map.
+ */
+export async function loadDeletedByNames(documentoIds: string[]): Promise<Map<string, string>> {
+  if (documentoIds.length === 0) return new Map();
+  const rows = await db.auditoria.findMany({
+    where: { entidad: "documento", accion: "eliminar", entidad_id: { in: documentoIds } },
+    orderBy: [{ created_at: "desc" }, { id: "desc" }],
+    select: { entidad_id: true, usuario: { select: { nombre: true } } },
+  });
+  const byDoc = new Map<string, string>();
+  for (const row of rows) {
+    if (!byDoc.has(row.entidad_id)) byDoc.set(row.entidad_id, row.usuario.nombre);
+  }
+  return byDoc;
 }
 
 /** Batched minimal client list per document, via DocumentoCliente. */

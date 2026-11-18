@@ -17,6 +17,8 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
+// Same union the API parses, so the client cannot drift from the server.
+import type { DocumentOrder } from "@/lib/api/documents";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -96,9 +98,45 @@ export type FolderItem = {
   created_at: string;
 };
 
+/* ── Trash (S8) and activity (S9) ──────────────────────────────────────── */
+
+/** GET /api/v1/documents/trash item: the list item plus when/who deleted it. */
+type TrashedDocument = DocumentItem & {
+  deleted_at: string;
+  eliminado_por_nombre: string | null;
+};
+
+/** Same pagination shape as DocumentListResponse ({ page, limit, total, items }). */
+export type TrashListResponse = Omit<DocumentListResponse, "items"> & {
+  items: TrashedDocument[];
+};
+
+/** One document audit event, mapped from GET /api/v1/auditoria?entidad=documento. */
+export type DocumentActivityEvent = {
+  id: string;
+  accion: string;
+  documento_id: string;
+  /** From the event's `cambios.titulo` when it was recorded (crear / editar with titulo); else null. */
+  documento_titulo: string | null;
+  usuario_nombre: string | null;
+  created_at: string;
+};
+
+/** Raw row of GET /api/v1/auditoria (registros[]). */
+type AuditoriaRow = {
+  id: string;
+  entidad: string;
+  entidad_id: string;
+  accion: string;
+  cambios: unknown;
+  created_at: string;
+  usuario: { email: string; nombre: string } | null;
+};
+
 /* ── Filters (query params mirror parseDocumentFilters) ────────────────── */
 
 export type DocumentFilters = {
+  orden?: DocumentOrder;
   q?: string;
   categoria?: string;
   etiqueta?: string;
@@ -122,6 +160,9 @@ export const documentQueryKeys = {
   versions: (id: string) => ["documents", id, "versions"] as const,
   categories: ["documents", "categories"] as const,
   folders: ["documents", "folders"] as const,
+  trashAll: ["documents", "trash"] as const,
+  trash: (page: number) => ["documents", "trash", page] as const,
+  activity: ["documents", "activity"] as const,
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -251,29 +292,33 @@ export function useClientFolder(): UseMutationResult<
 }
 
 /**
+ * Toast behavior for document mutations. Batch callers (bulk bar) pass
+ * `silent: true` and show one summary toast instead of one per document.
+ */
+export type MutationToastOptions = { silent?: boolean };
+
+/**
  * Mover un documento a otra carpeta (S5, arrastrar a una carpeta) o a la raíz
  * («Todas», carpeta_id null). El servidor vincula el documento al cliente
  * cuando la carpeta destino es de un cliente.
  */
-export function useMoveDocument(): UseMutationResult<
-  unknown,
-  Error,
-  { id: string; carpeta_id: string | null }
-> {
+export function useMoveDocument(
+  options: MutationToastOptions = {},
+): UseMutationResult<unknown, Error, { id: string; carpeta_id: string | null }> {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, carpeta_id }) => {
       try {
         return await apiPatch<unknown>(`/api/v1/documents/${id}`, { carpeta_id });
       } catch (err) {
-        if (err instanceof ApiError) toast.error(err.message);
+        if (err instanceof ApiError && !options.silent) toast.error(err.message);
         throw err;
       }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
-      toast.success("Documento movido.");
+      if (!options.silent) toast.success("Documento movido.");
     },
   });
 }
@@ -566,6 +611,127 @@ export function useDeleteDocument(id: string): UseMutationResult<ApiVoid, Error,
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
       void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
       toast.success("Documento eliminado.");
+    },
+  });
+}
+
+/** Papelera (S8): one page of soft-deleted documents, newest deletion first. */
+export function useTrashedDocuments(params: {
+  page: number;
+  enabled?: boolean;
+}): UseQueryResult<TrashListResponse> {
+  return useQuery({
+    queryKey: documentQueryKeys.trash(params.page),
+    enabled: params.enabled ?? true,
+    queryFn: () => apiGet<TrashListResponse>(`/api/v1/documents/trash?page=${params.page}`),
+  });
+}
+
+/** Restores a document from the trash (S8); the server moves it to the root if its folder is gone. */
+export function useRestoreDocument(): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      try {
+        return await apiPost<ApiVoid>(`/api/v1/documents/${id}/restore`);
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.trashAll });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
+      toast.success("Documento restaurado.");
+    },
+  });
+}
+
+export type UpdateDocumentInput = {
+  id: string;
+  titulo?: string;
+  categoria?: string;
+  etiquetas?: string[];
+  cliente_ids?: string[];
+  carpeta_id?: string | null;
+};
+
+/** "Editar documento" (S4): PATCH /api/v1/documents/:id with only the fields given. */
+export function useUpdateDocument(
+  options: MutationToastOptions = {},
+): UseMutationResult<unknown, Error, UpdateDocumentInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }) => {
+      try {
+        return await apiPatch<unknown>(`/api/v1/documents/${id}`, data);
+      } catch (err) {
+        if (err instanceof ApiError && !options.silent) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: (_data, { id }) => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.detail(id) });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      if (!options.silent) toast.success("Documento actualizado.");
+    },
+  });
+}
+
+/** Sends a document to the trash by id (S4/S5; soft delete, unlike useDeleteDocument not bound to one id). */
+export function useTrashDocument(
+  options: MutationToastOptions = {},
+): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      try {
+        return await apiDelete<ApiVoid>(`/api/v1/documents/${id}`);
+      } catch (err) {
+        if (err instanceof ApiError && !options.silent) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.trashAll });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
+      if (!options.silent) toast.success("Documento enviado a la papelera.");
+    },
+  });
+}
+
+/**
+ * Actividad (S9): first page of GET /api/v1/auditoria?entidad=documento
+ * (ADMINISTRADOR only). The endpoint has no document title, so it comes from
+ * the event's `cambios.titulo` when that event recorded one.
+ */
+export function useDocumentActivity(params: {
+  enabled: boolean;
+}): UseQueryResult<DocumentActivityEvent[]> {
+  return useQuery({
+    queryKey: documentQueryKeys.activity,
+    enabled: params.enabled,
+    queryFn: async () => {
+      const res = await apiGet<{ registros: AuditoriaRow[]; next_before: string | null }>(
+        "/api/v1/auditoria?entidad=documento",
+      );
+      return res.registros.map((r) => {
+        const cambios = r.cambios as { titulo?: unknown } | null;
+        return {
+          id: r.id,
+          accion: r.accion,
+          documento_id: r.entidad_id,
+          documento_titulo:
+            cambios && typeof cambios.titulo === "string" ? cambios.titulo : null,
+          usuario_nombre: r.usuario?.nombre ?? null,
+          created_at: r.created_at,
+        };
+      });
     },
   });
 }
