@@ -10,13 +10,49 @@ import { RepositoryList } from "./repository-list"
 // files on the list or on a folder node, and moves documents dragged onto a
 // folder.
 
-const { dnd, moveMutation, updateFolderMutation, useDocumentsMock, searchGet } = vi.hoisted(() => ({
+const {
+  dnd,
+  moveMutation,
+  updateFolderMutation,
+  updateDocMutation,
+  trashMutation,
+  restoreMutation,
+  silentSpy,
+  useDocumentsMock,
+  useTrashedMock,
+  useActivityMock,
+  currentUser,
+  toastMock,
+  searchGet,
+} = vi.hoisted(() => ({
   dnd: { onDragEnd: null as null | ((event: unknown) => void) },
   moveMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
   updateFolderMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
+  updateDocMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
+  trashMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
+  restoreMutation: { isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() },
+  // Records which calls went through a `{ silent: true }` hook instance (bulk).
+  silentSpy: { move: vi.fn(), trash: vi.fn() },
   useDocumentsMock: vi.fn(),
+  useTrashedMock: vi.fn(),
+  useActivityMock: vi.fn(),
+  currentUser: {
+    value: { id: "u-admin", nombre: "Admin", rol: "ADMINISTRADOR" } as {
+      id: string
+      nombre: string
+      rol: string
+    } | null,
+  },
+  toastMock: Object.assign(vi.fn(), {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  }),
   searchGet: vi.fn<(key: string) => string | null>(() => null),
 }))
+
+vi.mock("sonner", () => ({ toast: toastMock }))
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({ get: searchGet }),
@@ -86,9 +122,38 @@ vi.mock("@/hooks/documents", async (importOriginal) => {
     ...actual,
     useDocuments: useDocumentsMock,
     useFolders: () => ({ data: FOLDERS, isLoading: false }),
-    useDocCategories: () => ({ data: [{ nombre: "Comercial", restringida: false }] }),
-    useMoveDocument: () => moveMutation,
+    useDocCategories: () => ({
+      data: [
+        { nombre: "Comercial", restringida: false },
+        { nombre: "Contratos", restringida: true },
+        { nombre: "Finanzas", restringida: false },
+      ],
+    }),
+    useMoveDocument: (opts?: { silent?: boolean }) =>
+      opts?.silent
+        ? {
+            ...moveMutation,
+            mutateAsync: (input: unknown) => {
+              silentSpy.move(input)
+              return moveMutation.mutateAsync(input)
+            },
+          }
+        : moveMutation,
     useUpdateFolder: () => updateFolderMutation,
+    useUpdateDocument: () => updateDocMutation,
+    useTrashDocument: (opts?: { silent?: boolean }) =>
+      opts?.silent
+        ? {
+            ...trashMutation,
+            mutateAsync: (id: string) => {
+              silentSpy.trash(id)
+              return trashMutation.mutateAsync(id)
+            },
+          }
+        : trashMutation,
+    useRestoreDocument: () => restoreMutation,
+    useTrashedDocuments: useTrashedMock,
+    useDocumentActivity: useActivityMock,
     useUploadDocument: () => ({ isPending: false, mutateAsync: vi.fn() }),
     useUploadVersion: () => ({ isPending: false, mutateAsync: vi.fn() }),
   }
@@ -98,13 +163,25 @@ vi.mock("@/hooks/crm", () => ({ useUsers: () => ({ data: [] }) }))
 
 vi.mock("@/hooks/kanban", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/kanban")>()
-  return { ...actual, useClientOptions: () => ({ data: [{ id: "cli-1", nombre: "Acme" }] }) }
+  return {
+    ...actual,
+    useClientOptions: () => ({ data: [{ id: "cli-1", nombre: "Acme" }] }),
+    useCurrentUser: () => ({ data: currentUser.value }),
+  }
 })
 
-vi.mock("@/components/documents/document-dialog", () => ({ DocumentDialog: () => null }))
+vi.mock("@/components/documents/document-dialog", () => ({
+  DocumentDialog: () => null,
+  VersionUploadDialog: () => null,
+}))
 
 const A = new File(["a"], "acta.pdf", { type: "application/pdf" })
 const B = new File(["b"], "balance.pdf", { type: "application/pdf" })
+
+/** S1: the list (table) is the default view; folder tiles live in the grid. */
+function showGrid() {
+  fireEvent.click(screen.getByRole("button", { name: "Vista cuadrícula" }))
+}
 
 function folderTile(name: string) {
   const list = screen.getByRole("list", { name: "Subcarpetas" })
@@ -128,25 +205,46 @@ function dropFiles(target: Element, files: File[]) {
   fireEvent.drop(target, { dataTransfer })
 }
 
-describe("RepositoryList — folders, client folders and drag and drop (S3–S5)", () => {
-  beforeEach(() => {
-    dnd.onDragEnd = null
-    moveMutation.mutate.mockReset()
-    updateFolderMutation.mutateAsync.mockReset()
-    updateFolderMutation.mutateAsync.mockResolvedValue({})
-    searchGet.mockReset()
-    searchGet.mockReturnValue(null)
-    useDocumentsMock.mockReset()
-    useDocumentsMock.mockReturnValue({
-      data: { items: [DOC], total: 1, page: 1, limit: 25 },
-      isLoading: false,
-      isError: false,
-    })
+function resetMocks() {
+  dnd.onDragEnd = null
+  currentUser.value = { id: "u-admin", nombre: "Admin", rol: "ADMINISTRADOR" }
+  moveMutation.mutate.mockReset()
+  moveMutation.mutateAsync.mockReset()
+  moveMutation.mutateAsync.mockResolvedValue({})
+  updateDocMutation.mutateAsync.mockReset()
+  updateDocMutation.mutateAsync.mockResolvedValue({})
+  trashMutation.mutateAsync.mockReset()
+  silentSpy.move.mockReset()
+  silentSpy.trash.mockReset()
+  trashMutation.mutateAsync.mockResolvedValue({})
+  restoreMutation.mutateAsync.mockReset()
+  restoreMutation.mutateAsync.mockResolvedValue({})
+  useTrashedMock.mockReset()
+  useTrashedMock.mockReturnValue({ data: undefined, isLoading: false, isError: false })
+  useActivityMock.mockReset()
+  useActivityMock.mockReturnValue({ data: [], isLoading: false, isError: false })
+  toastMock.success.mockReset()
+  toastMock.warning.mockReset()
+  toastMock.error.mockReset()
+  updateFolderMutation.mutateAsync.mockReset()
+  updateFolderMutation.mutateAsync.mockResolvedValue({})
+  searchGet.mockReset()
+  searchGet.mockReturnValue(null)
+  useDocumentsMock.mockReset()
+  useDocumentsMock.mockReturnValue({
+    data: { items: [DOC], total: 1, page: 1, limit: 25 },
+    isLoading: false,
+    isError: false,
   })
+}
+
+describe("RepositoryList — folders, client folders and drag and drop (S3–S5)", () => {
+  beforeEach(resetMocks)
 
   it("«Subir documento» uploads into the open folder", async () => {
     const user = userEvent.setup()
     render(<RepositoryList />)
+    showGrid()
 
     await user.click(folderTile("Contratos"))
     await user.click(screen.getByRole("button", { name: "Subir documento" }))
@@ -168,6 +266,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("explorer: folder tiles enter a folder and the breadcrumb navigates back", async () => {
     const user = userEvent.setup();
     render(<RepositoryList />);
+    showGrid();
 
     expect(folderTile("Acme")).toBeInTheDocument();
     await user.click(folderTile("Acme"));
@@ -195,6 +294,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("explorer: entering a folder clears the client filter chosen in Filtros", async () => {
     const user = userEvent.setup();
     render(<RepositoryList />);
+    showGrid();
 
     await user.click(screen.getByRole("button", { name: /Filtros/ }));
     const combos = await screen.findAllByRole("combobox");
@@ -214,6 +314,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("explorer: tiles show only the open folder's subfolders", async () => {
     const user = userEvent.setup();
     render(<RepositoryList />);
+    showGrid();
 
     await user.click(folderTile("Contratos"));
     const tiles = screen.getByRole("list", { name: "Subcarpetas" });
@@ -224,6 +325,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("dropping several files on the list uploads them into the open folder", async () => {
     const user = userEvent.setup()
     render(<RepositoryList />)
+    showGrid()
 
     await user.click(folderTile("Acme"))
     await user.click(screen.getByRole("button", { name: "Vista lista" }))
@@ -238,6 +340,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
 
   it("dropping files on a folder node uploads them into that folder and opens it", async () => {
     render(<RepositoryList />)
+    showGrid()
 
     dropFiles(folderTile("Contratos"), [A, B])
 
@@ -246,7 +349,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
     await waitFor(() => expect(lastFilters().carpeta).toBe("f-contratos"))
   })
 
-  it("explorer: documents render as icon tiles with their file type by default", () => {
+  it("explorer: documents render as icon tiles with their file type in the grid view", () => {
     useDocumentsMock.mockReturnValue({
       data: {
         items: [
@@ -288,6 +391,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
       isError: false,
     });
     render(<RepositoryList />);
+    showGrid();
 
     const docs = screen.getByRole("list", { name: "Documentos" });
     expect(within(docs).getByRole("button", { name: /Acta\.pdf/ })).toHaveTextContent("PDF");
@@ -296,6 +400,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
 
   it("explorer: dragging a folder tile onto another moves the hierarchy", () => {
     render(<RepositoryList />);
+    showGrid();
 
     const dataTransfer = {
       types: ["application/x-muttuhub-folder"],
@@ -314,6 +419,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("explorer: dragging a folder onto Todas moves it back to the root", async () => {
     const user = userEvent.setup();
     render(<RepositoryList />);
+    showGrid();
 
     await user.click(folderTile("Contratos"));
     await waitFor(() => expect(lastFilters().carpeta).toBe("f-contratos"));
@@ -333,6 +439,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
 
   it("explorer: right-clicking a folder tile opens its context menu with actions", async () => {
     render(<RepositoryList />);
+    showGrid();
 
     fireEvent.contextMenu(folderTile("Contratos"));
 
@@ -353,6 +460,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("dropping files on an empty area with a folder open uploads into that folder", async () => {
     const user = userEvent.setup();
     const { container } = render(<RepositoryList />);
+    showGrid();
 
     await user.click(folderTile("Acme"));
     dropFiles(container.firstElementChild as Element, [A]);
@@ -373,6 +481,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("dragging a document onto «Todas» takes it out of its folder", async () => {
     const user = userEvent.setup()
     render(<RepositoryList />)
+    showGrid()
 
     await user.click(folderTile("Contratos"))
     act(() => {
@@ -387,6 +496,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("dragging a document onto the folder it is already in does nothing", async () => {
     const user = userEvent.setup()
     render(<RepositoryList />)
+    showGrid()
 
     await user.click(folderTile("Contratos"))
     expect(lastFilters().carpeta).toBe("f-contratos")
@@ -400,6 +510,7 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
   it("with a folder open, dragging a document onto another folder still moves it", async () => {
     const user = userEvent.setup()
     render(<RepositoryList />)
+    showGrid()
 
     await user.click(folderTile("Contratos"))
     act(() => {
@@ -417,5 +528,363 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
     })
 
     expect(moveMutation.mutate).not.toHaveBeenCalled()
+  })
+
+  // Rail, breadcrumb and content can show the same folder at once: their
+  // @dnd-kit droppable ids carry a scope suffix that the drop handler drops.
+  it("dragging a document onto a scoped folder target (content tile) moves it there", () => {
+    render(<RepositoryList />)
+
+    act(() => {
+      dnd.onDragEnd!({ active: { id: "doc:doc-1" }, over: { id: "carpeta:f-contratos@contenido" } })
+    })
+
+    expect(moveMutation.mutate).toHaveBeenCalledWith({ id: "doc-1", carpeta_id: "f-contratos" })
+  })
+})
+
+// Documentos redesign (T2: S1, S2, S4–S7, S9, S10): explorer with the tree
+// rail, the table as the default view, row and bulk actions, filter chips and
+// the role-aware Papelera / Actividad tabs.
+
+function version(numero: number, bytes: number) {
+  return {
+    version_id: `v-${numero}`,
+    numero_version: numero,
+    tamano_bytes: bytes,
+    tipo_archivo: "application/pdf",
+    created_at: "2026-11-10T10:00:00.000Z",
+    subido_por_id: "u1",
+    subido_por_nombre: "Laura Méndez",
+  }
+}
+
+const DOCS: DocumentItem[] = [
+  {
+    ...DOC,
+    id: "doc-1",
+    titulo: "Propuesta.pdf",
+    categoria: "Comercial",
+    etiquetas: ["2027"],
+    autor_id: "u1",
+    version_activa: version(3, 2_516_582),
+  },
+  {
+    ...DOC,
+    id: "doc-2",
+    titulo: "Contrato.pdf",
+    categoria: "Contratos",
+    autor_id: "u2",
+    version_activa: version(1, 880_640),
+  },
+  { ...DOC, id: "doc-3", titulo: "Cronograma.pdf", autor_id: "u1" },
+]
+
+function withDocs(items: DocumentItem[] = DOCS) {
+  useDocumentsMock.mockReturnValue({
+    data: { items, total: items.length, page: 1, limit: 25 },
+    isLoading: false,
+    isError: false,
+  })
+}
+
+function docRow(titulo: string) {
+  const table = screen.getByRole("table", { name: "Documentos de la carpeta" })
+  return within(table)
+    .getAllByRole("row")
+    .find((row) => row.textContent?.includes(titulo))!
+}
+
+describe("RepositoryList — explorer redesign (S1, S2, S4–S7, S9, S10)", () => {
+  beforeEach(() => {
+    resetMocks()
+    withDocs()
+  })
+
+  it("S1: the list (table) is the default view and the tree rail is rendered", () => {
+    render(<RepositoryList />)
+
+    expect(screen.getByRole("button", { name: "Vista lista" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("region", { name: "Listado de documentos" })).toBeInTheDocument()
+    expect(screen.queryByRole("list", { name: "Documentos" })).toBeNull()
+    const rail = screen.getByRole("navigation", { name: "Carpetas" })
+    expect(within(rail).getByRole("button", { name: "Todas" })).toBeInTheDocument()
+    expect(within(rail).getByRole("tree", { name: "Carpetas del repositorio" })).toBeInTheDocument()
+  })
+
+  it("S2: the table shows Nombre, Categoría, Versión, Tamaño, Modificado with folders first", () => {
+    render(<RepositoryList />)
+
+    const table = screen.getByRole("table", { name: "Documentos de la carpeta" })
+    for (const name of [/^Nombre/, /^Categoría/, /^Versión/, /^Tamaño/, /^Modificado/]) {
+      expect(within(table).getByRole("columnheader", { name })).toBeInTheDocument()
+    }
+    const rows = within(table).getAllByRole("row")
+    expect(rows[1]).toHaveTextContent("Acme")
+    expect(rows[1]).toHaveTextContent("Carpeta · 0 docs")
+    expect(rows[2]).toHaveTextContent("Contratos")
+    expect(rows[2]).toHaveTextContent("Carpeta · 1 doc")
+
+    const propuesta = docRow("Propuesta.pdf")
+    expect(propuesta).toHaveTextContent("PDF")
+    expect(propuesta).toHaveTextContent("2027")
+    expect(propuesta).toHaveTextContent("v3")
+    expect(propuesta).toHaveTextContent("2.4 MB")
+    expect(propuesta).toHaveTextContent("Laura Méndez")
+  })
+
+  it("S2: a restricted category shows the lock; a regular one does not", () => {
+    render(<RepositoryList />)
+
+    expect(
+      within(docRow("Contrato.pdf")).getByRole("img", { name: "Categoría restringida" }),
+    ).toBeInTheDocument()
+    expect(
+      within(docRow("Propuesta.pdf")).queryByRole("img", { name: "Categoría restringida" }),
+    ).toBeNull()
+  })
+
+  it("S3 UI: the sort control passes orden to useDocuments", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+    expect((lastFilters() as { orden?: string }).orden).toBeUndefined()
+
+    await user.click(screen.getByRole("combobox", { name: "Ordenar documentos" }))
+    await user.click(await screen.findByRole("option", { name: "Nombre A–Z" }))
+
+    await waitFor(() => expect((lastFilters() as { orden?: string }).orden).toBe("nombre_asc"))
+  })
+
+  it("S4: «Editar categoría y etiquetas» opens «Editar documento» and saves title, category, tags and clients", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("button", { name: "Acciones de Propuesta.pdf" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Editar categoría y etiquetas" }))
+    const dialog = await screen.findByRole("dialog", { name: "Editar documento" })
+
+    const titulo = within(dialog).getByRole("textbox", { name: "Título" })
+    await user.clear(titulo)
+    await user.type(titulo, "Propuesta 2027.pdf")
+    await user.click(within(dialog).getByRole("combobox", { name: "Categoría" }))
+    await user.click(await screen.findByRole("option", { name: "Finanzas" }))
+    await user.type(within(dialog).getByRole("textbox", { name: "Agregar etiqueta" }), "fase 2{Enter}")
+    await user.click(within(dialog).getByRole("combobox", { name: "Agregar cliente" }))
+    await user.click(await screen.findByRole("option", { name: "Acme" }))
+    await user.click(within(dialog).getByRole("button", { name: "Guardar cambios" }))
+
+    await waitFor(() =>
+      expect(updateDocMutation.mutateAsync).toHaveBeenCalledWith({
+        id: "doc-1",
+        titulo: "Propuesta 2027.pdf",
+        categoria: "Finanzas",
+        etiquetas: ["2027", "fase 2"],
+        cliente_ids: ["cli-1"],
+      }),
+    )
+  })
+
+  it("S4: «Mover a…» moves the document to the chosen folder", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("button", { name: "Acciones de Propuesta.pdf" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Mover a…" }))
+    const dialog = await screen.findByRole("dialog", { name: "Mover «Propuesta.pdf»" })
+    await user.click(within(dialog).getByRole("combobox", { name: "Destino" }))
+    await user.click(await screen.findByRole("option", { name: "Contratos / Renovaciones" }))
+    await user.click(within(dialog).getByRole("button", { name: "Mover" }))
+
+    await waitFor(() =>
+      expect(moveMutation.mutateAsync).toHaveBeenCalledWith({
+        id: "doc-1",
+        carpeta_id: "f-renovaciones",
+      }),
+    )
+    // A single-document move keeps the hook's own success/error toasts.
+    expect(silentSpy.move).not.toHaveBeenCalled()
+  })
+
+  it("S4: «Eliminar» from the row menu trashes through the non-silent hook so its result is toasted", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("button", { name: "Acciones de Propuesta.pdf" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Eliminar" }))
+    await user.click(await screen.findByRole("button", { name: "Enviar a la papelera" }))
+
+    await waitFor(() => expect(trashMutation.mutateAsync).toHaveBeenCalledWith("doc-1"))
+    expect(silentSpy.trash).not.toHaveBeenCalled()
+  })
+
+  it("S5: the bulk bar trashes each selected document after confirming and reports partial failures", async () => {
+    // COLABORADOR u1: authored doc-1 and doc-3, not doc-2.
+    currentUser.value = { id: "u1", nombre: "Laura", rol: "COLABORADOR" }
+    trashMutation.mutateAsync.mockImplementation((id: string) =>
+      id === "doc-3" ? Promise.reject(new Error("boom")) : Promise.resolve({}),
+    )
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    for (const titulo of ["Propuesta.pdf", "Contrato.pdf", "Cronograma.pdf"]) {
+      await user.click(screen.getByRole("checkbox", { name: `Seleccionar ${titulo}` }))
+    }
+    const bar = screen.getByRole("region", { name: "Acciones en lote" })
+    expect(bar).toHaveTextContent("3 seleccionados")
+
+    await user.click(within(bar).getByRole("button", { name: "Eliminar" }))
+    expect(trashMutation.mutateAsync).not.toHaveBeenCalled()
+    await user.click(await screen.findByRole("button", { name: "Enviar a la papelera" }))
+
+    await waitFor(() =>
+      expect(toastMock.warning).toHaveBeenCalledWith(
+        "1 de 3 enviados a la papelera; 1 sin permiso; 1 con error",
+      ),
+    )
+    expect(trashMutation.mutateAsync).toHaveBeenCalledTimes(2)
+    expect(trashMutation.mutateAsync).toHaveBeenCalledWith("doc-1")
+    // Bulk calls go through the silent hooks: one summary toast, not one per document.
+    expect(silentSpy.trash).toHaveBeenCalledTimes(2)
+    expect(trashMutation.mutateAsync).toHaveBeenCalledWith("doc-3")
+    // The failed one stays selected to retry.
+    expect(screen.getByRole("region", { name: "Acciones en lote" })).toHaveTextContent(
+      "1 seleccionado",
+    )
+  })
+
+  it("S5: «Cancelar selección» hides the bulk bar", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("checkbox", { name: "Seleccionar Propuesta.pdf" }))
+    await user.click(screen.getByRole("button", { name: "Cancelar selección" }))
+
+    expect(screen.queryByRole("region", { name: "Acciones en lote" })).toBeNull()
+  })
+
+  it("S6: an active filter shows as a chip and removing it clears that filter", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    const combos = await screen.findAllByRole("combobox")
+    await user.click(combos.find((c) => c.textContent?.includes("Cliente"))!)
+    await user.click(await screen.findByRole("option", { name: "Acme" }))
+    await waitFor(() => expect(lastFilters().cliente).toBe("cli-1"))
+
+    await user.click(await screen.findByRole("button", { name: "Quitar filtro Cliente: Acme" }))
+
+    await waitFor(() => expect(lastFilters().cliente).toBeUndefined())
+    expect(screen.queryByRole("list", { name: "Filtros activos" })).toBeNull()
+  })
+
+  it("S7: COLABORADOR sees no tabs; COORDINADOR sees Papelera; only ADMINISTRADOR sees Actividad", () => {
+    currentUser.value = { id: "u1", nombre: "Laura", rol: "COLABORADOR" }
+    const colaborador = render(<RepositoryList />)
+    expect(screen.queryByRole("tab")).toBeNull()
+    colaborador.unmount()
+
+    currentUser.value = { id: "u3", nombre: "Coord", rol: "COORDINADOR" }
+    const coordinador = render(<RepositoryList />)
+    expect(screen.getByRole("tab", { name: "Papelera" })).toBeInTheDocument()
+    expect(screen.queryByRole("tab", { name: "Actividad" })).toBeNull()
+    coordinador.unmount()
+
+    currentUser.value = { id: "u-admin", nombre: "Admin", rol: "ADMINISTRADOR" }
+    render(<RepositoryList />)
+    expect(screen.getByRole("tab", { name: "Documentos" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Papelera" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Actividad" })).toBeInTheDocument()
+  })
+
+  it("S8 UI: Papelera lists trashed documents and «Restaurar» restores one", async () => {
+    currentUser.value = { id: "u3", nombre: "Coord", rol: "COORDINADOR" }
+    useTrashedMock.mockReturnValue({
+      data: {
+        items: [
+          {
+            ...DOC,
+            id: "doc-9",
+            titulo: "Viejo.pdf",
+            deleted_at: "2026-11-12T09:00:00.000Z",
+            eliminado_por_nombre: "Camila Rojas",
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 25,
+      },
+      isLoading: false,
+      isError: false,
+    })
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("tab", { name: "Papelera" }))
+    const papelera = await screen.findByRole("region", { name: "Papelera" })
+    expect(within(papelera).getByText("Viejo.pdf")).toBeInTheDocument()
+    expect(within(papelera).getByText("Camila Rojas")).toBeInTheDocument()
+
+    await user.click(within(papelera).getByRole("button", { name: "Restaurar Viejo.pdf" }))
+
+    expect(restoreMutation.mutateAsync).toHaveBeenCalledWith("doc-9")
+  })
+
+  it("S9: Actividad renders the document audit events", async () => {
+    useActivityMock.mockReturnValue({
+      data: [
+        {
+          id: "a1",
+          accion: "crear",
+          documento_id: "doc-1",
+          documento_titulo: "Propuesta.pdf",
+          usuario_nombre: "Laura Méndez",
+          created_at: "2026-11-15T14:00:00.000Z",
+        },
+        {
+          id: "a2",
+          accion: "eliminar",
+          documento_id: "doc-2",
+          documento_titulo: null,
+          usuario_nombre: "Admin",
+          created_at: "2026-11-14T14:00:00.000Z",
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    })
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("tab", { name: "Actividad" }))
+
+    const feed = await screen.findByRole("list", { name: "Eventos de documentos" })
+    const items = within(feed).getAllByRole("listitem")
+    expect(items[0]).toHaveTextContent("Laura Méndez subió Propuesta.pdf")
+    expect(items[1]).toHaveTextContent("Admin envió a la papelera un documento")
+  })
+
+  it("S10: write actions on someone else's document are disabled with the reason", async () => {
+    currentUser.value = { id: "u1", nombre: "Laura", rol: "COLABORADOR" }
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("button", { name: "Acciones de Contrato.pdf" }))
+
+    expect(await screen.findByRole("menuitem", { name: "Eliminar" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    )
+    expect(screen.getByRole("menuitem", { name: "Mover a…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    )
+    expect(screen.getByRole("menuitem", { name: "Abrir detalle" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    )
+    expect(
+      screen.getByText(/Solo su autor o Coordinación, Gerencia y Administración/),
+    ).toBeInTheDocument()
   })
 })

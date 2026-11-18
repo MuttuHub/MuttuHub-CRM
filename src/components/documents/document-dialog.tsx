@@ -278,7 +278,7 @@ function VersionRow({
   );
 }
 
-function VersionUploadDialog({
+export function VersionUploadDialog({
   documentId,
   open,
   onOpenChange,
