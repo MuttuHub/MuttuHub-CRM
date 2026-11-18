@@ -42,9 +42,9 @@ import {
   useUpdateFolder,
   type DocumentFilters,
   type DocumentItem,
-  type DocumentOrder,
   type FolderNode,
 } from "@/hooks/documents";
+import type { DocumentOrder } from "@/lib/api/documents";
 import { DocumentDialog, VersionUploadDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
 import {

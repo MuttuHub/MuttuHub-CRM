@@ -36,9 +36,9 @@ import { formatBytes } from "@/hooks/kanban";
 import {
   formatVersionFecha,
   type DocumentItem,
-  type DocumentOrder,
   type FolderNode,
 } from "@/hooks/documents";
+import type { DocumentOrder } from "@/lib/api/documents";
 import { etiquetasVisibles } from "@/lib/documents/etiquetas";
 import {
   FOLDER_DRAG_TYPE,

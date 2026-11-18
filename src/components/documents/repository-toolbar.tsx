@@ -35,7 +35,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DOC_CATEGORIES } from "@/lib/catalogs";
-import { useDocCategories, type DocumentOrder } from "@/hooks/documents";
+import { useDocCategories } from "@/hooks/documents";
+import type { DocumentOrder } from "@/lib/api/documents";
 import { useFolderDropTarget } from "@/components/documents/folder-tree";
 
 /** Filtros del popover (los que se muestran como chips). */
@@ -48,7 +49,7 @@ export type FilterFields = {
   hasta: string;
 };
 
-export const FILTER_KEYS: (keyof FilterFields)[] = [
+const FILTER_KEYS: (keyof FilterFields)[] = [
   "categoria",
   "etiqueta",
   "autor",
@@ -66,7 +67,7 @@ export const EMPTY_FILTER_FIELDS: FilterFields = {
   hasta: "",
 };
 
-export const ORDER_OPTIONS: { value: DocumentOrder; label: string }[] = [
+const ORDER_OPTIONS: { value: DocumentOrder; label: string }[] = [
   { value: "reciente", label: "Más recientes" },
   { value: "antiguo", label: "Más antiguos" },
   { value: "nombre_asc", label: "Nombre A–Z" },

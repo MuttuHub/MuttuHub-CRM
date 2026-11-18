@@ -41,8 +41,8 @@ import type { FolderNode } from "@/hooks/documents";
 export type FolderAction = "rename" | "move" | "delete";
 
 /** id del destino de @dnd-kit para una carpeta (null = "Todas", la raíz). */
-export const FOLDER_DROP_PREFIX = "carpeta:";
-export const ROOT_DROP_ID = `${FOLDER_DROP_PREFIX}raiz`;
+const FOLDER_DROP_PREFIX = "carpeta:";
+const ROOT_DROP_ID = `${FOLDER_DROP_PREFIX}raiz`;
 /** MIME propio para arrastrar carpetas dentro del árbol (mover jerarquía). */
 export const FOLDER_DRAG_TYPE = "application/x-muttuhub-folder";
 /**
