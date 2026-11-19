@@ -25,6 +25,7 @@ import {
   evaluarMontosGasto,
   type GastoProyecto,
 } from "@/lib/api/gastos"
+import { rubroDeshabilitadoMessage } from "@/lib/api/rubros-proyecto"
 import { formatCOP, fromCents, sumCents, type Cents } from "../money"
 import {
   ARCHIVO_ILEGIBLE,
@@ -170,6 +171,8 @@ export type ContextoImportGastos = {
    * line of that pair; a row without an activity resolves through its rubro alone, as the file did before.
    */
   lineas: readonly LineaPresupuestoImport[]
+  /** B6: ids of the rubros disabled for this project; a row on one is refused with the reason. */
+  deshabilitados?: ReadonlySet<string>
 }
 
 /** S9/T14.3: one budget line of the project, with the activity it belongs to. */
@@ -485,6 +488,7 @@ function validarFila(
   if (rubroTexto === "") return falla("Falta el nombre del rubro.")
   const rubro = indice.get(normalizarTexto(rubroTexto))
   if (!rubro) return falla(`No encontramos el rubro «${rubroTexto}» en el catálogo.`)
+  if (contexto.deshabilitados?.has(rubro.id)) return falla(rubroDeshabilitadoMessage(rubro), rubro.id)
   // Review of T14: a code Excel turned into a number (1.10 → 1.1) or a date cannot be trusted to name an activity.
   if (typeof cruda.actividad === "number" || cruda.actividad instanceof Date) {
     return falla(ACTIVIDAD_NO_TEXTO_MESSAGE, rubro.id)

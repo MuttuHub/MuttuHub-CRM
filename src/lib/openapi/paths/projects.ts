@@ -15,6 +15,7 @@ import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { PROJECT_CREATE_SCHEMA } from "@/app/api/v1/projects/route";
 import { PROJECT_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/route";
 import { MIEMBRO_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/members/route";
+import { RUBRO_PROYECTO_PUT_SCHEMA } from "@/app/api/v1/projects/[id]/rubros/[rubroId]/route";
 
 const ProjectLineaSchema = z.object({
   id: z.string().uuid(),
@@ -423,5 +424,33 @@ registry.registerPath({
       content: { "application/json": { schema: z.object({ miembro: ProyectoMiembroSchema }) } },
     },
     ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// B6 (odd/tasks/producto-pendientes-2026-11.md S1, decision L7 «Bloquear»): a rubro switched off for one project.
+registry.registerPath({
+  method: "put",
+  path: "/api/v1/projects/{id}/rubros/{rubroId}",
+  tags: ["Projects"],
+  summary: "Habilita o deshabilita un rubro solo para este proyecto",
+  description:
+    "Mismo permiso que editar el presupuesto: `ADMINISTRADOR`/`GERENCIA` en cualquier proyecto, y `COORDINADOR`/`COLABORADOR` " +
+    "solo como integrantes activos. Se permite en `BORRADOR` y `EN_EJECUCION` (409 INVALID_STATE en otro estado, comprobado " +
+    "bajo bloqueo de fila). Deshabilitar exige que todas las líneas del rubro en el proyecto estén en $0 y que no tenga gastos " +
+    "allí; si no, 409 CONFLICT con el motivo. Habilitar siempre se permite. Un rubro deshabilitado sale del presupuesto del " +
+    "proyecto (`GET /budget` lo lista en `rubros_deshabilitados`) y el presupuesto, la plantilla, los gastos, su importación y " +
+    "las solicitudes de modificación rechazan asignarle dinero o gastos. No cambia el catálogo global ni otros proyectos. " +
+    "Cada cambio efectivo audita un registro `EDITAR` / `rubro` (campo `habilitado`); pedir el estado actual no escribe nada.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid(), rubroId: z.string().uuid() }),
+    body: { content: { "application/json": { schema: RUBRO_PROYECTO_PUT_SCHEMA } } },
+  },
+  responses: {
+    200: {
+      description: "Estado del rubro en el proyecto.",
+      content: { "application/json": { schema: z.object({ rubro_id: z.string().uuid(), habilitado: z.boolean() }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });

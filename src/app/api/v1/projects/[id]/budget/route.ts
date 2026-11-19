@@ -6,7 +6,8 @@
 // carries a line (`heredado_pendiente`), and every line with its activity; legacy lines (D9) have none.
 // PUT receives the WHOLE budget as `lineas`: a line is matched by activity + rubro, created when new
 // and above $0, updated when its value changed, and deleted (with its programming) when it is left
-// out — unless it already has expenses. `valor_total` is always the sum of the lines after the write
+// out — unless it already has expenses. B6: a rubro disabled for the project is hidden from GET with its $0
+// lines, takes no money in PUT, and its hidden lines are kept when the body leaves them out. `valor_total` is always the sum of the lines after the write
 // (S2: «se calculan sumando las líneas; no se digitan»), and the opportunity difference follows it.
 
 import { NextResponse } from "next/server";
@@ -21,6 +22,8 @@ import {
   MONTO_MAXIMO_CENTS,
   RespuestaAbortada,
   decimalFromCents,
+  deshabilitadoEnProyecto,
+  estaDeshabilitado,
   gatePresupuestoRead,
   gatePresupuestoWrite,
   loadBudgetView,
@@ -31,6 +34,7 @@ import {
 } from "@/lib/api/presupuesto";
 import { fromCents, sumCents, toCents } from "@/lib/proyectos/money";
 import { lineasTienenGastos } from "@/lib/api/lineas-con-gastos";
+import { rechazoPorRubroDeshabilitado } from "@/lib/api/rubros-proyecto";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +113,14 @@ export const PUT = withApiErrorHandling(
         const [rubros, lineas, actividades] = await Promise.all([
           tx.rubro.findMany({
             where: { OR: [{ activo: true }, { lineas: { some: { proyecto_id: id } } }] },
-            select: { id: true, codigo: true, nombre: true, activo: true, orden: true },
+            select: {
+              id: true,
+              codigo: true,
+              nombre: true,
+              activo: true,
+              orden: true,
+              deshabilitado_en: deshabilitadoEnProyecto(id),
+            },
           }),
           tx.lineaPresupuestal.findMany({
             where: { proyecto_id: id },
@@ -124,6 +135,14 @@ export const PUT = withApiErrorHandling(
         const vivas = new Set(actividades.map((a) => a.id));
         const existentes = new Map(lineas.map((l) => [claveDe(l.actividad_id, l.rubro_id), l]));
 
+        // B6: a rubro disabled for this project takes no money, neither on a new line nor on a stored one.
+        for (const pedida of pedidas.values()) {
+          const rubro = porRubro.get(pedida.rubroId);
+          const rechazo = rubro ? rechazoPorRubroDeshabilitado({ ...rubro, deshabilitado: estaDeshabilitado(rubro) }, pedida.cents) : null;
+          if (rechazo) invalid(rechazo);
+        }
+        const deshabilitados = new Set(rubros.filter(estaDeshabilitado).map((r) => r.id));
+
         for (const [clave, pedida] of pedidas) {
           if (existentes.has(clave)) continue; // a stored line may always be kept or edited
           const rubro = porRubro.get(pedida.rubroId);
@@ -134,7 +153,11 @@ export const PUT = withApiErrorHandling(
           if (!rubro.activo) invalid(`El rubro ${rubro.nombre} está suspendido: no se le puede asignar presupuesto.`);
         }
 
-        const quitadas = lineas.filter((l) => !pedidas.has(claveDe(l.actividad_id, l.rubro_id)));
+        // B6: the budget view hides the ($0) lines of a disabled rubro, so a body that leaves them out is not
+        // asking to delete them.
+        const quitadas = lineas.filter(
+          (l) => !pedidas.has(claveDe(l.actividad_id, l.rubro_id)) && !deshabilitados.has(l.rubro_id),
+        );
         if (quitadas.length > 0) {
           const conGastos = await lineasTienenGastos(tx, id, quitadas.map((l) => l.id));
           if (conGastos) invalid("No se puede quitar del presupuesto una línea que ya tiene gastos registrados.");

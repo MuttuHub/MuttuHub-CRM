@@ -198,6 +198,11 @@ export type BudgetView = {
   /** S2: each rubro row is the sum of its lines. */
   rubros: BudgetRubroRow[];
   lineas: BudgetLineaRow[];
+  /**
+   * B6: rubros switched off for this project. They are left out of `rubros` and `lineas` (their lines are at
+   * $0, so no sum changes) and listed here so the team can switch them back on.
+   */
+  rubros_deshabilitados: { rubro_id: string; codigo: string | null; nombre: string }[];
   suma: string;
   valor_total: string | null;
   /** Σ A − valor_total; null while the project has no valor_total. */
@@ -205,6 +210,16 @@ export type BudgetView = {
 };
 
 type RubroRow = { id: string; codigo: string | null; nombre: string; activo: boolean; orden: number };
+/** B6: the rubro query also brings this project's disabled row, when there is one (none in older fakes). */
+type RubroConDeshabilitado = RubroRow & { deshabilitado_en?: readonly unknown[] };
+
+/** B6: the select that reads, per rubro, whether THIS project disabled it (never another project's row). */
+export const deshabilitadoEnProyecto = (proyectoId: string) =>
+  ({ where: { proyecto_id: proyectoId }, select: { proyecto_id: true } }) as const;
+
+/** B6: whether a rubro row read with `deshabilitadoEnProyecto` is disabled in the project. */
+export const estaDeshabilitado = (rubro: { deshabilitado_en?: readonly unknown[] }): boolean =>
+  (rubro.deshabilitado_en?.length ?? 0) > 0;
 type LineaRow = {
   id: string;
   rubro_id: string;
@@ -227,20 +242,25 @@ export function compareRubros(a: RubroRow, b: RubroRow): number {
 function buildBudgetView(input: {
   estado: string;
   valorTotal: { toString(): string } | string | null;
-  rubros: readonly RubroRow[];
+  rubros: readonly RubroConDeshabilitado[];
   lineas: readonly LineaRow[];
 }): BudgetView {
+  // B6: a disabled rubro and its ($0) lines are hidden from the budget of this project.
+  const deshabilitados = input.rubros.filter(estaDeshabilitado);
+  const fuera = new Set(deshabilitados.map((r) => r.id));
+  const rubrosVisibles = input.rubros.filter((r) => !fuera.has(r.id));
+  const lineasVisibles = input.lineas.filter((l) => !fuera.has(l.rubro_id));
   // S5/T10: un rubro puede tener varias líneas (una por actividad). El rubro las SUMA; antes el mapa
   // por rubro se quedaba con la última y la suma perdía el resto, con un orden que ni siquiera era
   // estable porque la consulta no lleva `orderBy`. Con una sola línea por rubro —todo lo cargado antes
   // de la Parte 2— el resultado es exactamente el de antes.
   const lineasPorRubro = new Map<string, LineaRow[]>();
-  for (const linea of input.lineas) {
+  for (const linea of lineasVisibles) {
     const acumuladas = lineasPorRubro.get(linea.rubro_id);
     if (acumuladas) acumuladas.push(linea);
     else lineasPorRubro.set(linea.rubro_id, [linea]);
   }
-  const filas = [...input.rubros]
+  const filas = [...rubrosVisibles]
     .filter((r) => r.activo || lineasPorRubro.has(r.id))
     .sort(compareRubros)
     .map((r): BudgetRubroRow => {
@@ -259,7 +279,7 @@ function buildBudgetView(input: {
     });
 
   const rubroPorId = new Map(input.rubros.map((r) => [r.id, r]));
-  const lineas = [...input.lineas]
+  const lineas = [...lineasVisibles]
     .sort((a, b) => {
       const ra = rubroPorId.get(a.rubro_id);
       const rb = rubroPorId.get(b.rubro_id);
@@ -284,6 +304,9 @@ function buildBudgetView(input: {
     estado: input.estado,
     rubros: filas,
     lineas,
+    rubros_deshabilitados: [...deshabilitados]
+      .sort(compareRubros)
+      .map((r) => ({ rubro_id: r.id, codigo: r.codigo, nombre: r.nombre })),
     suma: fromCents(suma),
     valor_total: total === null ? null : fromCents(total),
     diferencia: total === null ? null : fromCents(suma - total),
@@ -301,7 +324,14 @@ export async function loadBudgetView(
   const [rubros, lineas] = await Promise.all([
     client.rubro.findMany({
       where: { OR: [{ activo: true }, { lineas: { some: { proyecto_id: proyectoId } } }] },
-      select: { id: true, codigo: true, nombre: true, activo: true, orden: true },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+        activo: true,
+        orden: true,
+        deshabilitado_en: deshabilitadoEnProyecto(proyectoId),
+      },
       orderBy: [{ orden: "asc" }, { nombre: "asc" }],
     }),
     client.lineaPresupuestal.findMany({

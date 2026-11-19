@@ -405,6 +405,60 @@ describe("ProjectPresupuesto", () => {
     expect(screen.queryByTestId("programacion-grid")).not.toBeInTheDocument()
   })
 
+  // B6 (S1, decision L7 «Bloquear»): rubros switched off for this project only.
+  describe("rubros of the project (B6)", () => {
+    const CON_R2_DESHABILITADO = {
+      ...BUDGET,
+      rubros: BUDGET.rubros.filter((r) => r.rubro_id !== "r2"),
+      rubros_deshabilitados: [{ rubro_id: "r2", codigo: "R02", nombre: "Alimentación" }],
+    }
+
+    it("stops offering a disabled rubro and lists it apart, ready to re-enable", async () => {
+      const user = userEvent.setup()
+      setup({ budget: CON_R2_DESHABILITADO })
+      const rubro = await screen.findByLabelText("Rubro de la nueva línea")
+      expect(within(rubro).getAllByRole("option").map((o) => o.textContent)).not.toContain("R02 Alimentación")
+      expect(within(screen.getByTestId("presupuesto-tabla")).queryByText("Alimentación")).not.toBeInTheDocument()
+
+      const seccion = screen.getByTestId("presupuesto-rubros-proyecto")
+      await user.click(within(seccion).getByRole("button", { name: "Habilitar R02 Alimentación" }))
+      await waitFor(() => expect(writes("PUT").some(([u]) => String(u).endsWith("/rubros/r2"))).toBe(true))
+      const [, init] = writes("PUT").find(([u]) => String(u).endsWith("/rubros/r2"))!
+      expect(JSON.parse(String((init as RequestInit).body))).toEqual({ habilitado: true })
+    })
+
+    it("disables a rubro for the project through the API", async () => {
+      const user = userEvent.setup()
+      setup()
+      const seccion = await screen.findByTestId("presupuesto-rubros-proyecto")
+      await user.click(within(seccion).getByRole("button", { name: "Deshabilitar R02 Alimentación" }))
+      await waitFor(() => expect(writes("PUT").some(([u]) => String(u) === "/api/v1/projects/p1/rubros/r2")).toBe(true))
+      const [, init] = writes("PUT").find(([u]) => String(u).endsWith("/rubros/r2"))!
+      expect(JSON.parse(String((init as RequestInit).body))).toEqual({ habilitado: false })
+    })
+
+    it("shows why the API refused to disable a rubro", async () => {
+      const user = userEvent.setup()
+      const mensaje = "No se puede deshabilitar el rubro R01 Personal: tiene $ 59.500.000 asignados en este proyecto. Lleva sus líneas a $0 antes de deshabilitarlo."
+      setup()
+      const base = fetchMock.getMockImplementation()!
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
+        String(input).endsWith("/rubros/r1") && init?.method === "PUT"
+          ? Promise.resolve(jsonResponse({ error: mensaje, code: "CONFLICT" }, 409))
+          : base(input, init),
+      )
+      const seccion = await screen.findByTestId("presupuesto-rubros-proyecto")
+      await user.click(within(seccion).getByRole("button", { name: "Deshabilitar R01 Personal" }))
+      expect(await within(seccion).findByText(mensaje)).toBeInTheDocument()
+    })
+
+    it("offers no toggle to a role that cannot edit the budget", async () => {
+      setup({ rol: "COORDINADOR" })
+      await screen.findByTestId("presupuesto-tabla")
+      expect(screen.queryByTestId("presupuesto-rubros-proyecto")).not.toBeInTheDocument()
+    })
+  })
+
   describe("edit controls", () => {
     it("are read-only for a COORDINADOR", async () => {
       setup({ rol: "COORDINADOR" })

@@ -26,10 +26,12 @@ const gasto = (
   linea: lineaDe(codigo, actividad),
   repartos,
 });
-const cliente = (gastos: unknown[], rubros: unknown[] = []) =>
+const cliente = (gastos: unknown[], rubros: unknown[] = [], deshabilitados: unknown[] = []) =>
   ({
     gasto: { findMany: vi.fn(async () => gastos) },
     rubro: { findMany: vi.fn(async () => rubros) },
+    // B6: the rubros disabled for the project, as `{ rubro: { codigo, nombre } }` rows.
+    proyectoRubroDeshabilitado: { findMany: vi.fn(async () => deshabilitados) },
   }) as never;
 
 beforeEach(() => {
@@ -115,9 +117,35 @@ describe("evaluarSolicitud", () => {
     });
     const porLinea = traslado.map((i) => ({ ...i, clave: i.clave.replace(/^R12/, "1.2|R12") }));
     const rubro = vi.fn(async () => []);
-    const { reglas } = await evaluarSolicitud({ gasto: { findMany: vi.fn(async () => []) }, rubro: { findMany: rubro } } as never, "pry-1", { tipo: "TRASLADO", detalle: porLinea });
+    const { reglas } = await evaluarSolicitud(
+      { gasto: { findMany: vi.fn(async () => []) }, rubro: { findMany: rubro }, proyectoRubroDeshabilitado: { findMany: vi.fn(async () => []) } } as never,
+      "pry-1",
+      { tipo: "TRASLADO", detalle: porLinea },
+    );
     expect(reglas).toEqual([]);
     expect(rubro).not.toHaveBeenCalled();
+  });
+
+  // B6: a modification cannot put money on a rubro the project disabled.
+  it("refuses to add money to a rubro disabled for the project, naming it", async () => {
+    const detalle = [
+      { elemento: "presupuesto" as const, clave: "R20", campo: "asignado", antes: "0", despues: "100" },
+      { elemento: "programacion" as const, clave: "R20|2026-12", campo: "valor", antes: "0", despues: "100" },
+    ];
+    const c = cliente([], [{ codigo: "R20", nombre: "Imprevistos" }], [{ rubro: { codigo: "R20", nombre: "Imprevistos" } }]);
+    const { reglas } = await evaluarSolicitud(c, "pry-1", { tipo: "ADICION", detalle });
+    expect(reglas).toEqual([
+      {
+        codigo: "ELEMENTO_NO_PERMITIDO",
+        clave: "R20",
+        mensaje:
+          "El rubro R20 Imprevistos está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+      },
+    ]);
+    expect((c as { proyectoRubroDeshabilitado: { findMany: ReturnType<typeof vi.fn> } }).proyectoRubroDeshabilitado.findMany).toHaveBeenCalledWith({
+      where: { proyecto_id: "pry-1", rubro: { codigo: { in: ["R20"] } } },
+      select: { rubro: { select: { codigo: true, nombre: true } } },
+    });
   });
 
   it("brings a catalog rubro into the budget with its name", async () => {

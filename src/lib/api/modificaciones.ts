@@ -12,6 +12,7 @@ import { logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { db } from "@/lib/db";
 import { canApproveModification, canExecuteProject } from "@/lib/permissions";
 import { decimalFromCents, lockProyecto } from "@/lib/api/presupuesto";
+import { rubroDeshabilitadoMessage } from "@/lib/api/rubros-proyecto";
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";
 import { loadLiveProyecto } from "@/lib/api/versiones";
@@ -180,9 +181,21 @@ export async function loadEjecutadoPorLinea(client: EjecutadoReader, proyectoId:
   return total;
 }
 
+/** B6: the rubro code of a budget item's line key (`1.2|R12`, or a legacy bare `R12`). */
+const rubroDeClave = (item: DetalleItem): string => item.clave.slice(item.clave.lastIndexOf("|") + 1);
+
 type EvaluarClient = Pick<
   Prisma.TransactionClient,
-  "proyecto" | "lineaPresupuestal" | "programacionPeriodo" | "objetivo" | "actividad" | "entregable" | "indicador" | "gasto" | "rubro"
+  | "proyecto"
+  | "lineaPresupuestal"
+  | "programacionPeriodo"
+  | "objetivo"
+  | "actividad"
+  | "entregable"
+  | "indicador"
+  | "gasto"
+  | "rubro"
+  | "proyectoRubroDeshabilitado"
 >;
 
 export type Evaluacion = {
@@ -221,6 +234,23 @@ export async function evaluarSolicitud(
       if (!catalogo.has(codigo)) {
         reglas.push({ codigo: "ELEMENTO_INEXISTENTE", clave: codigo, mensaje: `El rubro «${codigo}» no existe o está suspendido.` });
       }
+    }
+  }
+
+  // B6: no money for a rubro the project disabled (re-enable it first). A disabled rubro has every line at $0,
+  // so any budget item above $0 on it adds money. Malformed amounts are left to the rules below.
+  const conDinero = solicitud.detalle.filter(
+    (i) => i.elemento === "presupuesto" && /^\d+(?:\.\d{1,2})?$/.test(i.despues.trim()) && toCents(i.despues.trim()) > BigInt(0),
+  );
+  if (conDinero.length > 0) {
+    const deshabilitados = await client.proyectoRubroDeshabilitado.findMany({
+      where: { proyecto_id: proyectoId, rubro: { codigo: { in: [...new Set(conDinero.map(rubroDeClave))] } } },
+      select: { rubro: { select: { codigo: true, nombre: true } } },
+    });
+    const porCodigo = new Map(deshabilitados.map((d) => [d.rubro.codigo, d.rubro]));
+    for (const item of conDinero) {
+      const rubro = porCodigo.get(rubroDeClave(item));
+      if (rubro) reglas.push({ codigo: "ELEMENTO_NO_PERMITIDO", clave: item.clave, mensaje: rubroDeshabilitadoMessage(rubro) });
     }
   }
   if (reglas.length > 0) return { live, reglas, catalogo };
