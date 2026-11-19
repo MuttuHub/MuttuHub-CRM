@@ -11,7 +11,10 @@
  *     (phase PROSPECCION, no adjudication date: the real conversion sets both), so the
  *     "Convertir en proyecto" / stepper path can be shown several times;
  *   - 3 interactions (bitácora) per client with type and `proximo_paso`, so the client sheets
- *     are not empty.
+ *     are not empty;
+ *   - 1 completed commercial task (origin CRM) on one of the free GANADA opportunities, so the
+ *     Tareas board shows «Pasar a nuevo proyecto →» on its card (D4). Converting that opportunity
+ *     during a rehearsal moves the card to «Nuevo proyecto», as in the real flow.
  *
  * It never creates projects (scripts/seed-projects-demo.ts owns those). Run order on a fresh
  * database: `db:migrate:reset:local` -> `db:seed:local` -> `db:demo:seed-projects:local -- --apply`
@@ -47,7 +50,7 @@ export const MARKER_ID_PREFIX = "00000000-0000-4000-d00"
 /** Free GANADA opportunities this seed leaves for the live conversion. */
 export const FREE_GANADA_COUNT = 4
 
-const ID_CODE = { cliente: "d001", contacto: "d002", oportunidad: "d003", interaccion: "d004" } as const
+const ID_CODE = { cliente: "d001", contacto: "d002", oportunidad: "d003", interaccion: "d004", tarea: "d005" } as const
 
 function demoId(kind: keyof typeof ID_CODE, n: number): string {
   return `00000000-0000-4000-${ID_CODE[kind]}-${n.toString(16).padStart(12, "0")}`
@@ -66,7 +69,7 @@ const RESPONSABLE_EMAIL: Record<ResponsableKey, string> = {
 const USAGE = [
   "Usage:",
   "  npm run db:demo:seed-flujo:local                # dry run (default)",
-  "  npm run db:demo:seed-flujo:local -- --apply     # writes the demo clients, opportunities and interactions",
+  "  npm run db:demo:seed-flujo:local -- --apply     # writes the demo clients, opportunities, interactions and task",
   "Local database only. Idempotent: a second run changes nothing.",
 ]
 
@@ -159,17 +162,33 @@ export type DemoInteraccion = {
   diasAtras: number
 }
 
+/** A commercial task of a GANADA opportunity: completed, so the board offers the conversion (D4). */
+export type DemoTarea = {
+  id: string
+  clienteId: string
+  oportunidadId: string
+  responsable: ResponsableKey
+  titulo: string
+  descripcion: string
+  estado: "COMPLETADA"
+  origen: "CRM"
+  /** Days before today it was delivered and completed. */
+  diasCompletada: number
+}
+
 export type DemoFlujoData = {
   clientes: DemoCliente[]
   contactos: DemoContacto[]
   oportunidades: DemoOportunidad[]
   interacciones: DemoInteraccion[]
+  tareas: DemoTarea[]
 }
 
 type ClienteDef = Omit<DemoCliente, "id">
 type ContactoDef = Omit<DemoContacto, "id" | "clienteId" | "correo" | "telefono"> & { cliente: number; correoLocal: string }
 type OportunidadDef = Omit<DemoOportunidad, "id" | "clienteId" | "fase" | "diasAdjudicacion"> & { cliente: number }
 type InteraccionDef = Omit<DemoInteraccion, "id" | "clienteId" | "oportunidadId"> & { cliente: number; oportunidad?: number }
+type TareaDef = Omit<DemoTarea, "id" | "clienteId" | "oportunidadId"> & { oportunidad: number }
 
 // Invented organizations in cities of the demo municipios catalog (prisma/seed.ts MUNICIPIOS_DEMO).
 const CLIENTES: ClienteDef[] = [
@@ -380,6 +399,19 @@ const INTERACCIONES: InteraccionDef[] = [
   { cliente: 6, tipo: "CORREO", autor: "coordinador", diasAtras: 1, texto: "Se solicitó información de capacidad instalada para el diagnóstico exportador.", proximoPaso: "Recibir formulario diligenciado.", oportunidad: 2 },
 ]
 
+// D4: the opportunity's client owns the task through the opportunity (`buildDemoFlujoData` copies its cliente).
+const TAREAS: TareaDef[] = [
+  {
+    oportunidad: 9,
+    responsable: "coordinador",
+    titulo: "Enviar contrato firmado de la escuela de confección",
+    descripcion: "El aliado firmó el contrato; queda archivado y la oportunidad lista para pasar a proyecto.",
+    estado: "COMPLETADA",
+    origen: "CRM",
+    diasCompletada: 2,
+  },
+]
+
 /** Pure: the whole fictitious dataset, ids assigned from the declaration order. */
 export function buildDemoFlujoData(): DemoFlujoData {
   const clientes: DemoCliente[] = CLIENTES.map((c, i) => ({ id: demoId("cliente", i + 1), ...c }))
@@ -408,7 +440,14 @@ export function buildDemoFlujoData(): DemoFlujoData {
     ...x,
   }))
 
-  return { clientes, contactos, oportunidades, interacciones }
+  const tareas: DemoTarea[] = TAREAS.map(({ oportunidad, ...t }, i) => ({
+    id: demoId("tarea", i + 1),
+    clienteId: oportunidades[oportunidad - 1].clienteId,
+    oportunidadId: oportunidades[oportunidad - 1].id,
+    ...t,
+  }))
+
+  return { clientes, contactos, oportunidades, interacciones, tareas }
 }
 
 const TODOS_LOS_ESTADOS: readonly EstadoOportunidad[] = [
@@ -452,6 +491,14 @@ export function checkDemoFlujoData(data: DemoFlujoData): string[] {
   for (const estado of TODOS_LOS_ESTADOS) {
     if (!data.oportunidades.some((o) => o.estado === estado)) problemas.push(`no opportunity in state ${estado}`)
   }
+  for (const t of data.tareas) {
+    if (!clientes.has(t.clienteId)) problemas.push(`tarea ${t.id} points to an unknown client`)
+    if (porId.get(t.oportunidadId)?.clienteId !== t.clienteId) problemas.push(`tarea ${t.id} points to an opportunity of another client`)
+  }
+  const ganadas = new Set(data.oportunidades.filter((o) => o.estado === "GANADA").map((o) => o.id))
+  if (!data.tareas.some((t) => t.estado === "COMPLETADA" && ganadas.has(t.oportunidadId))) {
+    problemas.push(`no completed task on a free GANADA opportunity: the board cannot show «Pasar a nuevo proyecto →»`)
+  }
   const libres = data.oportunidades.filter((o) => o.estado === "GANADA")
   if (libres.length !== FREE_GANADA_COUNT) problemas.push(`expected ${FREE_GANADA_COUNT} free GANADA opportunities, found ${libres.length}`)
   for (const o of libres) {
@@ -472,6 +519,7 @@ export type ExistingIds = {
   contactos: Set<string>
   oportunidades: Set<string>
   interacciones: Set<string>
+  tareas: Set<string>
 }
 
 export type FlujoDecision = "seed" | "top-up" | "already-seeded"
@@ -485,9 +533,12 @@ export function planDemoFlujo(data: DemoFlujoData, existing: ExistingIds): DemoF
     contactos: data.contactos.filter((x) => !existing.contactos.has(x.id)),
     oportunidades: data.oportunidades.filter((x) => !existing.oportunidades.has(x.id)),
     interacciones: data.interacciones.filter((x) => !existing.interacciones.has(x.id)),
+    tareas: data.tareas.filter((x) => !existing.tareas.has(x.id)),
   }
-  const pendientes = plan.clientes.length + plan.contactos.length + plan.oportunidades.length + plan.interacciones.length
-  const total = data.clientes.length + data.contactos.length + data.oportunidades.length + data.interacciones.length
+  const pendientes =
+    plan.clientes.length + plan.contactos.length + plan.oportunidades.length + plan.interacciones.length + plan.tareas.length
+  const total =
+    data.clientes.length + data.contactos.length + data.oportunidades.length + data.interacciones.length + data.tareas.length
   const decision: FlujoDecision = pendientes === 0 ? "already-seeded" : pendientes === total ? "seed" : "top-up"
   return { ...plan, decision }
 }
@@ -516,6 +567,7 @@ async function leerExistentes(client: DemoFlujoClient, data: DemoFlujoData): Pro
     contactos: await idsExistentes(client.contacto, data.contactos.map((x) => x.id)),
     oportunidades: await idsExistentes(client.oportunidad, data.oportunidades.map((x) => x.id)),
     interacciones: await idsExistentes(client.bitacoraEntrada, data.interacciones.map((x) => x.id)),
+    tareas: await idsExistentes(client.tarea, data.tareas.map((x) => x.id)),
   }
 }
 
@@ -524,7 +576,7 @@ const cop = (valor: number): string => `$${valor.toLocaleString("es-CO")} COP`
 function describirPlan(plan: DemoFlujoPlan, data: DemoFlujoData, print: Printer): void {
   print(
     `Creates: ${plan.clientes.length} clientes, ${plan.contactos.length} contactos, ` +
-      `${plan.oportunidades.length} oportunidades, ${plan.interacciones.length} interacciones.`,
+      `${plan.oportunidades.length} oportunidades, ${plan.interacciones.length} interacciones, ${plan.tareas.length} tareas.`,
   )
   const porEstado = new Map<string, number>()
   for (const o of plan.oportunidades) porEstado.set(o.estado, (porEstado.get(o.estado) ?? 0) + 1)
@@ -677,6 +729,23 @@ export async function applyDemoFlujo(client: DemoFlujoClient, plan: DemoFlujoPla
           },
         })
       }
+      for (const t of plan.tareas) {
+        const completada = instantDaysAgo(t.diasCompletada, 16)
+        await tx.tarea.create({
+          data: {
+            id: t.id,
+            titulo: t.titulo,
+            descripcion: t.descripcion,
+            responsable_id: usuarios[t.responsable],
+            cliente_id: t.clienteId,
+            oportunidad_id: t.oportunidadId,
+            estado: t.estado,
+            origen: t.origen,
+            fecha_entrega: calendarDayFromNow(-t.diasCompletada),
+            completed_at: completada,
+          },
+        })
+      }
     },
     { timeout: 60_000, maxWait: 10_000 },
   )
@@ -684,7 +753,7 @@ export async function applyDemoFlujo(client: DemoFlujoClient, plan: DemoFlujoPla
   return {
     lines: [
       `  ${plan.clientes.length} clientes, ${plan.contactos.length} contactos, ${plan.oportunidades.length} oportunidades, ` +
-        `${plan.interacciones.length} interacciones created.`,
+        `${plan.interacciones.length} interacciones, ${plan.tareas.length} tareas created.`,
       `  ${plan.oportunidades.filter((o) => o.estado === "GANADA").length} GANADA opportunities left free for "Convertir en proyecto".`,
     ],
   }
