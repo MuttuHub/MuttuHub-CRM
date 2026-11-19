@@ -50,7 +50,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | ID | Spec | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S6 D4 | inline | done | RED 8 → GREEN 23/23; local apply + idempotent rerun (see L3) |
-| T2 | S4 V8 | delegated (context backstop) | done, verifier pending (Risk 1, 3) | RED → GREEN 477/477; parent rerun 98/98; invariant 1/1 |
+| T2 | S4 V8 | delegated (context backstop) | done, verifier PASS (2e975883) | RED → GREEN 477/477; parent rerun 98/98; invariant 1/1 |
 | T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
 | T4 | S2 V2 | delegated | queued: waits for T2 (shared prisma/schema.prisma) | — |
 | T5 | S1 B6 | delegated | queued: after T4 (shared prisma/schema.prisma) | — |
@@ -95,3 +95,10 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   clients, closed once a newer contact exists) and rule-1 reminders beyond the bell's fixed 3-day window, both through
   read/unread and read-all. `hooks/crm.ts` and OpenAPI updated. Rule 2 skips INACTIVO/CERRADO and counts a client with
   no entry from `created_at` (key by that date). Committed as one unit; independent verifier runs on the commit.
+- **L13** (2026-11-19): independent verifier on 2e975883: PASS, no blockers (416 tests on a detached worktree; migrate
+  diff from the old schema reproduces the committed SQL). Advisories kept open: (a) SIN_CONTACTO rows stay in the bell
+  after rule 2 is switched off or its threshold raised; (b) a responsable change leaves the old user's row and gives the
+  new one no e-mail for the current stretch; (c) with rule 1 at 2 and `dias_por_vencer` at 3 a task shows twice in one
+  digest; (d) first production run queues one e-mail per active client already 30+ days without contact (outbox drains
+  200 per run); (e) no test for skipping ADMINISTRADOR or inactive responsables; (f) baseline: `reconcileAlertas` has no
+  unique key per (usuario, tarea).
