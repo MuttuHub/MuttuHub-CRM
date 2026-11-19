@@ -17,7 +17,7 @@ import type { ReglaAutomatizacion } from "@/lib/settings";
 import { ESTADOS_SIN_ALERTA, findTareasAbiertasEntre, type RecordatorioItem } from "./reglas";
 
 /** Window of the bell's «próximos» bucket (GET /api/v1/notifications uses the engine default). */
-export const BELL_DIAS_POR_VENCER = 3;
+const BELL_DIAS_POR_VENCER = 3;
 
 export type NotificacionSinContactoItem = {
   notificacion_id: string;

@@ -53,8 +53,8 @@ type SinContactoCandidato = SinContactoItem & { responsable: Responsable; desde:
 /** «Solo activos»: rule 2 never alerts these client states. */
 export const ESTADOS_SIN_ALERTA: EstadoCliente[] = ["INACTIVO", "CERRADO"];
 
-export const TIPO_CORREO_RECORDATORIO = "RECORDATORIO_COMPROMISO";
-export const TIPO_CORREO_SIN_CONTACTO = "SIN_CONTACTO";
+const TIPO_CORREO_RECORDATORIO = "RECORDATORIO_COMPROMISO";
+const TIPO_CORREO_SIN_CONTACTO = "SIN_CONTACTO";
 
 function recibeAvisos(responsable: Responsable): boolean {
   return responsable.activo && responsable.rol !== "ADMINISTRADOR";
@@ -101,13 +101,13 @@ export async function findTareasAbiertasEntre(
 }
 
 /** Rule 1: open, non-deleted tasks due on the local day `dias` days from today. */
-export async function findRecordatorios(dias: number): Promise<RecordatorioItem[]> {
+async function findRecordatorios(dias: number): Promise<RecordatorioItem[]> {
   const start = startOfLocalDay();
   return findTareasAbiertasEntre(addLocalDays(start, dias), addLocalDays(start, dias + 1));
 }
 
 /** Rule 2: active, non-deleted clients with `dias` or more days since their last contact or creation. */
-export async function findSinContacto(dias: number): Promise<SinContactoCandidato[]> {
+async function findSinContacto(dias: number): Promise<SinContactoCandidato[]> {
   const clientes = await db.cliente.findMany({
     where: { deleted_at: null, estado: { notIn: ESTADOS_SIN_ALERTA } },
     select: {
