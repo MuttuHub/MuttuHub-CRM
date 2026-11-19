@@ -206,6 +206,12 @@ describe("applyDemoReset", () => {
           return { count: 4 }
         },
       },
+      tarea: {
+        updateMany: async (args: unknown) => {
+          calls.push({ op: "tareas.unlink", args })
+          return { count: 1 }
+        },
+      },
       proyecto: {
         deleteMany: async (args: unknown) => {
           calls.push({ op: "proyectos", args })
@@ -245,6 +251,7 @@ describe("applyDemoReset", () => {
       ...DEMO_CHILD_TABLES,
       "municipios",
       "lineas",
+      "tareas.unlink",
       "proyectos",
       "oportunidad.update",
       "secuencias",
@@ -254,7 +261,13 @@ describe("applyDemoReset", () => {
     for (const call of calls.slice(0, DEMO_CHILD_TABLES.length + 2)) {
       expect(call.args).toEqual({ where: { proyecto_id: { in: ["p1", "p2"] } } })
     }
-    const tail = DEMO_CHILD_TABLES.length + 2
+    // V2: a converted demo opportunity's tasks point at its project (tareas.proyecto_id, FK NO ACTION), so they are
+    // unlinked before the project row is deleted; the tasks themselves stay.
+    expect(calls[DEMO_CHILD_TABLES.length + 2].args).toEqual({
+      where: { proyecto_id: { in: ["p1", "p2"] } },
+      data: { proyecto_id: null },
+    })
+    const tail = DEMO_CHILD_TABLES.length + 3
     expect(calls[tail].args).toEqual({ where: { id: { in: ["p1", "p2"] } } })
     expect(calls[tail + 1].args).toEqual({
       where: { id: "o1" },
@@ -286,6 +299,7 @@ describe("applyDemoReset", () => {
       ...childDelegates([]),
       proyectoMunicipio: { deleteMany: async () => ({ count: 0 }) },
       proyectoLinea: { deleteMany: async () => ({ count: 0 }) },
+      tarea: { updateMany: async () => ({ count: 0 }) },
       proyecto: { deleteMany: async () => ({ count: 0 }) },
       oportunidad: {
         update: async (args: unknown) => {
