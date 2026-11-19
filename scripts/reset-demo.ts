@@ -100,6 +100,7 @@ export const DEMO_CHILD_TABLES = [
   "programacionPeriodo",
   "gasto",
   "lineaPresupuestal",
+  "proyectoRubroDeshabilitado",
   "avanceEntregable",
   "registroBeneficiario",
   "entregable",
