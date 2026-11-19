@@ -52,7 +52,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | T1 | S6 D4 | inline | done | RED 8 → GREEN 23/23; local apply + idempotent rerun (see L3) |
 | T2 | S4 V8 | delegated (context backstop) | done, verifier PASS (2e975883) | RED → GREEN 477/477; parent rerun 98/98; invariant 1/1 |
 | T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
-| T4 | S2 V2 | delegated | done, verifier pending (Risk 1, 4) | RED → GREEN 392 tests; invariant 6/6; parent rerun 115/115 |
+| T4 | S2 V2 | delegated | done, verifier PASS after 1 correction (01cfa6fc, cf7e5738, fde3361e) | RED → GREEN 392 tests; invariant 6/6; parent rerun 115/115 |
 | T5 | S1 B6 | delegated | queued: after T4 (shared prisma/schema.prisma) | — |
 | T6 | S3 V5 | delegated | queued: after T5 (shared prisma/schema.prisma) | — |
 
@@ -110,3 +110,9 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   mismatched, 403 not visible); opportunity-task POST joins the opportunity's live project. DTO exposes `proyecto_id`
   and resolves `proyecto` direct-first. Assumption: CANCELADA tasks are not linked. Parent fixed the two leftovers
   (OpenAPI omit of `proyecto_id` on the opportunity-task body; `TaskItem.proyecto_id` in `hooks/crm.ts`).
+- **L15** (2026-11-19): independent verifier on 01cfa6fc: 1 blocker — `scripts/reset-demo.ts` hard-deleted a converted
+  demo project without clearing `tareas.proyecto_id` (FK NO ACTION), so a rehearsal reset failed. Fixed in cf7e5738
+  (unlink before delete). Advisories A1–A3 (PATCH moving a task between opportunities answered 400; link/unlink left the
+  project stale) fixed in fde3361e: the project follows the opportunity. Recheck limited to those: B1 closed, A1–A3 OK
+  (208 tests on a scratch worktree). Remaining advisory: a task linked straight to a project with no opportunity loses
+  that project when an opportunity is set or cleared. Also f1d346e0 drops 5 unused V8 exports so `lint:dead` passes.
