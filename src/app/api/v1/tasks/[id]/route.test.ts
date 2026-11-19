@@ -503,22 +503,74 @@ describe("PATCH /api/v1/tasks/:id with proyecto_id (V2)", () => {
     expect(db.tarea.update).not.toHaveBeenCalled();
   });
 
-  it("rejects moving a project-linked task to an opportunity that is not its project's", async () => {
+  // The project follows the opportunity: moving, linking or unlinking a task's opportunity sets its project to that
+  // opportunity's live project, or to none. Before V2 these moves succeeded, so they must not start failing.
+  it("moves a project-linked task to another opportunity and re-links it to that opportunity's project", async () => {
     authAs(gerencia);
     vi.mocked(db.tarea.findFirst).mockResolvedValue(
       writeTareaRow({ cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }) as never,
     );
     vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
-    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ oportunidad_id: "op-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "p-2" } as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
 
     const res = await PATCH(patchRequest({ oportunidad_id: "op-2" }), routeContext);
 
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({
-      error: "El proyecto no corresponde a la oportunidad de la tarea.",
-      code: "VALIDATION_ERROR",
+    expect(res.status).toBe(200);
+    expect(db.proyecto.findFirst).toHaveBeenCalledWith({
+      where: { oportunidad_id: "op-2", deleted_at: null },
+      select: { id: true },
     });
-    expect(db.tarea.update).not.toHaveBeenCalled();
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-2", proyecto_id: "p-2" }) }),
+    );
+  });
+
+  it("drops the project link when the task moves to an opportunity with no live project", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }) as never,
+    );
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-2" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-2", proyecto_id: null }) }),
+    );
+  });
+
+  it("joins the project when an unlinked task is linked to an already-converted opportunity", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ cliente_id: "c-1" }) as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "p-9" } as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-9" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-9", proyecto_id: "p-9" }) }),
+    );
+  });
+
+  it("drops the project link when the task's opportunity is removed", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }) as never,
+    );
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: null }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: null, proyecto_id: null }) }),
+    );
   });
 
   it("still updates a task without touching projects when proyecto_id is absent", async () => {
