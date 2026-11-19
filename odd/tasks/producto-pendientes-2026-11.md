@@ -11,13 +11,20 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   bien, deben ser editables y modificables por si depronto para un proyecto no aplican, se puedan deseleccionar o
   inhabilitar para ese proyecto en concreto». «Sin rubros propios». Done when (`:64`): «El presupuesto de un proyecto
   oculta rubros deshabilitados […] sin afectar a otros proyectos» (the «acepta uno propio» half is void per D-B).
-  Open: disabling a rubro with lines or expenses; reports; after the baseline; who may toggle; imports.
+  Decision (L7): «Bloquear» — a rubro can be disabled for a project only while its lines there are at $0 and it has
+  no expenses in that project; otherwise the action explains why not. Nothing disappears from reports or the financial
+  sheet. Allowed in BORRADOR and in execution (no amount changes). Assumption (not asked): who may toggle follows the
+  existing budget-edit permission; imports and new expenses reject a disabled rubro with a clear message.
 - **S2 — V2.** `docs/pendientes.md:28`: «Enlazar las tareas al convertir una oportunidad GANADA. Hoy `Tarea` no tiene
   `proyecto_id`». Done when (`docs/plan-trabajo-restante.md:110`): «Convertir una ganada crea el proyecto y enlaza las
-  tareas». Open: a real `Tarea.proyecto_id` or the existing transitive link through `oportunidad.proyecto`; which tasks.
+  tareas». Decision (L6): «Campo proyecto_id» — a migration adds `Tarea.proyecto_id`; converting links the
+  opportunity's open and completed tasks; tasks created later in the project can carry it; tasks of opportunities
+  already converted are backfilled.
 - **S3 — V5.** `docs/pendientes.md:29`: «Mapa de aliados por departamento. Hoy la ruta hace `redirect("/clientes")`».
   Done when (`docs/plan-trabajo-restante.md:113`): «Agregación por departamento con filtros y sin datos inventados».
-  Open: PO-14 «Mapa: modelar la relación cliente-departamento o agregar por texto libre» (`Cliente.ubicacion` is free text).
+  PO-14 decision (L8): «Campo departamento» — a migration adds a departamento to the client, picked from the official
+  list already in the municipios catalog; the form asks for it; the map counts only clients that have it and shows
+  the rest apart as «sin departamento», never guessed from `Cliente.ubicacion`.
 - **S4 — V8.** `docs/pendientes.md:30`: «Reglas de automatización «2 días antes» y «30 días sin contacto» (sin verificar
   en el código)». Done when (`docs/plan-trabajo-restante.md:116`): «Un umbral activo dispara el aviso esperado».
   `docs/plan-accion-requerimientos-v7.md:404`: «recordar compromisos 2 días antes, alertar 30 días sin contacto»;
@@ -29,7 +36,9 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 - **S5 — V9.** `docs/pendientes.md:31`: ««Nueva planeación» en la ficha de seguimiento (sin verificar en el código)».
   Done when (`docs/plan-trabajo-restante.md:117`): «La tabla permite editar la planeación de un mes y la curva S refleja
   el cambio». Verified 2026-11-19: partial — T13 «Mover valor» exists on the Presupuesto tab, not on seguimiento.
-  Open: PO-10 «Nueva planeación» editable frente al bloqueo de la línea base (S8).
+  PO-10 decision (L5): «Mover sin cambiar total» — the seguimiento view gets a monthly table where a month's plan is
+  edited under the T13 rule (redistribute between months of the same line, line total unchanged), through the
+  existing `POST /programming/move`; no migration.
 - **S6 — D4.** `docs/pendientes.md:32`: «Semilla con una tarea comercial sobre una oportunidad GANADA sin proyecto».
   `docs/plan-trabajo-restante.md:229-230`: «falta la semilla que demuestre «Pasar a nuevo proyecto» con una tarea
   comercial completada sobre una oportunidad GANADA sin proyecto. `scripts/seed-demo-flujo.ts` siembra 4 oportunidades
@@ -42,10 +51,10 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 |---|---|---|---|---|
 | T1 | S6 D4 | inline | done | RED 8 → GREEN 23/23; local apply + idempotent rerun (see L3) |
 | T2 | S4 V8 | delegated (context backstop) | in progress | — |
-| T3 | S5 V9 | inline | blocked: PO-10 | — |
-| T4 | S2 V2 | inline | blocked: product decision | — |
-| T5 | S1 B6 | inline | blocked: D-B sub-questions | — |
-| T6 | S3 V5 | inline | blocked: PO-14 | — |
+| T3 | S5 V9 | delegated (context backstop) | in progress | — |
+| T4 | S2 V2 | delegated | queued: waits for T2 (shared prisma/schema.prisma) | — |
+| T5 | S1 B6 | delegated | queued: after T4 (shared prisma/schema.prisma) | — |
+| T6 | S3 V5 | delegated | queued: after T5 (shared prisma/schema.prisma) | — |
 
 ## Log
 
@@ -61,3 +70,11 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 - **L4** (2026-11-19, user, V8 channel question «Dentro del resumen / Un correo por aviso / Notificación en la app»):
   «Las 3 mencionadas». `TipoNotificacion` already has `POR_VENCER`; «sin contacto» needs a new value → migration.
   T2 delegated to one bounded writer (long-session context backstop).
+- **L5** (2026-11-19, user, V9 question «Mover sin cambiar total / Editar libremente / Serie paralela»): «Mover sin
+  cambiar total (Recomendado)». Closes PO-10 for V9.
+- **L6** (2026-11-19, user, V2 question «Campo proyecto_id / Enlace indirecto»): «Campo proyecto_id (Recomendado)».
+  T4 starts after T2 because both edit `prisma/schema.prisma`.
+- **L7** (2026-11-19, user, B6 question «Bloquear / Ocultar y conservar / Solo en BORRADOR»): «Bloquear (Recomendado)».
+- **L8** (2026-11-19, user, V5 question «Campo departamento / Por dónde ejecuta / Leer el texto libre»): «Campo
+  departamento (Recomendado)». Closes PO-14. All product decisions for S1–S6 are now taken; T4, T5 and T6 run one
+  after another because each edits `prisma/schema.prisma`.
