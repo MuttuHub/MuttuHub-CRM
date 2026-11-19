@@ -19,6 +19,7 @@ import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicador
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
 import { AyudaBase, ETIQUETA_BASE, OpcionesBase, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
+import { NuevaPlaneacion } from "@/components/proyectos/ficha/seguimiento/nueva-planeacion";
 import {
   useDeliverableProgress,
   useProjectActivities,
@@ -139,27 +140,33 @@ function EjecucionHeader({ seguimiento }: { seguimiento: boolean }) {
 }
 
 /**
- * La curva S y, en la ficha de seguimiento, las tarjetas laterales. Es su propio componente para que la
- * curva solo se lea cuando se monta (en la lista vive dentro de "Opciones avanzadas", plegada).
+ * La curva S y, en la ficha de seguimiento, las tarjetas laterales y la «Nueva planeación» (V9), junto a la curva
+ * que refleja cada movimiento. Es su propio componente para que la curva solo se lea cuando se monta (en la lista
+ * vive dentro de "Opciones avanzadas", plegada).
  */
 function CurvaSeccion({
   proyecto,
   base,
   corte,
   seguimiento,
+  canWrite,
 }: {
   proyecto: ProjectListRow;
   base: ProjectBase;
   corte: string;
   seguimiento: boolean;
+  canWrite: boolean;
 }) {
   const curvaQuery = useProjectCurve(proyecto.id, base);
   if (!seguimiento) return <CurvaAvance query={curvaQuery} />;
   return (
-    <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <CurvaAvance query={curvaQuery} />
-      <SeguimientoLateral proyecto={proyecto} corte={corte} curva={curvaQuery.data ?? null} />
-    </div>
+    <>
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <CurvaAvance query={curvaQuery} />
+        <SeguimientoLateral proyecto={proyecto} corte={corte} curva={curvaQuery.data ?? null} />
+      </div>
+      <NuevaPlaneacion proyecto={proyecto} canWrite={canWrite} />
+    </>
   );
 }
 
@@ -168,11 +175,13 @@ function OpcionesAvanzadas({
   proyecto,
   base,
   corte,
+  canWrite,
   onBaseChange,
 }: {
   proyecto: ProjectListRow;
   base: ProjectBase;
   corte: string;
+  canWrite: boolean;
   onBaseChange: (base: ProjectBase) => void;
 }) {
   return (
@@ -194,7 +203,7 @@ function OpcionesAvanzadas({
         </span>
         <span>{datosAl(formatFechaCalendario(corte))} (hoy)</span>
       </div>
-      <CurvaSeccion proyecto={proyecto} base={base} corte={corte} seguimiento />
+      <CurvaSeccion proyecto={proyecto} base={base} corte={corte} seguimiento canWrite={canWrite} />
     </Disclosure>
   );
 }
@@ -327,7 +336,13 @@ function EjecucionContent({
       {!lista && (
         <>
           <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
-          <CurvaSeccion proyecto={proyecto} base={base} corte={tecnico.corte} seguimiento={seguimiento} />
+          <CurvaSeccion
+            proyecto={proyecto}
+            base={base}
+            corte={tecnico.corte}
+            seguimiento={seguimiento}
+            canWrite={canWrite}
+          />
         </>
       )}
 
@@ -393,7 +408,13 @@ function EjecucionContent({
 
       {lista && (
         <div className="mt-4">
-          <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
+          <OpcionesAvanzadas
+            proyecto={proyecto}
+            base={base}
+            corte={tecnico.corte}
+            canWrite={canWrite}
+            onBaseChange={setBase}
+          />
         </div>
       )}
 

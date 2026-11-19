@@ -117,6 +117,31 @@ const CURVA = {
   ],
 }
 
+// V9: the plan of a project in execution, by budget line (activity + rubro) and month.
+const LINEA_TALLER = {
+  linea_id: "lt",
+  actividad: { id: "a1", codigo: "1.1", nombre: "Taller de formación" },
+  rubro_id: "r5",
+  codigo: "R05",
+  nombre: "Formación",
+  asignado: "15000000.00",
+  programado: "15000000.00",
+  control: "0.00",
+}
+const PROGRAMACION = {
+  estado: "EN_EJECUCION",
+  periodos: ["2026-10", "2026-11", "2026-12"],
+  filas: [
+    { linea_id: "lt", rubro_id: "r5", periodo: "2026-10", valor: "5000000.00" },
+    { linea_id: "lt", rubro_id: "r5", periodo: "2026-11", valor: "6000000.00" },
+    { linea_id: "lt", rubro_id: "r5", periodo: "2026-12", valor: "4000000.00" },
+  ],
+  control_por_linea: [LINEA_TALLER],
+  control_por_rubro: [{ rubro_id: "r5", codigo: "R05", nombre: "Formación", asignado: "15000000.00", programado: "15000000.00", control: "0.00" }],
+  programacion_pendiente: false,
+  programacion_confirmada: { at: "2026-10-01T00:00:00.000Z", por_id: "u1" },
+}
+
 type Setup = {
   proyecto?: Partial<ProjectListRow>
   tecnico?: unknown
@@ -134,6 +159,10 @@ type Setup = {
   enfocarId?: string | null
   objetivos?: unknown[]
   onSolicitarModificacion?: () => void
+  /** GET /programming body (V9 «Nueva planeación»). */
+  programacion?: unknown
+  /** POST /programming/move answer. */
+  move?: () => Response
 }
 
 describe("ProjectEjecucion", () => {
@@ -156,10 +185,14 @@ describe("ProjectEjecucion", () => {
     enfocarId = null,
     objetivos = [],
     onSolicitarModificacion,
+    programacion = PROGRAMACION,
+    move = () => jsonResponse(PROGRAMACION),
   }: Setup = {}) {
     progresoStatusActual = progresoStatus
-    fetchMock.mockImplementation((input: unknown) => {
+    fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
+      if (url.endsWith("/programming/move") && init?.method === "POST") return Promise.resolve(move())
+      if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(programacion))
       if (url.endsWith("/api/v1/auth/me")) {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
@@ -567,6 +600,127 @@ describe("ProjectEjecucion", () => {
       await user.click(await screen.findByRole("button", { name: /^Finalizadas/ }))
       await screen.findByTestId("ejecucion-actividad")
       expect(screen.queryByRole("button", { name: "Solicitar modificación" })).not.toBeInTheDocument()
+    })
+  })
+  // V9 (S5, decision L5 «Mover sin cambiar total»): the seguimiento view edits a month's plan by moving value between
+  // months of one budget line, so the line total never changes, and the S-curve next to it reflects the move.
+  describe("«Nueva planeación» (V9)", () => {
+    // Today is 2026-11-14 in Bogota: October is closed, November is the current month, December is future.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(new Date("2026-11-14T15:00:00.000Z"))
+    })
+    afterEach(() => vi.useRealTimers())
+
+    const curveReads = () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).split("?")[0].endsWith("/curve")).length
+    const moves = () =>
+      fetchMock.mock.calls.filter(
+        ([url, init]) => String(url).endsWith("/programming/move") && (init as RequestInit | undefined)?.method === "POST",
+      )
+
+    it("shows each line's monthly plan and its total next to the S-curve", async () => {
+      setup({ seguimiento: true })
+
+      const seccion = await screen.findByTestId("nueva-planeacion")
+      expect(seccion).toHaveTextContent("Nueva planeación")
+      const tabla = await within(seccion).findByTestId("nueva-planeacion-tabla")
+      expect(within(tabla).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+        "Línea",
+        "oct 2026",
+        "nov 2026",
+        "dic 2026",
+        "Total",
+      ])
+      const fila = within(tabla).getByTestId("nueva-planeacion-fila")
+      expect(fila).toHaveTextContent("1.1 R05 Formación")
+      expect(within(fila).getAllByRole("cell").map((c) => c.textContent)).toEqual([
+        "1.1 R05 Formación",
+        "$ 5.000.000",
+        "$ 6.000.000",
+        "$ 4.000.000",
+        "$ 15.000.000",
+      ])
+      // The table is not a free grid: no cell can be typed, so no edit can change a line total.
+      expect(within(tabla).queryByRole("textbox")).not.toBeInTheDocument()
+    })
+
+    it("moves value with the endpoint's payload and refetches the S-curve", async () => {
+      const user = userEvent.setup()
+      const movida = {
+        ...PROGRAMACION,
+        filas: [
+          { linea_id: "lt", rubro_id: "r5", periodo: "2026-10", valor: "5000000.00" },
+          { linea_id: "lt", rubro_id: "r5", periodo: "2026-11", valor: "4000000.00" },
+          { linea_id: "lt", rubro_id: "r5", periodo: "2026-12", valor: "6000000.00" },
+        ],
+      }
+      setup({ seguimiento: true, move: () => jsonResponse(movida) })
+
+      const seccion = await screen.findByTestId("nueva-planeacion")
+      const form = await within(seccion).findByTestId("programacion-mover")
+      await waitFor(() => expect(curveReads()).toBe(1))
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Línea" }), "lt")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de origen" }), "2026-11")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de destino" }), "2026-12")
+      await user.type(within(form).getByLabelText("Valor a mover"), "2.000.000")
+      await user.click(within(form).getByRole("button", { name: "Mover valor" }))
+
+      await waitFor(() => expect(moves()).toHaveLength(1))
+      expect(moves()[0]![0]).toBe("/api/v1/projects/p1/programming/move")
+      expect(JSON.parse(String((moves()[0]![1] as RequestInit).body))).toEqual({
+        linea_id: "lt",
+        origen: "2026-11",
+        destino: "2026-12",
+        valor: "2000000.00",
+      })
+      await waitFor(() => expect(curveReads()).toBe(2))
+    })
+
+    it("shows the server's refusal of a move the line cannot afford, and the plan stays as it was", async () => {
+      const user = userEvent.setup()
+      const mensaje = "El mes 2026-11 solo tiene $ 6.000.000 programados en esta línea: no se pueden mover $ 7.000.000."
+      setup({ seguimiento: true, move: () => jsonResponse({ error: mensaje, code: "VALIDATION_ERROR" }, 400) })
+
+      const seccion = await screen.findByTestId("nueva-planeacion")
+      const form = await within(seccion).findByTestId("programacion-mover")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Línea" }), "lt")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de origen" }), "2026-11")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de destino" }), "2026-12")
+      await user.type(within(form).getByLabelText("Valor a mover"), "7000000")
+      await user.click(within(form).getByRole("button", { name: "Mover valor" }))
+
+      expect(await within(form).findByRole("alert")).toHaveTextContent(mensaje)
+      expect(within(screen.getByTestId("nueva-planeacion-fila")).getAllByRole("cell").at(-1)).toHaveTextContent(
+        "$ 15.000.000",
+      )
+    })
+
+    it("gives no editing to a role the move endpoint refuses, nor outside EN_EJECUCION", async () => {
+      const ajeno = setup({ seguimiento: true, rol: "COLABORADOR" })
+      await screen.findByTestId("nueva-planeacion-tabla")
+      await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/members"))).toBe(true))
+      expect(screen.queryByTestId("programacion-mover")).not.toBeInTheDocument()
+      ajeno.unmount()
+
+      setup({ seguimiento: true, proyecto: { estado: "SUSPENDIDO" } })
+      await screen.findByTestId("nueva-planeacion-tabla")
+      await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/auth/me"))).toBe(true))
+      expect(screen.queryByTestId("programacion-mover")).not.toBeInTheDocument()
+    })
+
+    it("lives with the S-curve in the Lista's collapsed «Opciones avanzadas», read only when opened", async () => {
+      const user = userEvent.setup()
+      setup({ lista: true })
+
+      await screen.findByTestId("ejecucion-actividad")
+      expect(screen.queryByTestId("nueva-planeacion")).not.toBeInTheDocument()
+      expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/programming"))).toBe(false)
+
+      await user.click(screen.getByRole("button", { name: "Opciones avanzadas" }))
+      expect(await screen.findByTestId("curve-s-chart")).toBeInTheDocument()
+      expect(await screen.findByTestId("nueva-planeacion-tabla")).toBeInTheDocument()
+      expect(await screen.findByTestId("programacion-mover")).toBeInTheDocument()
     })
   })
 })

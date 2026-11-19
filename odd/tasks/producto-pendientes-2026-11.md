@@ -51,7 +51,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 |---|---|---|---|---|
 | T1 | S6 D4 | inline | done | RED 8 → GREEN 23/23; local apply + idempotent rerun (see L3) |
 | T2 | S4 V8 | delegated (context backstop) | in progress | — |
-| T3 | S5 V9 | delegated (context backstop) | in progress | — |
+| T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
 | T4 | S2 V2 | delegated | queued: waits for T2 (shared prisma/schema.prisma) | — |
 | T5 | S1 B6 | delegated | queued: after T4 (shared prisma/schema.prisma) | — |
 | T6 | S3 V5 | delegated | queued: after T5 (shared prisma/schema.prisma) | — |
@@ -78,3 +78,9 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 - **L8** (2026-11-19, user, V5 question «Campo departamento / Por dónde ejecuta / Leer el texto libre»): «Campo
   departamento (Recomendado)». Closes PO-14. All product decisions for S1–S6 are now taken; T4, T5 and T6 run one
   after another because each edits `prisma/schema.prisma`.
+- **L9** (2026-11-19): T3 done by a bounded writer. «Nueva planeación» table (read-only cells, line totals) plus the
+  shared T13 «Mover valor entre meses» form, extracted to `src/components/proyectos/ficha/seguimiento/mover-valor.tsx`
+  and reused by the Presupuesto tab. A move POSTs `/programming/move`, and `useRefreshPresupuesto` now also invalidates
+  `["projects","curve",id]` so the S-curve refetches. Form only for `canWrite` in EN_EJECUCION. In the live ficha the
+  table sits with the curve inside the collapsed «Opciones avanzadas» (ficha-actividades mounts the Lista mode).
+  Open for the PO: whether it should be visible without expanding.
