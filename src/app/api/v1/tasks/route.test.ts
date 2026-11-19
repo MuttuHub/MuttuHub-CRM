@@ -24,6 +24,9 @@ vi.mock("@/lib/db", () => ({
     oportunidad: {
       findFirst: vi.fn(),
     },
+    proyecto: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -693,5 +696,85 @@ describe("POST /api/v1/tasks", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
     expect(db.tarea.create).not.toHaveBeenCalled();
+  });
+});
+
+// V2 (odd/tasks/producto-pendientes-2026-11.md, S2): a task created inside a project carries
+// `proyecto_id`. The project must exist, not be deleted, be visible to the caller and, when the task
+// also names an opportunity, be that opportunity's project.
+describe("POST /api/v1/tasks with proyecto_id (V2)", () => {
+  function proyecto(overrides: Partial<{ oportunidad_id: string | null; miembros: { id: string }[] }> = {}) {
+    return { id: "p-1", oportunidad_id: null, miembros: [], ...overrides };
+  }
+
+  beforeEach(() => {
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "c-1" } as never);
+    vi.mocked(db.tarea.create).mockResolvedValue(taskRow({ id: "task-new" }) as never);
+  });
+
+  it("stores proyecto_id when the project exists and the caller can see it", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto() as never);
+
+    const res = await POST(postRequest({ titulo: "En proyecto", responsable_id: "colab-1", proyecto_id: "p-1" }));
+
+    expect(res.status).toBe(201);
+    expect(db.proyecto.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "p-1", deleted_at: null } }),
+    );
+    expect(db.tarea.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ proyecto_id: "p-1" }) }),
+    );
+  });
+
+  it("rejects a missing or deleted project with 400 VALIDATION_ERROR", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+
+    const res = await POST(postRequest({ titulo: "X", responsable_id: "colab-1", proyecto_id: "p-gone" }));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "El proyecto no existe o fue eliminado.", code: "VALIDATION_ERROR" });
+    expect(db.tarea.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a project the caller cannot see with 403 FORBIDDEN", async () => {
+    authAs(colaborador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({ miembros: [] }) as never);
+
+    const res = await POST(postRequest({ titulo: "X", responsable_id: "colab-1", proyecto_id: "p-1" }));
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: "No tienes acceso a ese proyecto.", code: "FORBIDDEN" });
+    expect(db.tarea.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a project that is not the task's opportunity's project with 400", async () => {
+    authAs(gerencia);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({ oportunidad_id: "op-other" }) as never);
+
+    const res = await POST(
+      postRequest({ titulo: "X", responsable_id: "colab-1", cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "El proyecto no corresponde a la oportunidad de la tarea.",
+      code: "VALIDATION_ERROR",
+    });
+    expect(db.tarea.create).not.toHaveBeenCalled();
+  });
+
+  it("still creates a task without proyecto_id and never reads projects", async () => {
+    authAs(gerencia);
+
+    const res = await POST(postRequest({ titulo: "Sin proyecto", responsable_id: "colab-1" }));
+
+    expect(res.status).toBe(201);
+    expect(db.proyecto.findFirst).not.toHaveBeenCalled();
+    const data = vi.mocked(db.tarea.create).mock.calls[0]![0]!.data as Record<string, unknown>;
+    expect(data.proyecto_id).toBeUndefined();
   });
 });

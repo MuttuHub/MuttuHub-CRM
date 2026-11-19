@@ -9,7 +9,9 @@
 // one `logChanges` call, so every row shares one `lote_id`. `valor_total` is
 // never typed (T11 S2): the project starts at 0, the sum of its empty budget,
 // and `diferencia_valor_oportunidad` is computed from it like the budget PUT
-// does once lines exist.
+// does once lines exist. V2 (S2): the same transaction links the opportunity's
+// open and completed, non-deleted tasks to the new project (`tareas.proyecto_id`);
+// cancelled and deleted tasks, and other opportunities' tasks, stay as they were.
 //
 // The pre-check "already has a project" is not atomic; the unique index on
 // `oportunidad_id` is the safety net and answers the same 409 (a soft-deleted
@@ -206,6 +208,13 @@ export const POST = withApiErrorHandling(
             },
           },
           select: PROJECT_SELECT_V2,
+        });
+
+        // V2 (S2): the opportunity's tasks join the project in the same transaction.
+        // "Open and completed" is every state but CANCELADA; soft-deleted tasks stay out.
+        await tx.tarea.updateMany({
+          where: { oportunidad_id: opportunityId, deleted_at: null, estado: { not: "CANCELADA" } },
+          data: { proyecto_id: created.id },
         });
 
         // ONE logChanges call: the conversion and the creation share a single

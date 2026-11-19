@@ -287,6 +287,10 @@ model Tarea {
   // D1/RF-C02). Sin backfill: toda tarea preexistente queda con este campo
   // en NULL — el re-vinculado es manual desde la vista de la oportunidad.
   oportunidad_id String?
+  // V2 (odd/tasks/producto-pendientes-2026-11.md, S2): direct link to a project. Set when a GANADA
+  // opportunity is converted (same transaction), backfilled for opportunities already converted, and
+  // accepted by the tasks API for tasks created inside a project. Nullable: a CRM task needs no project.
+  proyecto_id    String?
   estado         EstadoTarea     @default(POR_HACER)
   origen         OrigenTarea     @default(KANBAN)
   prioridad      PrioridadTarea?
@@ -317,12 +321,20 @@ model Tarea {
   // MATCH SIMPLE (cliente_id NULL) vive en la migración — Prisma no modela
   // constraints CHECK.
   oportunidad    Oportunidad?      @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
+  // V2: two relations share `proyecto_id`, the same pattern as `oportunidad` above. `proyecto` is the
+  // plain FK. `proyecto_oportunidad` is a composite FK onto `Proyecto @@unique([id, oportunidad_id])`:
+  // when a task carries BOTH `oportunidad_id` and `proyecto_id`, the project must be that
+  // opportunity's project (MATCH SIMPLE skips the check when either column is NULL, which is exactly
+  // "no opportunity" or "no project"). `NoAction` for the same shared-scalar reason as above.
+  proyecto             Proyecto? @relation("TareaProyecto", fields: [proyecto_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  proyecto_oportunidad Proyecto? @relation("TareaProyectoOportunidad", fields: [proyecto_id, oportunidad_id], references: [id, oportunidad_id], onDelete: NoAction, onUpdate: NoAction)
   comentarios    ComentarioTarea[]
   subtareas      Subtarea[]
   adjuntos       AdjuntoTarea[]
   notificaciones Notificacion[]
 
   @@index([oportunidad_id])
+  @@index([proyecto_id])
   @@map("tareas")
 }
 
@@ -803,8 +815,15 @@ model Proyecto {
   notificaciones        Notificacion[]
   versiones             VersionProyecto[]
   solicitudes           SolicitudModificacion[]
+  // V2: tasks linked to this project, and the composite back-relation that ties a task's
+  // opportunity to this project's opportunity (target: `@@unique([id, oportunidad_id])`).
+  tareas                Tarea[] @relation("TareaProyecto")
+  tareas_oportunidad    Tarea[] @relation("TareaProyectoOportunidad")
 
   @@unique([oportunidad_id, cliente_id])
+  // V2: target of `Tarea.proyecto_oportunidad`. `id` alone is already unique; this key exists only so
+  // Postgres can accept the composite FK.
+  @@unique([id, oportunidad_id])
   @@index([cliente_id])
   @@index([estado])
   @@map("proyectos")

@@ -228,3 +228,46 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/tasks", () => {
     expect(db.tarea.create).not.toHaveBeenCalled();
   });
 });
+
+// V2 (odd/tasks/producto-pendientes-2026-11.md, S2): a task created on an opportunity that already
+// became a project joins that project, like the tasks the conversion linked. The project always comes
+// from the opportunity, never from the body.
+describe("POST .../opportunities/:opportunityId/tasks project link (V2)", () => {
+  function arrange(proyecto: { id: string; deleted_at: Date | null } | null) {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ id: "op-1", proyecto } as never);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.tarea.create).mockResolvedValue(taskRow({ id: "task-new" }) as never);
+  }
+
+  function createdData() {
+    return vi.mocked(db.tarea.create).mock.calls[0]![0]!.data as Record<string, unknown>;
+  }
+
+  it("links the opportunity's live project and ignores a body proyecto_id", async () => {
+    arrange({ id: "p-1", deleted_at: null });
+
+    const res = await POST(
+      postRequest({ titulo: "Tarea nueva", responsable_id: "colab-1", proyecto_id: "p-OTRO" }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(201);
+    expect(vi.mocked(db.oportunidad.findFirst).mock.calls[0]![0]).toMatchObject({
+      select: { proyecto: { select: { id: true, deleted_at: true } } },
+    });
+    expect(createdData()).toMatchObject({ cliente_id: "cli-1", oportunidad_id: "op-1", proyecto_id: "p-1" });
+  });
+
+  it("leaves proyecto_id null when the opportunity has no project or it was deleted", async () => {
+    arrange({ id: "p-9", deleted_at: new Date("2026-02-01") });
+    await POST(postRequest({ titulo: "A", responsable_id: "colab-1" }), routeContext);
+    expect(createdData().proyecto_id).toBeNull();
+
+    vi.clearAllMocks();
+    arrange(null);
+    await POST(postRequest({ titulo: "B", responsable_id: "colab-1" }), routeContext);
+    expect(createdData().proyecto_id).toBeNull();
+  });
+});
