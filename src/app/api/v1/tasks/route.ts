@@ -209,27 +209,6 @@ export const TASK_SCHEMA = z.object({
 });
 
 /**
- * V2 (S2), API side of the composite FK (proyecto_id, oportunidad_id) -> proyectos(id,
- * oportunidad_id): when a task names both, the project must be that opportunity's project. A bare
- * P2003 would surface as a 500, so this answers a usable 400 first. The project row is read without a
- * deleted filter, exactly like the FK. `null` when consistent or when there is nothing to check.
- */
-export async function checkProyectoOportunidadConsistency(
-  proyecto_id: string | null | undefined,
-  oportunidad_id: string | null | undefined,
-): Promise<Response | null> {
-  if (!proyecto_id || !oportunidad_id) return null;
-  const proyecto = await db.proyecto.findFirst({
-    where: { id: proyecto_id },
-    select: { oportunidad_id: true },
-  });
-  if (!proyecto || proyecto.oportunidad_id !== oportunidad_id) {
-    return apiError("El proyecto no corresponde a la oportunidad de la tarea.", 400, "VALIDATION_ERROR");
-  }
-  return null;
-}
-
-/**
  * V2 (S2): a task may link a project only when the project exists, is not deleted, and the caller may
  * read it (the ficha's own predicate, `canReadProject`, with membership read from the database). When
  * the task also names an opportunity, the project must be that opportunity's project.
