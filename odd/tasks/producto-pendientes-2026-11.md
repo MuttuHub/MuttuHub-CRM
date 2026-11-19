@@ -20,8 +20,12 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   Open: PO-14 «Mapa: modelar la relación cliente-departamento o agregar por texto libre» (`Cliente.ubicacion` is free text).
 - **S4 — V8.** `docs/pendientes.md:30`: «Reglas de automatización «2 días antes» y «30 días sin contacto» (sin verificar
   en el código)». Done when (`docs/plan-trabajo-restante.md:116`): «Un umbral activo dispara el aviso esperado».
-  Verified 2026-11-19: neither rule exists; the daily cron only sends the digest. Open: per-client alert or digest
-  category; channel; thresholds; templates (PO-16).
+  `docs/plan-accion-requerimientos-v7.md:404`: «recordar compromisos 2 días antes, alertar 30 días sin contacto»;
+  «Reglas con umbral configurable en `Setting` (clave `automatizaciones`)». Verified 2026-11-19: neither rule exists.
+  Channel decision (L4): «Las 3 mencionadas» — each rule notifies through (a) a new section of the existing daily
+  digest, (b) its own e-mail queued in the outbox with an idempotency key, and (c) an in-app notification.
+  Assumption (not asked): each rule and its day threshold are configurable in Automatizaciones (default 2 and 30, on).
+  Templates and provider (PO-16) stay out of scope.
 - **S5 — V9.** `docs/pendientes.md:31`: ««Nueva planeación» en la ficha de seguimiento (sin verificar en el código)».
   Done when (`docs/plan-trabajo-restante.md:117`): «La tabla permite editar la planeación de un mes y la curva S refleja
   el cambio». Verified 2026-11-19: partial — T13 «Mover valor» exists on the Presupuesto tab, not on seguimiento.
@@ -37,7 +41,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | ID | Spec | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S6 D4 | inline | done | RED 8 → GREEN 23/23; local apply + idempotent rerun (see L3) |
-| T2 | S4 V8 | inline | blocked: product decisions | — |
+| T2 | S4 V8 | delegated (context backstop) | in progress | — |
 | T3 | S5 V9 | inline | blocked: PO-10 | — |
 | T4 | S2 V2 | inline | blocked: product decision | — |
 | T5 | S1 B6 | inline | blocked: D-B sub-questions | — |
@@ -54,3 +58,6 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   feeds the task to the board's own `cardAction` and gets «Pasar a nuevo proyecto →». Applied on local `muttu-hub`: 1
   task created, constraint accepted, second run «already seeded». Pre-existing quirk left alone: on a top-up the
   summary says «0 GANADA opportunities left free» (it counts only the plan's rows).
+- **L4** (2026-11-19, user, V8 channel question «Dentro del resumen / Un correo por aviso / Notificación en la app»):
+  «Las 3 mencionadas». `TipoNotificacion` already has `POR_VENCER`; «sin contacto» needs a new value → migration.
+  T2 delegated to one bounded writer (long-session context backstop).
