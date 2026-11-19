@@ -65,7 +65,7 @@ async function drainOutbox(sender: EmailSender): Promise<void> {
     // A retry is still scheduled; only a terminal failure makes the run an ERROR.
     await recordJobLog(
       run.failed === 0 ? "OK" : "ERROR",
-      `claimed=${run.claimed} sent=${run.sent} retried=${run.retried} failed=${run.failed}`,
+      `claimed=${run.claimed} sent=${run.sent} retried=${run.retried} failed=${run.failed} deferred=${run.deferred}`,
       OUTBOX_JOB_NAME,
     );
   } catch (err) {

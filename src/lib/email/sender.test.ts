@@ -60,6 +60,73 @@ describe("createResendSender", () => {
 
     expect(await sender.send(message)).toEqual({ ok: false, error: "fetch failed: ECONNRESET" });
   });
+
+  it("gives up on a request that outlasts the timeout and returns it as an error result", async () => {
+    const fetchImpl = vi.fn(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason));
+        }),
+    );
+    const sender = createResendSender({ apiKey: "re_key", from: "noreply@muttu.co", fetchImpl, timeoutMs: 20 });
+
+    expect(await sender.send(message)).toEqual({ ok: false, error: "Resend timed out after 20 ms" });
+  });
+
+  it("passes a timeout signal to every request by default", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ id: "re_3" }));
+    const sender = createResendSender({ apiKey: "re_key", from: "noreply@muttu.co", fetchImpl });
+
+    await sender.send(message);
+
+    expect(fetchImpl.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("reports a 429 as rate limited, with the wait from a Retry-After in seconds", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response("rate_limit_exceeded", { status: 429, headers: { "Retry-After": "30" } }),
+    );
+    const sender = createResendSender({ apiKey: "re_key", from: "noreply@muttu.co", fetchImpl });
+
+    expect(await sender.send(message)).toEqual({
+      ok: false,
+      error: "Resend HTTP 429 · rate_limit_exceeded",
+      retryAfterMs: 30_000,
+    });
+  });
+
+  it("reads a Retry-After given as an HTTP date", async () => {
+    const now = Date.now();
+    const at = new Date(Math.ceil((now + 120_000) / 1000) * 1000);
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response("", { status: 429, headers: { "Retry-After": at.toUTCString() } }),
+    );
+    const sender = createResendSender({ apiKey: "re_key", from: "noreply@muttu.co", fetchImpl });
+
+    const result = await sender.send(message);
+
+    expect(result.ok).toBe(false);
+    const wait = (result as { retryAfterMs?: number }).retryAfterMs!;
+    expect(wait).toBeGreaterThan(110_000);
+    expect(wait).toBeLessThanOrEqual(121_000);
+  });
+
+  it("waits a minute on a 429 without a usable Retry-After", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response("", { status: 429, headers: { "Retry-After": "soon" } }),
+    );
+    const sender = createResendSender({ apiKey: "re_key", from: "noreply@muttu.co", fetchImpl });
+
+    expect(await sender.send(message)).toEqual({ ok: false, error: "Resend HTTP 429", retryAfterMs: 60_000 });
+  });
+
+  it.each([["1.5"], ["-5"], [null]])("waits a minute on a 429 whose Retry-After is %s", async (retryAfter) => {
+    const headers: Record<string, string> = retryAfter === null ? {} : { "Retry-After": retryAfter };
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("", { status: 429, headers }));
+    const sender = createResendSender({ apiKey: "re_key", from: "noreply@muttu.co", fetchImpl });
+
+    expect(await sender.send(message)).toEqual({ ok: false, error: "Resend HTTP 429", retryAfterMs: 60_000 });
+  });
 });
 
 describe("createMailpitSender", () => {

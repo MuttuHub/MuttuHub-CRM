@@ -23,6 +23,11 @@
 //       attempt, so a stale worker cannot move a row another worker now holds;
 //     * a success applies to any row not yet ENVIADO: the mail did go out, so it must never be
 //       claimed and sent again, even if a newer worker already put the row back to PENDIENTE.
+//   A rate limit (the sender returns `retryAfterMs`) is not a delivery failure: nothing was sent.
+//   The run stops sending and releases the limited row and every row it has not tried yet:
+//   back to PENDIENTE after the provider's wait, with the claim's attempt given back. Release is
+//   fenced like a failure; giving the attempt back cannot reissue a token to a stale worker,
+//   because the only holder of that token is the worker doing the release.
 
 import { Prisma, type PrismaClient } from "@prisma/client";
 
@@ -98,6 +103,8 @@ export interface OutboxStore {
   /** `attempt` is the claimed `intentos`; the update is a no-op once another claim holds the row. */
   markRetry(id: string, args: { attempt: number; nextAttemptAt: Date; error: string }): Promise<void>;
   markFailed(id: string, args: { attempt: number; error: string }): Promise<void>;
+  /** Back to PENDIENTE without spending the claimed attempt; same fencing as `markRetry`. */
+  release(id: string, args: { attempt: number; nextAttemptAt: Date; error: string }): Promise<void>;
 }
 
 /** `timestamp(3)` columns hold UTC wall time (Prisma's convention); bind dates the same way. */
@@ -157,10 +164,23 @@ export function createPrismaOutboxStore(client: PrismaClient = db): OutboxStore 
         data: { estado: "FALLIDO", ultimo_error: error, bloqueado_hasta: null },
       });
     },
+    async release(id, { attempt, nextAttemptAt, error }) {
+      await client.emailOutbox.updateMany({
+        where: { id, estado: "ENVIANDO", intentos: attempt },
+        data: {
+          estado: "PENDIENTE",
+          intentos: attempt - 1,
+          proximo_intento_at: nextAttemptAt,
+          ultimo_error: error,
+          bloqueado_hasta: null,
+        },
+      });
+    },
   };
 }
 
-export type OutboxRunSummary = { claimed: number; sent: number; retried: number; failed: number };
+/** `deferred`: rows released untouched by a rate limit (the limited one and those after it). */
+export type OutboxRunSummary = { claimed: number; sent: number; retried: number; failed: number; deferred: number };
 
 export async function processOutbox(
   sender: EmailSender,
@@ -173,9 +193,9 @@ export async function processOutbox(
   const leaseMs = options.leaseMs ?? OUTBOX_LEASE_MS;
 
   const claimed = await store.claimDue({ now, limit, leaseMs, maxAttempts });
-  const summary: OutboxRunSummary = { claimed: claimed.length, sent: 0, retried: 0, failed: 0 };
+  const summary: OutboxRunSummary = { claimed: claimed.length, sent: 0, retried: 0, failed: 0, deferred: 0 };
 
-  for (const email of claimed) {
+  for (const [index, email] of claimed.entries()) {
     let result;
     try {
       result = await sender.send({
@@ -191,6 +211,14 @@ export async function processOutbox(
     if (result.ok) {
       await store.markSent(email.id, { now, providerId: result.id });
       summary.sent += 1;
+    } else if (result.retryAfterMs !== undefined) {
+      const nextAttemptAt = new Date(now.getTime() + result.retryAfterMs);
+      const error = result.error.slice(0, 500);
+      for (const held of claimed.slice(index)) {
+        await store.release(held.id, { attempt: held.intentos, nextAttemptAt, error });
+        summary.deferred += 1;
+      }
+      break;
     } else if (email.intentos >= maxAttempts) {
       await store.markFailed(email.id, { attempt: email.intentos, error: result.error.slice(0, 500) });
       summary.failed += 1;

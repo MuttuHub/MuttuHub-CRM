@@ -196,4 +196,42 @@ describe("email_outbox (live DB)", () => {
       await db.emailOutbox.deleteMany({ where: { clave_idempotencia: key } })
     }
   })
+
+  it("releases a rate-limited row without spending its attempt, and ignores a release from a stale worker", async () => {
+    const key = `invariant-outbox/${randomUUID()}/release`
+    const due = new Date("2000-01-01T00:00:00.000Z")
+    const first = new Date("2000-01-02T00:00:00.000Z")
+    const afterLease = new Date("2000-01-02T00:02:00.000Z")
+    const retryAt = new Date("2000-01-02T00:03:00.000Z")
+    const store = createPrismaOutboxStore(db)
+    const args = { limit: 10, leaseMs: 60_000, maxAttempts: 5 }
+
+    try {
+      await db.emailOutbox.create({
+        data: { destinatario_email: "r@example.test", asunto: "r", html: "<p>x</p>", tipo: TIPO, clave_idempotencia: key, proximo_intento_at: due },
+      })
+      const mine = <T extends { clave_idempotencia: string }>(rows: T[]) => rows.filter((r) => r.clave_idempotencia === key)
+
+      const [slow] = mine(await store.claimDue({ ...args, now: first }))
+      const [late] = mine(await store.claimDue({ ...args, now: afterLease }))
+
+      // The stale worker's release must not touch the row the newer worker holds.
+      await store.release(slow.id, { attempt: slow.intentos, nextAttemptAt: retryAt, error: "stale 429" })
+      expect(await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })).toMatchObject({
+        estado: "ENVIANDO",
+        intentos: 2,
+        ultimo_error: null,
+      })
+
+      await store.release(late.id, { attempt: late.intentos, nextAttemptAt: retryAt, error: "Resend HTTP 429" })
+      const released = await db.emailOutbox.findUniqueOrThrow({ where: { clave_idempotencia: key } })
+      expect(released).toMatchObject({ estado: "PENDIENTE", intentos: 1, ultimo_error: "Resend HTTP 429", bloqueado_hasta: null })
+      expect(released.proximo_intento_at.toISOString()).toBe(retryAt.toISOString())
+
+      expect(mine(await store.claimDue({ ...args, now: afterLease }))).toEqual([])
+      expect(mine(await store.claimDue({ ...args, now: retryAt })).map((r) => r.intentos)).toEqual([2])
+    } finally {
+      await db.emailOutbox.deleteMany({ where: { clave_idempotencia: key } })
+    }
+  })
 })

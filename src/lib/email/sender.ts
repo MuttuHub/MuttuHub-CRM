@@ -22,7 +22,11 @@ export type EmailMessage = {
   idempotencyKey?: string;
 };
 
-export type SendResult = { ok: true; id?: string } | { ok: false; error: string };
+/**
+ * `retryAfterMs` marks a rate limit: the provider refused the message without sending it and
+ * asks the caller to wait that long before trying again.
+ */
+export type SendResult = { ok: true; id?: string } | { ok: false; error: string; retryAfterMs?: number };
 
 export interface EmailSender {
   /** Never throws: transport and provider failures come back as `{ ok: false }`. */

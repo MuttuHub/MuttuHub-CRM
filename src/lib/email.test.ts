@@ -31,6 +31,7 @@ describe("sendDailySummary (routed through the EmailSender port)", () => {
         subject: DAILY_SUBJECT,
         html: buildDailyHtml("Ana", buckets),
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
