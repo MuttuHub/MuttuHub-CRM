@@ -50,7 +50,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | ID | Spec | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S6 D4 | inline | done | RED 8 → GREEN 23/23; local apply + idempotent rerun (see L3) |
-| T2 | S4 V8 | delegated (context backstop) | in progress | — |
+| T2 | S4 V8 | delegated (context backstop) | done, verifier pending (Risk 1, 3) | RED → GREEN 477/477; parent rerun 98/98; invariant 1/1 |
 | T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
 | T4 | S2 V2 | delegated | queued: waits for T2 (shared prisma/schema.prisma) | — |
 | T5 | S1 B6 | delegated | queued: after T4 (shared prisma/schema.prisma) | — |
@@ -84,3 +84,14 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   `["projects","curve",id]` so the S-curve refetches. Form only for `canWrite` in EN_EJECUCION. In the live ficha the
   table sits with the curve inside the collapsed «Opciones avanzadas» (ficha-actividades mounts the Lista mode).
   Open for the PO: whether it should be visible without expanding.
+- **L10** (2026-11-19): T2 first pass back from the writer, all green, two migrations applied locally
+  (`20261119120000_v8_sin_contacto_enum`, `20261119120100_v8_notificacion_cliente` adding `Notificacion.cliente_id`).
+  Gap: channel (c) rows were created but not visible in the bell (SIN_CONTACTO not listed; POR_VENCER hidden when
+  `dias_por_vencer` < N). Sent back with extended surfaces (bell route and panel, `hooks/crm.ts`, OpenAPI).
+- **L11** (2026-11-19, user, V8 «sin contacto» audience question «Solo activos / Dejarlo como está / Solo excluir
+  cerrados»): «Solo activos (Recomendado)» — the rule skips INACTIVO and CERRADO clients, and a client with no
+  bitácora entry counts from its creation date. The clients-list definition stays unchanged.
+- **L12** (2026-11-19): T2 follow-up back. Bell lists SIN_CONTACTO («<Cliente> lleva N días sin contacto», only active
+  clients, closed once a newer contact exists) and rule-1 reminders beyond the bell's fixed 3-day window, both through
+  read/unread and read-all. `hooks/crm.ts` and OpenAPI updated. Rule 2 skips INACTIVO/CERRADO and counts a client with
+  no entry from `created_at` (key by that date). Committed as one unit; independent verifier runs on the commit.

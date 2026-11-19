@@ -16,6 +16,8 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       updateMany: vi.fn(),
     },
+    setting: { findUnique: vi.fn() },
+    bitacoraEntrada: { groupBy: vi.fn() },
   },
 }));
 
@@ -153,3 +155,51 @@ describe("PATCH /api/v1/notifications/read-all: proyectos group (S6)", () => {
     });
   });
 });
+
+describe("PATCH /api/v1/notifications/read-all: V8 rule rows", () => {
+  it("marks the visible rule-1 reminders and SIN_CONTACTO rows as read", async () => {
+    mockAuth();
+    const start = startOfLocalDay();
+    vi.mocked(db.setting.findUnique).mockResolvedValue({
+      key: "automatizaciones",
+      value: { recordar_compromisos: { activo: true, dias: 6 } },
+    } as never);
+    vi.mocked(db.tarea.findMany)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "t6",
+          titulo: "Informe",
+          estado: "POR_HACER",
+          fecha_entrega: new Date(start.getTime() + 5 * 86_400_000),
+          origen: "CRM",
+          responsable_id: "colab-1",
+          responsable: { nombre: "Ana" },
+          cliente_id: null,
+          cliente: null,
+        },
+      ] as never);
+    vi.mocked(db.notificacion.findMany).mockImplementation((async (args: { where?: { tipo?: unknown } }) => {
+      const tipo = args?.where?.tipo;
+      if (tipo === "SIN_CONTACTO") {
+        return [{ id: "s1", leida: false, created_at: new Date(), cliente_id: "c1", cliente: { nombre: "Uno", created_at: new Date("2024-01-01") } }];
+      }
+      if ((tipo as { in?: unknown } | undefined)?.in) return [];
+      return [{ id: "n6", tarea_id: "t6", tipo: "POR_VENCER", leida: false }];
+    }) as never);
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([] as never);
+    vi.mocked(db.notificacion.updateMany).mockResolvedValue({ count: 1 } as never);
+
+    await PATCH();
+
+    expect(db.notificacion.updateMany).toHaveBeenCalledWith({
+      where: { usuario_id: "colab-1", tarea_id: { in: ["t6"] } },
+      data: { leida: true },
+    });
+    expect(db.notificacion.updateMany).toHaveBeenCalledWith({
+      where: { usuario_id: "colab-1", tipo: "SIN_CONTACTO", id: { in: ["s1"] }, leida: false },
+      data: { leida: true },
+    });
+  });
+});
+

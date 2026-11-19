@@ -83,16 +83,15 @@ describe("setting keys", () => {
 
 describe("parseAutomatizaciones", () => {
   it("returns the documented defaults when nothing is stored", () => {
-    expect(parseAutomatizaciones(null)).toEqual({
+    const defaults = {
       resumen_diario: true,
       dias_por_vencer: 3,
       categorias: { vencidos: true, hoy: true, proximos: true },
-    })
-    expect(AUTOMATIZACIONES_DEFAULT).toEqual({
-      resumen_diario: true,
-      dias_por_vencer: 3,
-      categorias: { vencidos: true, hoy: true, proximos: true },
-    })
+      recordar_compromisos: { activo: true, dias: 2 },
+      alertar_sin_contacto: { activo: true, dias: 30 },
+    }
+    expect(parseAutomatizaciones(null)).toEqual(defaults)
+    expect(AUTOMATIZACIONES_DEFAULT).toEqual(defaults)
   })
 
   it.each([undefined, "garbage", 42, true, []])(
@@ -107,6 +106,8 @@ describe("parseAutomatizaciones", () => {
       resumen_diario: false,
       dias_por_vencer: 7,
       categorias: { vencidos: false, hoy: true, proximos: false },
+      recordar_compromisos: { activo: false, dias: 5 },
+      alertar_sin_contacto: { activo: false, dias: 90 },
     }
     expect(parseAutomatizaciones(stored)).toEqual(stored)
   })
@@ -123,8 +124,7 @@ describe("parseAutomatizaciones", () => {
 
   it("fills only the missing categorias flags with their defaults", () => {
     expect(parseAutomatizaciones({ categorias: { hoy: false } })).toEqual({
-      resumen_diario: true,
-      dias_por_vencer: 3,
+      ...AUTOMATIZACIONES_DEFAULT,
       categorias: { vencidos: true, hoy: false, proximos: true },
     })
   })
@@ -146,5 +146,49 @@ describe("parseAutomatizaciones", () => {
     parsed.categorias.hoy = false
     expect(AUTOMATIZACIONES_DEFAULT.resumen_diario).toBe(true)
     expect(AUTOMATIZACIONES_DEFAULT.categorias.hoy).toBe(true)
+  })
+})
+
+describe("parseAutomatizaciones — V8 rules", () => {
+  it("defaults both rules on, 2 days before a commitment and 30 days without contact", () => {
+    const parsed = parseAutomatizaciones({})
+    expect(parsed.recordar_compromisos).toEqual({ activo: true, dias: 2 })
+    expect(parsed.alertar_sin_contacto).toEqual({ activo: true, dias: 30 })
+  })
+
+  it("keeps a stored switch and threshold, filling the missing half with its default", () => {
+    const parsed = parseAutomatizaciones({
+      recordar_compromisos: { activo: false },
+      alertar_sin_contacto: { dias: 45 },
+    })
+    expect(parsed.recordar_compromisos).toEqual({ activo: false, dias: 2 })
+    expect(parsed.alertar_sin_contacto).toEqual({ activo: true, dias: 45 })
+  })
+
+  it.each([0, -1, 1.5, 31, "2", NaN])(
+    "rejects an out-of-range recordar_compromisos.dias (%s) and keeps 2",
+    (dias) => {
+      expect(parseAutomatizaciones({ recordar_compromisos: { dias } }).recordar_compromisos.dias).toBe(2)
+    },
+  )
+
+  it.each([0, -3, 2.5, 366, "30", Infinity])(
+    "rejects an out-of-range alertar_sin_contacto.dias (%s) and keeps 30",
+    (dias) => {
+      expect(parseAutomatizaciones({ alertar_sin_contacto: { dias } }).alertar_sin_contacto.dias).toBe(30)
+    },
+  )
+
+  it("accepts the thresholds at their bounds", () => {
+    const low = parseAutomatizaciones({ recordar_compromisos: { dias: 1 }, alertar_sin_contacto: { dias: 1 } })
+    const high = parseAutomatizaciones({ recordar_compromisos: { dias: 30 }, alertar_sin_contacto: { dias: 365 } })
+    expect([low.recordar_compromisos.dias, low.alertar_sin_contacto.dias]).toEqual([1, 1])
+    expect([high.recordar_compromisos.dias, high.alertar_sin_contacto.dias]).toEqual([30, 365])
+  })
+
+  it("falls back to the rule defaults when a rule is not an object", () => {
+    const parsed = parseAutomatizaciones({ recordar_compromisos: true, alertar_sin_contacto: [] })
+    expect(parsed.recordar_compromisos).toEqual({ activo: true, dias: 2 })
+    expect(parsed.alertar_sin_contacto).toEqual({ activo: true, dias: 30 })
   })
 })

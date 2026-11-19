@@ -4,6 +4,9 @@
 // VENCEN HOY (ámbar) y PRÓXIMOS 3 DÍAS (ink). Sin plataforma configurada
 // (envelope 500) el panel queda inerte: sin badge y con estado desconectado,
 // sin reintentos rápidos (retry: false, el poll respeta el intervalo).
+// V8: dos grupos más, RECORDATORIOS (regla «recordar compromisos N días antes»,
+// tareas fuera de la ventana de 3 días) y ALIADOS SIN CONTACTO (regla «alertar
+// N días sin contacto», abre la ficha del cliente).
 
 "use client";
 
@@ -45,6 +48,18 @@ export type NotificacionProyecto = {
   created_at: string;
 };
 
+/** V8 rule 2: an open «sin contacto» alert about one of the actor's clients. */
+export type NotificacionSinContacto = {
+  notificacion_id: string;
+  tipo: "SIN_CONTACTO";
+  cliente_id: string;
+  cliente_nombre: string;
+  dias_sin_contacto: number;
+  mensaje: string;
+  leida: boolean;
+  created_at: string;
+};
+
 export type NotificationsSnapshot = {
   total: number;
   vencidos: AlertItemNotificacion[];
@@ -53,6 +68,10 @@ export type NotificationsSnapshot = {
   leidas_ids: string[];
   /** Absent in older payloads; the panel tolerates it. */
   proyectos?: NotificacionProyecto[];
+  /** V8 rule 1 reminders beyond the 3-day bucket. Absent in older payloads. */
+  recordatorios?: AlertItemNotificacion[];
+  /** V8 rule 2 alerts. Absent in older payloads. */
+  sin_contacto?: NotificacionSinContacto[];
 };
 
 // Shared query key: the header home greeting reads the same snapshot to show
@@ -112,6 +131,8 @@ export function NotificationPanel() {
   });
   const snapshot = query.data;
   const proyectos = snapshot?.proyectos ?? [];
+  const recordatorios = snapshot?.recordatorios ?? [];
+  const sinContacto = snapshot?.sin_contacto ?? [];
 
   const markRead = useMutation({
     mutationFn: (notificacionId: string) =>
@@ -156,10 +177,11 @@ export function NotificationPanel() {
     if (!snapshot) return;
     const leidasSet = new Set(snapshot.leidas_ids);
     unreadSnapshotRef.current = [
-      ...[...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3]
+      ...[...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3, ...recordatorios]
         .filter((item) => item.notificacion_id !== null && !leidasSet.has(item.notificacion_id))
         .map((item) => item.notificacion_id!),
       ...proyectos.filter((item) => !item.leida).map((item) => item.notificacion_id),
+      ...sinContacto.filter((item) => !item.leida).map((item) => item.notificacion_id),
     ];
     markAllRead.mutate();
   }
@@ -240,13 +262,21 @@ export function NotificationPanel() {
     router.push(item.tipo === "GASTO_RECHAZADO" && item.proyecto_id ? `/proyectos/${item.proyecto_id}` : "/proyectos");
   }
 
+  function abrirSinContacto(item: NotificacionSinContacto) {
+    setOpen(false);
+    markRead.mutate(item.notificacion_id);
+    router.push(`/clientes?cliente=${item.cliente_id}`);
+  }
+
   const allItems = snapshot
-    ? [...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3]
+    ? [...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3, ...recordatorios]
     : [];
   const leidasSet = new Set(snapshot?.leidas_ids ?? []);
   const unread =
     allItems.filter((item) => item.notificacion_id === null || !leidasSet.has(item.notificacion_id))
-      .length + proyectos.filter((item) => !item.leida).length;
+      .length +
+    proyectos.filter((item) => !item.leida).length +
+    sinContacto.filter((item) => !item.leida).length;
 
   return (
     <div ref={rootRef} className="relative">
@@ -323,6 +353,36 @@ export function NotificationPanel() {
                     </section>
                   );
                 })}
+                {recordatorios.length > 0 && (
+                  <section className="flex flex-col gap-1.5">
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-ink-600">
+                      RECORDATORIOS
+                      <span className="font-sans text-[10.5px] font-semibold tracking-normal normal-case text-ink-500">
+                        · {recordatorios.length}
+                      </span>
+                    </h3>
+                    <ul className="flex flex-col gap-0.5">
+                      {recordatorios.map((item) => (
+                        <AlertRow key={item.id} item={item} onOpen={abrirAlerta} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                {sinContacto.length > 0 && (
+                  <section className="flex flex-col gap-1.5">
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-alerta">
+                      ALIADOS SIN CONTACTO
+                      <span className="font-sans text-[10.5px] font-semibold tracking-normal normal-case text-ink-500">
+                        · {sinContacto.length}
+                      </span>
+                    </h3>
+                    <ul className="flex flex-col gap-0.5">
+                      {sinContacto.map((item) => (
+                        <SinContactoRow key={item.notificacion_id} item={item} onOpen={abrirSinContacto} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
                 {proyectos.length > 0 && (
                   <section className="flex flex-col gap-1.5">
                     <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-rose-700 dark:text-rose-400">
@@ -425,6 +485,36 @@ function ProyectoRow({
           </span>
           <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
             {rechazado ? "Rechazo" : "Sobregasto"}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function SinContactoRow({
+  item,
+  onOpen,
+}: {
+  item: NotificacionSinContacto;
+  onOpen: (item: NotificacionSinContacto) => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="flex w-full flex-col gap-1 rounded-12 px-3 py-2.5 text-left transition-colors hover:bg-ink-100/70"
+      >
+        <span
+          className={`truncate text-[13px] text-ink-800 ${item.leida ? "font-medium" : "font-semibold"}`}
+        >
+          {item.mensaje}
+        </span>
+        <span className="flex min-w-0 items-center gap-2 text-[11.5px] text-ink-600">
+          <span className="truncate">Aviso del {fechaCorta(item.created_at)}</span>
+          <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
+            Aliado
           </span>
         </span>
       </button>

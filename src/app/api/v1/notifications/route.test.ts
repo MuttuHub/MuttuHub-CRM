@@ -16,6 +16,9 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       create: vi.fn(),
     },
+    // V8: the automation setting and the «sin contacto» day count.
+    setting: { findUnique: vi.fn() },
+    bitacoraEntrada: { groupBy: vi.fn() },
   },
 }));
 
@@ -278,3 +281,130 @@ describe("GET /api/v1/notifications: proyectos group (S6)", () => {
     expect(json.total).toBe(1);
   });
 });
+
+describe("GET /api/v1/notifications: V8 rule rows", () => {
+  const DAY_MS = 86_400_000;
+
+  /** Routes `notificacion.findMany` by query: SIN_CONTACTO rows, project rows (`tipo.in`) or task rows. */
+  function mockFilas(taskRows: unknown[], sinContactoRows: unknown[] = []) {
+    vi.mocked(db.notificacion.findMany).mockImplementation((async (args: { where?: { tipo?: unknown } }) => {
+      const tipo = args?.where?.tipo;
+      if (tipo === "SIN_CONTACTO") return sinContactoRows;
+      if ((tipo as { in?: unknown } | undefined)?.in) return [];
+      return taskRows;
+    }) as never);
+  }
+
+  function mockSetting(value: unknown) {
+    vi.mocked(db.setting.findUnique).mockResolvedValue({ key: "automatizaciones", value } as never);
+  }
+
+  it("keeps the pre-V8 rows unchanged and adds empty V8 groups when there is nothing to show", async () => {
+    mockAuth(colaborador);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([tareaVencidaCrm, tareaProximos] as never);
+    mockFilas([
+      { id: "n2", tarea_id: "t2", tipo: "COMPROMISO_VENCIDO", leida: true },
+      { id: "n3", tarea_id: "t3", tipo: "POR_VENCER", leida: false },
+    ]);
+
+    const json = await (await GET(get())).json();
+
+    expect(json).toEqual({
+      total: 2,
+      vencidos: [expect.objectContaining({ id: "t2", titulo: "Vencida CRM", notificacion_id: "n2" })],
+      hoy: [],
+      proximos3: [expect.objectContaining({ id: "t3", titulo: "Próxima", notificacion_id: "n3" })],
+      leidas_ids: ["n2"],
+      proyectos: [],
+      recordatorios: [],
+      sin_contacto: [],
+    });
+    // Default rule 1 (2 days) fits inside the bell's 3-day bucket: no extra task query.
+    expect(db.tarea.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists the actor's open SIN_CONTACTO rows with a message, hiding a stretch closed by a later contact", async () => {
+    mockAuth(colaborador);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    const alerta = new Date(Date.now() - DAY_MS);
+    mockFilas(
+      [],
+      [
+        { id: "s1", leida: false, created_at: alerta, cliente_id: "c1", cliente: { nombre: "Fundación Uno", created_at: new Date("2024-01-01") } },
+        { id: "s2", leida: true, created_at: alerta, cliente_id: "c2", cliente: { nombre: "Colegio Dos", created_at: new Date("2024-01-01") } },
+        { id: "s3", leida: false, created_at: alerta, cliente_id: "c3", cliente: { nombre: "Nuevo", created_at: new Date(Date.now() - 31 * DAY_MS) } },
+      ],
+    );
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
+      { cliente_id: "c1", _max: { created_at: new Date(Date.now() - 40 * DAY_MS) } },
+      { cliente_id: "c2", _max: { created_at: new Date() } },
+    ] as never);
+
+    const json = await (await GET(get())).json();
+
+    expect(db.notificacion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          usuario_id: "colab-1",
+          tipo: "SIN_CONTACTO",
+          cliente: { is: { deleted_at: null, estado: { notIn: ["INACTIVO", "CERRADO"] } } },
+        },
+      }),
+    );
+    expect(json.sin_contacto).toEqual([
+      {
+        notificacion_id: "s1",
+        tipo: "SIN_CONTACTO",
+        cliente_id: "c1",
+        cliente_nombre: "Fundación Uno",
+        dias_sin_contacto: 40,
+        mensaje: "Fundación Uno lleva 40 días sin contacto",
+        leida: false,
+        created_at: alerta.toISOString(),
+      },
+      expect.objectContaining({ notificacion_id: "s3", mensaje: "Nuevo lleva 31 días sin contacto" }),
+    ]);
+    expect(json.total).toBe(2);
+
+    const unread = await (await GET(get("?leida=false"))).json();
+    expect(unread.sin_contacto.map((i: { notificacion_id: string }) => i.notificacion_id)).toEqual(["s1", "s3"]);
+  });
+
+  it("shows a rule-1 reminder even when dias_por_vencer is smaller than the reminder's N", async () => {
+    mockAuth(coordinador);
+    mockSetting({ dias_por_vencer: 1, recordar_compromisos: { activo: true, dias: 5 } });
+    const start = startOfLocalDay();
+    const tareaEn5 = { ...tareaProximos, id: "t5", titulo: "Informe", fecha_entrega: addLocalDays(start, 5), responsable_id: "coord-1" };
+    vi.mocked(db.tarea.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([tareaEn5] as never);
+    mockFilas([]);
+    vi.mocked(db.notificacion.create).mockResolvedValue({ id: "n5" } as never);
+
+    const json = await (await GET(get())).json();
+
+    // The reminder window starts where the bell's 3-day bucket ends and runs through day N.
+    expect(vi.mocked(db.tarea.findMany).mock.calls[1]![0]!.where).toMatchObject({
+      responsable_id: "coord-1",
+      fecha_entrega: { gte: addLocalDays(start, 4), lt: addLocalDays(start, 6) },
+    });
+    expect(db.notificacion.create).toHaveBeenCalledWith({
+      data: { usuario_id: "coord-1", tarea_id: "t5", tipo: "POR_VENCER" },
+      select: { id: true },
+    });
+    expect(json.recordatorios).toEqual([expect.objectContaining({ id: "t5", titulo: "Informe", notificacion_id: "n5" })]);
+    expect(json.proximos3).toEqual([]);
+    expect(json.total).toBe(1);
+  });
+
+  it("adds no reminder when rule 1 is off", async () => {
+    mockAuth(colaborador);
+    mockSetting({ recordar_compromisos: { activo: false, dias: 10 } });
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    mockFilas([]);
+
+    const json = await (await GET(get())).json();
+
+    expect(db.tarea.findMany).toHaveBeenCalledTimes(1);
+    expect(json.recordatorios).toEqual([]);
+  });
+});
+

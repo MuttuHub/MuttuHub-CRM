@@ -39,10 +39,17 @@ vi.mock("@/hooks/kanban", async (importOriginal) => {
   return { ...actual, useCurrentUser: useCurrentUserMock };
 });
 
-const STORED: Automatizaciones = {
+/** A pre-V8 payload: the server omits the two rules. */
+const STORED = {
   resumen_diario: true,
   dias_por_vencer: 5,
   categorias: { vencidos: true, hoy: false, proximos: true },
+} as Automatizaciones;
+
+const STORED_V8: Automatizaciones = {
+  ...STORED,
+  recordar_compromisos: { activo: true, dias: 2 },
+  alertar_sin_contacto: { activo: false, dias: 45 },
 };
 
 const ADMIN = { id: "u-1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" as const };
@@ -164,3 +171,79 @@ describe("AutomatizacionesVista — estados", () => {
     );
   });
 });
+
+describe("AutomatizacionesVista — reglas V8", () => {
+  beforeEach(() => {
+    useAutomatizacionesMock.mockReturnValue({ data: STORED_V8, isLoading: false, isError: false });
+  });
+
+  it("renders both rules with their stored switch and day threshold", () => {
+    renderVista();
+
+    expect(screen.getByRole("switch", { name: "Recordar compromisos" })).toHaveAttribute("aria-checked", "true");
+    const antes = screen.getByRole("spinbutton", { name: "Días antes del compromiso" });
+    expect(antes).toHaveValue(2);
+    expect(antes).toHaveAttribute("min", "1");
+    expect(antes).toHaveAttribute("max", "30");
+
+    expect(screen.getByRole("switch", { name: "Alertar sin contacto" })).toHaveAttribute("aria-checked", "false");
+    const sinContacto = screen.getByRole("spinbutton", { name: "Días sin contacto" });
+    expect(sinContacto).toHaveValue(45);
+    expect(sinContacto).toHaveAttribute("min", "1");
+    expect(sinContacto).toHaveAttribute("max", "365");
+  });
+
+  it("falls back to the default rules (on, 2 and 30) when the server omits them", () => {
+    useAutomatizacionesMock.mockReturnValue({ data: STORED, isLoading: false, isError: false });
+    renderVista();
+
+    expect(screen.getByRole("switch", { name: "Recordar compromisos" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("spinbutton", { name: "Días antes del compromiso" })).toHaveValue(2);
+    expect(screen.getByRole("switch", { name: "Alertar sin contacto" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("spinbutton", { name: "Días sin contacto" })).toHaveValue(30);
+  });
+
+  it("saves only the changed rule fields", async () => {
+    const user = userEvent.setup();
+    renderVista();
+
+    await user.click(screen.getByRole("switch", { name: "Recordar compromisos" }));
+    const sinContacto = screen.getByRole("spinbutton", { name: "Días sin contacto" });
+    await user.clear(sinContacto);
+    await user.type(sinContacto, "60");
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(mutateAsyncMock).toHaveBeenCalledWith({
+      recordar_compromisos: { activo: false },
+      alertar_sin_contacto: { dias: 60 },
+    });
+  });
+
+  it.each([
+    ["Días antes del compromiso", "31", /días antes del compromiso debe estar entre 1 y 30/i],
+    ["Días sin contacto", "0", /días sin contacto debe estar entre 1 y 365/i],
+    ["Días sin contacto", "366", /días sin contacto debe estar entre 1 y 365/i],
+  ])("blocks an out-of-range «%s» (%s) without writing", async (name, value, message) => {
+    const user = userEvent.setup();
+    renderVista();
+
+    const input = screen.getByRole("spinbutton", { name });
+    await user.clear(input);
+    await user.type(input, value);
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(mutateAsyncMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+  });
+
+  it("keeps the rules read-only for a non-admin", () => {
+    useCurrentUserMock.mockReturnValue({ data: COORDINADOR });
+    renderVista();
+
+    expect(screen.getByRole("switch", { name: "Recordar compromisos" })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: "Días antes del compromiso" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Alertar sin contacto" })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: "Días sin contacto" })).toBeDisabled();
+  });
+});
+

@@ -17,7 +17,8 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
-import { toDayNumber, todayInBogota } from "@/lib/proyectos/weeks";
+import { todayInBogota } from "@/lib/proyectos/weeks";
+import { diasSinGestion, ultimoContactoPorCliente } from "@/lib/api/sin-gestion";
 import {
   catalogEnum,
   CLIENT_BASE_SELECT,
@@ -181,13 +182,9 @@ export async function enrichClients(
       select: { id: true, titulo: true, fecha_entrega: true, cliente_id: true },
       take: ids.length,
     }),
-    // Mismo cálculo que el panel de salud (/clients/health): la última entrada de
-    // bitácora por cliente, sin filtros extra, para que ambos coincidan.
-    db.bitacoraEntrada.groupBy({
-      by: ["cliente_id"],
-      where: { cliente_id: { in: ids } },
-      _max: { created_at: true },
-    }),
+    // Mismo cálculo que el panel de salud (/clients/health) y la regla V8
+    // «alertar N días sin contacto»: helper compartido en sin-gestion.ts.
+    ultimoContactoPorCliente(ids),
   ]);
 
   const valorByClient = new Map(sums.map((s) => [s.cliente_id, Number(s._sum.valor_estimado_cop ?? 0)]));
@@ -204,18 +201,17 @@ export async function enrichClients(
     }
   }
 
-  const ultimaByClient = new Map(ultimas.map((u) => [u.cliente_id, u._max.created_at ?? null]));
   const hoy = todayInBogota();
 
   return rows.map((r) => {
-    const ultimo = ultimaByClient.get(r.id) ?? null;
+    const ultimo = ultimas.get(r.id) ?? null;
     return {
       id: r.id,
       valor_potencial: valorByClient.get(r.id) ?? 0,
       compromisos_abiertos: countByClient.get(r.id) ?? 0,
       next_compromiso: nextByClient.get(r.id) ?? null,
       ultimo_contacto: ultimo,
-      dias_sin_gestion: ultimo === null ? null : Math.max(0, toDayNumber(hoy) - toDayNumber(todayInBogota(ultimo))),
+      dias_sin_gestion: diasSinGestion(ultimo, hoy),
     };
   });
 }

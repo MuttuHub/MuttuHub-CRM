@@ -6,6 +6,7 @@
 
 import type { Usuario } from "@prisma/client";
 import type { AlertBuckets, AlertItem } from "@/lib/alerts";
+import type { SinContactoItem } from "@/lib/automatizaciones/reglas";
 import { resolveEmailTransport, type SendResult } from "@/lib/email/sender";
 
 export { RESEND_ENDPOINT } from "@/lib/email/resend";
@@ -25,7 +26,7 @@ function escapeHtml(value: string): string {
 }
 
 /** "2026-08-07" (local del servidor — coincidente con el engine). */
-function fechaCorta(fecha: Date): string {
+export function fechaCorta(fecha: Date): string {
   const y = fecha.getFullYear();
   const m = String(fecha.getMonth() + 1).padStart(2, "0");
   const d = String(fecha.getDate()).padStart(2, "0");
@@ -78,11 +79,76 @@ function renderSeccion(seccion: Seccion): string {
 }
 
 /**
+ * V8 sections of the digest. A rule that is off is simply absent, and then the
+ * digest renders exactly as it did before V8.
+ */
+export type DigestReglas = {
+  /** «Recordar compromisos N días antes»: open tasks due exactly `dias` days from today. */
+  recordatorios?: { dias: number; items: AlertItem[] };
+  /** «Alertar N días sin contacto»: the recipient's clients without contact for `dias`+ days. */
+  sinContacto?: { dias: number; items: SinContactoItem[] };
+};
+
+/** "1 día" / "2 días". */
+function diasTexto(dias: number): string {
+  return dias === 1 ? "1 día" : `${dias} días`;
+}
+
+function ultimoContactoTexto(item: SinContactoItem): string {
+  if (item.ultimo_contacto === null || item.dias_sin_gestion === null) return "Sin contacto registrado";
+  return `Último contacto: ${fechaCorta(item.ultimo_contacto)} (hace ${diasTexto(item.dias_sin_gestion)})`;
+}
+
+function renderSinContacto(dias: number, items: SinContactoItem[]): string {
+  const titulo = `Aliados con ${diasTexto(dias)} o más sin contacto`;
+  if (items.length === 0) {
+    return `
+      <h2 style="font-size:16px;color:${SLATE};margin:0 0 10px">${titulo}</h2>
+      <p style="font-size:13px;color:#98a2b3;margin:0 0 16px">Todos tus aliados tienen contacto reciente.</p>`;
+  }
+  const rows = items
+    .map(
+      (it) => `
+        <tr>
+          <td style="padding:12px 16px;border:1px solid #eee;border-radius:8px;margin-bottom:8px">
+            <div style="font-size:14px;color:#111"><strong>${escapeHtml(it.nombre)}</strong></div>
+            <div style="font-size:12px;color:#667085;margin-top:4px">
+              ${ultimoContactoTexto(it)} · Responsable: ${escapeHtml(it.responsable_nombre)}
+            </div>
+          </td>
+        </tr>`,
+    )
+    .join("");
+  return `
+    <h2 style="font-size:16px;color:${SLATE};margin:0 0 10px">${titulo}</h2>
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">${rows}</table>`;
+}
+
+function renderReglas(reglas: DigestReglas | undefined): string {
+  if (!reglas) return "";
+  const parts: string[] = [];
+  if (reglas.recordatorios) {
+    parts.push(
+      renderSeccion({
+        titulo: `Compromisos que vencen en ${diasTexto(reglas.recordatorios.dias)}`,
+        color: AMBER,
+        items: reglas.recordatorios.items,
+        vazio: "Ningún compromiso para recordar.",
+      }),
+    );
+  }
+  if (reglas.sinContacto) parts.push(renderSinContacto(reglas.sinContacto.dias, reglas.sinContacto.items));
+  return parts.join("");
+}
+
+/**
  * HTML del resumen diario con los 3 buckets del PRD §4.4.1 — "construido con
  * estilo de la marca": encabezado magenta (#cd1560), tipografía del sistema y
  * solo CSS inline (compatible con los clientes de correo más estrictos).
+ * `reglas` adds the V8 sections after the buckets; without it the HTML is the
+ * pre-V8 one, byte for byte.
  */
-export function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
+export function buildDailyHtml(nombre: string, buckets: AlertBuckets, reglas?: DigestReglas): string {
   const body = [
     renderSeccion({
       titulo: "Vencidos sin cerrar",
@@ -102,13 +168,19 @@ export function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
       items: buckets.proximos3,
       vazio: "Nada vence pronto.",
     }),
+    renderReglas(reglas),
   ].join("");
 
+  return layout(`Resumen diario · ${escapeHtml(nombre)}`, body);
+}
+
+/** Brand frame shared by the digest and the V8 per-event e-mails. */
+function layout(subtitulo: string, body: string): string {
   return `
     <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px">
       <div style="background:${BRAND_MAIN};border-radius:10px 10px 0 0;padding:20px 24px">
         <h1 style="color:#fff;font-size:18px;margin:0">Muttu Hub</h1>
-        <p style="color:#fde8ef;font-size:13px;margin:4px 0 0">Resumen diario · ${escapeHtml(nombre)}</p>
+        <p style="color:#fde8ef;font-size:13px;margin:4px 0 0">${subtitulo}</p>
       </div>
       <div style="border:1px solid #eaeaea;border-top:none;border-radius:0 0 10px 10px;padding:20px 24px">
         ${body}
@@ -119,6 +191,30 @@ export function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
     </div>`;
 }
 
+export type CorreoRegla = { subject: string; html: string };
+
+/** V8 rule 1: the per-task reminder e-mail queued in the outbox. */
+export function buildRecordatorioEmail(item: AlertItem, dias: number): CorreoRegla {
+  const body = renderSeccion({
+    titulo: `Este compromiso vence en ${diasTexto(dias)}`,
+    color: AMBER,
+    items: [item],
+    vazio: "",
+  });
+  return {
+    subject: `Muttu Hub · Compromiso en ${diasTexto(dias)}: ${item.titulo}`.slice(0, 200),
+    html: layout(`Recordatorio · ${escapeHtml(item.responsable_nombre)}`, body),
+  };
+}
+
+/** V8 rule 2: the per-client «sin contacto» e-mail queued in the outbox. */
+export function buildSinContactoEmail(item: SinContactoItem, dias: number): CorreoRegla {
+  return {
+    subject: `Muttu Hub · ${item.nombre} lleva ${diasTexto(dias)} o más sin contacto`.slice(0, 200),
+    html: layout(`Seguimiento de aliados · ${escapeHtml(item.responsable_nombre)}`, renderSinContacto(dias, [item])),
+  };
+}
+
 /**
  * Envía el resumen diario a un usuario con el transporte configurado (Resend por defecto).
  * Devuelve { ok: false } con el detalle cuando falla la API (el cron lo registra en cron_logs y
@@ -127,6 +223,7 @@ export function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
 export async function sendDailySummary(
   usuario: Pick<Usuario, "nombre" | "email">,
   buckets: AlertBuckets,
+  reglas?: DigestReglas,
 ): Promise<SendResult> {
   const transport = resolveEmailTransport();
   if (!transport.ok) return { ok: false, error: transport.reason };
@@ -134,6 +231,6 @@ export async function sendDailySummary(
   return transport.sender.send({
     to: usuario.email,
     subject: DAILY_SUBJECT,
-    html: buildDailyHtml(usuario.nombre, buckets),
+    html: buildDailyHtml(usuario.nombre, buckets, reglas),
   });
 }
