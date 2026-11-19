@@ -558,6 +558,19 @@ describe("V-11 budget rubros", () => {
     expect(v11(vacio, contexto())).toMatchObject([{ fila: 2, columna: "B", mensaje: "El rubro no puede estar vacío." }])
   })
 
+  // B6: a rubro disabled for the project takes no money from the template, with the apply path's message.
+  it("B6: rejects money on a rubro disabled for the project, and accepts the same template when it is enabled", async () => {
+    const ctx = contexto()
+    ctx.rubros = ctx.rubros.map((r) => (r.codigo === "R06" ? { ...r, nombre: "Viáticos", deshabilitado: true } : r))
+    const errores = v11(await parsedValido(), ctx)
+    expect(errores).toHaveLength(1)
+    expect(errores[0]).toMatchObject({ regla: "V-11", hoja: HOJAS.presupuesto, columna: "B", valor: "R06", mensaje: "El rubro R06 Viáticos está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos." })
+
+    const habilitado = contexto()
+    habilitado.rubros = habilitado.rubros.map((r) => ({ ...r, nombre: r.codigo, deshabilitado: false }))
+    expect(v11(await parsedValido(), habilitado)).toEqual([])
+  })
+
   it("S7: «Una plantilla con la misma actividad y rubro en dos filas se rechaza con fila y columna.»", async () => {
     const parsed = await parsedValido()
     // Row 10 repeats activity 1.2 + R12 (Transporte), first written on row 5.

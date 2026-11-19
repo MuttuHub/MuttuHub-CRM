@@ -17,6 +17,7 @@ import {
 import { RespuestaAbortada } from "@/lib/api/presupuesto";
 import {
   LINEA_CON_GASTOS_MESSAGE,
+  cargarContexto,
   cargarPlantillaInput,
   ZIP_MAX_ENTRADAS,
   ZIP_MAX_DESCOMPRIMIDO,
@@ -67,7 +68,7 @@ type LineaExistente = {
  * A transaction that records every model call and answers like an empty draft, or like a draft that
  * already has `lineas` (their activities were soft-deleted by the import's step 1) and `gastos`.
  */
-function grabadora({ lineas = [] as LineaExistente[], gastos = 0 } = {}) {
+function grabadora({ lineas = [] as LineaExistente[], gastos = 0, deshabilitados = [] as string[] } = {}) {
   const llamadas: { op: string; args: unknown }[] = [];
   const modelo = (nombre: string) =>
     new Proxy(
@@ -92,7 +93,15 @@ function grabadora({ lineas = [] as LineaExistente[], gastos = 0 } = {}) {
           if (metodo === "findMany") {
             const rubros = (args as { where?: { codigo?: { in?: string[] } } }).where?.codigo?.in ?? [];
             if (nombre === "lineaPresupuestal") return lineas;
-            return nombre === "rubro" ? rubros.map((codigo) => ({ id: `id-${codigo}`, codigo })) : [];
+            // B6: a rubro code listed in `deshabilitados` comes back disabled for the project.
+            return nombre === "rubro"
+              ? rubros.map((codigo) => ({
+                  id: `id-${codigo}`,
+                  codigo,
+                  nombre: `Rubro ${codigo}`,
+                  ...(deshabilitados.includes(codigo) ? { deshabilitado_en: [{ proyecto_id: "p1" }] } : {}),
+                }))
+              : [];
           }
           if (metodo === "create") return { id: `linea-${llamadas.length}` };
           return { count: 0 };
@@ -338,6 +347,88 @@ describe("cargarPlantillaInput activity type (export, T13.8)", () => {
       ["1.1", "OE1", "NORMAL"],
       ["G.1", "", "TRANSVERSAL"],
     ]);
+  });
+});
+
+// B6 (S1, decision L7 «Bloquear»): the template takes no money on a rubro the project disabled.
+describe("importarPlantilla with a rubro disabled for the project (B6)", () => {
+  it("refuses a line with money on a disabled rubro, naming it, and audits nothing", async () => {
+    const plan = construirPlan(await parsePlantilla(await generarPlantilla(fixtureF_X1("valido"))), fixtureContextoFX1());
+    const { tx, llamadas } = grabadora({ deshabilitados: ["R06"] });
+
+    const error = await importarPlantilla(tx, { proyectoId: "p1", usuarioId: "u1", plan, loteId: "lote-1" }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(RespuestaAbortada);
+    const respuesta = (error as RespuestaAbortada).response;
+    expect(respuesta.status).toBe(400);
+    expect(await respuesta.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error:
+        "El rubro R06 Rubro R06 está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+    });
+    expect(llamadas.some((l) => l.op === "lineaPresupuestal.create")).toBe(false);
+    expect(llamadas.some((l) => l.op === "auditoriaCambio.createMany")).toBe(false);
+    const rubros = llamadas.find((l) => l.op === "rubro.findMany")?.args as { select: Record<string, unknown> };
+    expect(rubros.select.deshabilitado_en).toEqual({ where: { proyecto_id: "p1" }, select: { proyecto_id: true } });
+  });
+});
+
+describe("cargarPlantillaInput: rubros disabled for the project (B6)", () => {
+  it("leaves the disabled rubros of THIS project out of the catalogue and the prefilled lines", async () => {
+    const llamadas: { nombre: string; args: unknown }[] = [];
+    const cliente = new Proxy({} as Record<string, unknown>, {
+      get: (_c, nombre: string) => ({
+        findFirst: async () => ({
+          codigo: "PRY-1",
+          fecha_inicio: new Date("2026-10-05T00:00:00.000Z"),
+          fecha_fin: new Date("2027-01-29T00:00:00.000Z"),
+          valor_total: null,
+          beneficiarios_meta: null,
+          cliente: { nombre: "Cliente" },
+          lineas: [],
+          municipios: [],
+        }),
+        findMany: async (args: unknown) => {
+          llamadas.push({ nombre, args });
+          return [];
+        },
+      }),
+    });
+
+    await cargarPlantillaInput(cliente as never, "p1");
+
+    const where = (nombre: string) => (llamadas.find((l) => l.nombre === nombre)?.args as { where: Record<string, unknown> }).where;
+    expect(where("rubro")).toMatchObject({ activo: true, deshabilitado_en: { none: { proyecto_id: "p1" } } });
+    expect(where("lineaPresupuestal")).toEqual({ proyecto_id: "p1", rubro: { deshabilitado_en: { none: { proyecto_id: "p1" } } } });
+  });
+});
+
+describe("cargarContexto: rubros disabled for the project (B6)", () => {
+  it("reads THIS project's disabled rows and hands the validator each rubro's name and flag", async () => {
+    const llamadas: { nombre: string; args: unknown }[] = [];
+    const cliente = new Proxy({} as Record<string, unknown>, {
+      get: (_c, nombre: string) => ({
+        findFirst: async () => ({ codigo: "PRY-1", estado: "BORRADOR" }),
+        findMany: async (args: unknown) => {
+          llamadas.push({ nombre, args });
+          return nombre === "rubro"
+            ? [
+                { codigo: "R01", nombre: "Personal", activo: true, deshabilitado_en: [] },
+                { codigo: "R06", nombre: "Viáticos", activo: true, deshabilitado_en: [{ proyecto_id: "p1" }] },
+              ]
+            : [];
+        },
+      }),
+    });
+
+    const contexto = await cargarContexto(cliente as never, "p1");
+
+    expect(contexto.rubros).toEqual([
+      { codigo: "R01", nombre: "Personal", activo: true, deshabilitado: false },
+      { codigo: "R06", nombre: "Viáticos", activo: true, deshabilitado: true },
+    ]);
+    const select = (llamadas.find((l) => l.nombre === "rubro")?.args as { select: Record<string, unknown> }).select;
+    expect(select.deshabilitado_en).toEqual({ where: { proyecto_id: "p1" }, select: { proyecto_id: true } });
   });
 });
 

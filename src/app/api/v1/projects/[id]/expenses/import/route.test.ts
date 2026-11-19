@@ -302,6 +302,31 @@ describe("POST expenses/import — validate-only preview", () => {
     expect(logChanges).not.toHaveBeenCalled();
   });
 
+  // B6: a rubro the project disabled is refused with the reason; the catalogue query reads only this project's row.
+  it("refuses a row on a rubro disabled for the project, naming it, and writes nothing", async () => {
+    mocks.rubroFindMany.mockResolvedValue([
+      rubroTransporte,
+      rubroViaticos,
+      { ...rubroSinAsignar, deshabilitado_en: [{ proyecto_id: "pry-1" }] },
+    ]);
+    const res = await POST(
+      subida(await libro([fila(), fila({ Rubro: "Sin asignar", "Número de documento": "FE-2" })]), { modo: "validar" }),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.filas[1]).toMatchObject({ valida: false });
+    expect(body.filas[1].mensaje).toBe(
+      "El rubro R99 Sin asignar está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+    );
+    expect(body.filas[0]).toMatchObject({ valida: true });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.rubroFindMany.mock.calls[0][0].select.deshabilitado_en).toEqual({
+      where: { proyecto_id: "pry-1" },
+      select: { proyecto_id: true },
+    });
+  });
+
   // S9/T14.3: dos filas del mismo documento son UNA factura distribuida, no un duplicado dentro del archivo.
   it("reads two rows of the same document as one invoice, not as an in-file duplicate (S9)", async () => {
     const res = await POST(

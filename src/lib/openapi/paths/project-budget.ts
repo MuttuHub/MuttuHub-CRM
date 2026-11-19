@@ -46,6 +46,13 @@ const BudgetViewSchema = registry.register(
         valor: z.string().openapi({ example: "15000000.00" }),
       }),
     ).openapi({ description: "Una línea por actividad + rubro (S1), por código de actividad; las heredadas al final." }),
+    rubros_deshabilitados: z
+      .array(z.object({ rubro_id: z.string().uuid(), codigo: z.string().nullable(), nombre: z.string() }))
+      .openapi({
+        description:
+          "B6: rubros deshabilitados solo para este proyecto (`PUT /projects/{id}/rubros/{rubroId}`). No aparecen en `rubros` " +
+          "ni en `lineas` (sus líneas están en $0, así que ninguna suma cambia) y no admiten dinero ni gastos hasta habilitarlos.",
+      }),
     suma: z.string().openapi({ description: "Σ A de todas las líneas." }),
     valor_total: z.string().nullable().openapi({ description: "Suma de las líneas (S2): no se digita." }),
     diferencia: z.string().nullable().openapi({ description: "Σ A − valor_total; nulo sin valor_total." }),

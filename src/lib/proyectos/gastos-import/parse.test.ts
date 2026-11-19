@@ -204,6 +204,16 @@ describe("parseGastosImport — rows (same rules as a single expense)", () => {
     expect((await unaFila({ Rubro: null })).error).toBe("Falta el nombre del rubro.")
   })
 
+  // B6: a rubro the project disabled is refused with the reason, not as «sin valor asignado».
+  it("refuses a rubro disabled for the project, naming it", async () => {
+    const ctx: ContextoImportGastos = { ...contexto, deshabilitados: new Set(["rub-3"]) }
+    const r = await parseGastosImport(await libro([fila({ Rubro: "Sin asignar" })]), ctx)
+    expect(r.filas[0].datos).toBeNull()
+    expect(r.filas[0].error).toBe(
+      "El rubro R99 Sin asignar está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+    )
+  })
+
   it("accepts es-CO text amounts and Date cells", async () => {
     const f = await unaFila({ Subtotal: "1.500.000,50", "Fecha del documento": new Date("2026-10-20T00:00:00Z") })
     expect(f.error).toBeNull()

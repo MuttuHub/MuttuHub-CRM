@@ -477,3 +477,64 @@ describe("PUT budget: writes", () => {
     expect(json.diferencia).toBe("0.00");
   });
 });
+
+// B6 (S1, decision L7 «Bloquear»): a rubro disabled for THIS project is hidden from its budget and takes no money.
+describe("budget with rubros disabled for the project (B6)", () => {
+  /** r5 disabled in pry-1: the rubro query brings the project's own disabled row back. */
+  const conR5Deshabilitado = () =>
+    rubros.map((r) => ({ ...r, deshabilitado_en: r.id === "r5" ? [{ proyecto_id: "pry-1" }] : [] }));
+
+  it("GET hides the disabled rubro and its $0 lines, and lists it apart so it can be re-enabled", async () => {
+    mocks.rubroFindMany.mockResolvedValue(conR5Deshabilitado());
+    mocks.lineaFindMany.mockResolvedValue([linea("r5", "0", "l-11-r5", act11), linea("r1", "100", "l-11-r1", act11)]);
+
+    const json = await (await GET(get(), ctx)).json();
+
+    expect(json.rubros).toHaveLength(14);
+    expect(json.rubros.map((r: { rubro_id: string }) => r.rubro_id)).not.toContain("r5");
+    expect(json.lineas.map((l: { linea_id: string }) => l.linea_id)).toEqual(["l-11-r1"]);
+    expect(json.rubros_deshabilitados).toEqual([{ rubro_id: "r5", codigo: "R05", nombre: "Rubro 5" }]);
+    expect(json.suma).toBe("100.00");
+    // Only this project's disabled rows are read: another project still offers r5.
+    expect(mocks.rubroFindMany.mock.calls[0][0].select.deshabilitado_en).toEqual({
+      where: { proyecto_id: "pry-1" },
+      select: { proyecto_id: true },
+    });
+  });
+
+  it("GET without disabled rubros keeps every active rubro and an empty disabled list", async () => {
+    mocks.rubroFindMany.mockResolvedValue(rubros.map((r) => ({ ...r, deshabilitado_en: [] })));
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.rubros).toHaveLength(15);
+    expect(json.rubros_deshabilitados).toEqual([]);
+  });
+
+  it("PUT refuses a new line with money on a disabled rubro, with the reason", async () => {
+    mocks.rubroFindMany.mockResolvedValue(conR5Deshabilitado());
+    const res = await PUT(put(cuerpo(item(act11, "r5", "5"))), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "El rubro R05 Rubro 5 está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+    );
+    expect(mocks.lineaCreate).not.toHaveBeenCalled();
+  });
+
+  it("PUT refuses to raise a stored $0 line of a disabled rubro", async () => {
+    mocks.rubroFindMany.mockResolvedValue(conR5Deshabilitado());
+    mocks.lineaFindMany.mockResolvedValue([linea("r5", "0", "l-11-r5", act11)]);
+    const res = await PUT(put(cuerpo(item(act11, "r5", "1"))), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("deshabilitado para este proyecto");
+    expect(mocks.lineaUpdate).not.toHaveBeenCalled();
+  });
+
+  it("PUT leaves the hidden $0 lines of a disabled rubro alone when the body omits them", async () => {
+    mocks.rubroFindMany.mockResolvedValue(conR5Deshabilitado());
+    mocks.lineaFindMany.mockResolvedValue([linea("r5", "0", "l-11-r5", act11), linea("r1", "100", "l-11-r1", act11)]);
+    const res = await PUT(put(cuerpo(item(act11, "r1", "100"))), ctx);
+    expect(res.status).toBe(200);
+    expect(mocks.lineaDelete).not.toHaveBeenCalled();
+    expect(mocks.celdaDeleteMany).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+});

@@ -53,7 +53,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | T2 | S4 V8 | delegated (context backstop) | done, verifier PASS (2e975883) | RED → GREEN 477/477; parent rerun 98/98; invariant 1/1 |
 | T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
 | T4 | S2 V2 | delegated | done, verifier PASS after 1 correction (01cfa6fc, cf7e5738, fde3361e) | RED → GREEN 392 tests; invariant 6/6; parent rerun 115/115 |
-| T5 | S1 B6 | delegated | queued: after T4 (shared prisma/schema.prisma) | — |
+| T5 | S1 B6 | delegated | done, verifier pending (Risk 1, 3, 4) | RED → GREEN 719 + 403 tests; invariants 14/14; parent rerun 201/201 |
 | T6 | S3 V5 | delegated | queued: after T5 (shared prisma/schema.prisma) | — |
 
 ## Log
@@ -116,3 +116,11 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   project stale) fixed in fde3361e: the project follows the opportunity. Recheck limited to those: B1 closed, A1–A3 OK
   (208 tests on a scratch worktree). Remaining advisory: a task linked straight to a project with no opportunity loses
   that project when an opportunity is set or cleared. Also f1d346e0 drops 5 unused V8 exports so `lint:dead` passes.
+- **L16** (2026-11-19): T5 done by a bounded writer (two passes). Migration `20261119140000_b6_rubros_deshabilitados`
+  (table `proyecto_rubros_deshabilitados`, PK (proyecto_id, rubro_id), FKs RESTRICT). `PUT /projects/[id]/rubros/[rubroId]`
+  `{ habilitado }`: 403 without budget-edit permission, 409 outside BORRADOR/EN_EJECUCION, 409 CONFLICT with money or
+  expenses (message names the amount), audited, under the project row lock. One rule, `rechazoPorRubroDeshabilitado`,
+  used by the budget PUT, the template validator V-11 (dry run and apply), and the template apply re-check; new
+  expenses, expense corrections, expense import and modification requests refuse a disabled rubro with the same
+  message. Budget view hides it and lists `rubros_deshabilitados`. UI: «Rubros del proyecto» on Presupuesto. About
+  1,040 changed lines: one behaviour across seven entry points, kept together so none accepts money on a disabled rubro.

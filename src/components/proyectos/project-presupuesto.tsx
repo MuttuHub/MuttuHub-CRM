@@ -5,6 +5,8 @@
 // interfaz: la autoridad es la API (403 / 409 INVALID_STATE). Fuera de BORRADOR (rediseño T3) la tabla suma, por
 // rubro, lo ejecutado y lo disponible (asignado − ejecutado), leídos de la misma lista de gastos que usa
 // Finanzas › Gastos. AJ-08: todo gasto que cuenta ya es ejecutado, así que no hay columna «Por validar».
+// B6: «Rubros del proyecto» deshabilita (o vuelve a habilitar) un rubro solo para este proyecto, en Borrador o en
+// ejecución; un rubro deshabilitado sale del editor y de la tabla. La API decide si se puede y dice por qué no.
 
 "use client";
 
@@ -23,6 +25,7 @@ import {
   useProjectActivities,
   useProjectBudget,
   useProjectExpenses,
+  useToggleRubroProyecto,
   useUpdateBudget,
   type ProjectBudget,
   type ProjectBudgetLinea,
@@ -69,6 +72,10 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
           canEdit={canEdit}
           ejecucion={ejecucion}
         />
+      )}
+
+      {puedeGestionar && (proyecto.estado === "BORRADOR" || proyecto.estado === "EN_EJECUCION") && query.data?.rubros && (
+        <RubrosDelProyecto proyectoId={proyecto.id} budget={query.data} />
       )}
 
       <PresupuestoProgramacion proyecto={proyecto} canEdit={canEdit} />
@@ -364,6 +371,57 @@ function PresupuestoEditor({
       )}
       <InlineError message={errorPut} />
     </div>
+  );
+}
+
+/** B6: the catalogue rubros of this project, each with its switch; disabled ones listed apart. */
+function RubrosDelProyecto({ proyectoId, budget }: { proyectoId: string; budget: ProjectBudget }) {
+  const cambiar = useToggleRubroProyecto(proyectoId);
+  const habilitados = budget.rubros.filter((r) => r.activo);
+  const deshabilitados = budget.rubros_deshabilitados ?? [];
+  const etiqueta = (r: { codigo: string | null; nombre: string }) => `${r.codigo ?? ""} ${r.nombre}`.trim();
+  const fila = (r: { rubro_id: string; codigo: string | null; nombre: string }, habilitar: boolean) => (
+    <li key={r.rubro_id} className="flex items-center justify-between gap-2 py-1">
+      <span className={habilitar ? "text-ink-500" : "text-ink-800"}>
+        <span className="font-mono text-[11.5px] text-ink-500">{r.codigo ?? "—"}</span> {r.nombre}
+      </span>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        disabled={cambiar.isPending}
+        aria-label={`${habilitar ? "Habilitar" : "Deshabilitar"} ${etiqueta(r)}`}
+        onClick={() => cambiar.mutate({ rubroId: r.rubro_id, habilitado: habilitar })}
+      >
+        {habilitar ? "Habilitar" : "Deshabilitar"}
+      </Button>
+    </li>
+  );
+
+  return (
+    <details data-testid="presupuesto-rubros-proyecto" className="mt-2.5 rounded-inner border border-border bg-panel px-3 py-2 text-[12.5px]">
+      <summary className="cursor-pointer font-semibold text-ink-800">
+        Rubros del proyecto
+        {deshabilitados.length > 0 && (
+          <span className="ml-1.5 font-normal text-ink-500">
+            ({deshabilitados.length} deshabilitado{deshabilitados.length === 1 ? "" : "s"})
+          </span>
+        )}
+      </summary>
+      <p className="mt-1.5 text-ink-500">
+        Deshabilita los rubros que no aplican a este proyecto: dejan de ofrecerse en el presupuesto, los gastos, las
+        importaciones y las modificaciones. Solo se puede deshabilitar un rubro en $0 y sin gastos en este proyecto.
+        Los demás proyectos no cambian.
+      </p>
+      <ul className="mt-1.5 divide-y divide-border">{habilitados.map((r) => fila(r, false))}</ul>
+      {deshabilitados.length > 0 && (
+        <>
+          <p className="mt-2 font-semibold text-ink-800">Deshabilitados en este proyecto</p>
+          <ul className="divide-y divide-border">{deshabilitados.map((r) => fila(r, true))}</ul>
+        </>
+      )}
+      <InlineError message={cambiar.isError ? errorMessage(cambiar.error, "No pudimos cambiar el rubro.") : null} />
+    </details>
   );
 }
 
