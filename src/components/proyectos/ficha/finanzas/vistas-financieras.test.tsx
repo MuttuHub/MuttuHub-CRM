@@ -436,6 +436,29 @@ describe("VistasFinancieras", () => {
   })
 
   describe("(b) el ejecutado total", () => {
+    it("la vista por actividad toma el corte y la base elegidos en «Por rubro», y al volver siguen elegidos (L32)", async () => {
+      const user = userEvent.setup()
+      setup()
+      await screen.findByTestId("financiero-rubros")
+
+      await user.click(screen.getByRole("button", { name: "Ver detalle con diferencias y límites de cada color" }))
+      await user.selectOptions(screen.getByRole("combobox", { name: "Calcular hasta" }), "2026-12")
+      await user.selectOptions(screen.getByRole("combobox", { name: "Comparar con" }), "original")
+      const hoja = () =>
+        (fetchMock.mock.calls as [unknown][]).map(([url]) => String(url)).filter((url) => url.includes("/financial-sheet"))
+      await waitFor(() => expect(hoja().at(-1)).toContain("corte=2026-12&base=original"))
+      const antes = hoja().length
+
+      await irAActividad(user)
+      await screen.findByTestId("finanzas-por-actividad")
+      // Misma consulta que la vista por rubro: ninguna petición sale sin el corte y la base elegidos.
+      expect(hoja().slice(antes).every((url) => url.includes("corte=2026-12&base=original"))).toBe(true)
+
+      await irARubro(user)
+      await screen.findByTestId("financiero-rubros")
+      expect(screen.getByTestId("financiero-filtros")).toHaveTextContent("Hasta")
+    })
+
     it("es igual en las dos vistas porque sale del mismo payload (S10)", async () => {
       const user = userEvent.setup()
       setup()

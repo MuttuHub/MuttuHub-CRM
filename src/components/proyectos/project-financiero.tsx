@@ -8,6 +8,7 @@
 
 "use client";
 
+import { useFiltroFinanciero, type FiltroFinanciero } from "@/components/proyectos/ficha/finanzas/filtro-financiero";
 import { useState } from "react";
 import { AyudaBase, BASE_NO_DISPONIBLE, ETIQUETA_BASE, ETIQUETA_CORTE, NOMBRE_BASE, OpcionesBase, SemaforoProvisional } from "@/components/proyectos/vocabulario-seguimiento";
 import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
@@ -50,11 +51,22 @@ type Navegacion = {
 };
 
 // Its only screen is Finanzas › Resumen, whose segment already names the section: no heading of its own.
-export function ProjectFinanciero({ proyecto, ...navegacion }: { proyecto: ProjectListRow } & Navegacion) {
+// Without `filtro` it keeps its own corte and base, as before.
+export function ProjectFinanciero({
+  proyecto,
+  filtro,
+  ...navegacion
+}: { proyecto: ProjectListRow; filtro?: FiltroFinanciero } & Navegacion) {
   return (
     <section data-testid="financiero">
       {proyecto.fecha_inicio && proyecto.fecha_fin ? (
-        <FinancieroContent proyecto={proyecto} inicio={proyecto.fecha_inicio} fin={proyecto.fecha_fin} {...navegacion} />
+        <FinancieroContent
+          proyecto={proyecto}
+          inicio={proyecto.fecha_inicio}
+          fin={proyecto.fecha_fin}
+          filtro={filtro}
+          {...navegacion}
+        />
       ) : (
         <p className="mt-1.5 text-[12.5px] text-ink-500">
           La ficha financiera estará disponible cuando el proyecto tenga fechas de inicio y fin.
@@ -76,11 +88,12 @@ function FinancieroContent({
   proyecto,
   inicio,
   fin,
+  filtro,
   onVerActividades,
-}: { proyecto: ProjectListRow; inicio: string; fin: string } & Navegacion) {
+}: { proyecto: ProjectListRow; inicio: string; fin: string; filtro?: FiltroFinanciero } & Navegacion) {
   const periodos = periodosDe(inicio, fin);
-  const [corte, setCorte] = useState<string | null>(null);
-  const [base, setBase] = useState<ProjectBase>("vigente");
+  const propio = useFiltroFinanciero();
+  const { corte, base, setCorte, setBase } = filtro ?? propio;
   const [detalle, setDetalle] = useState(false);
   // The original (v0) exists from the baseline approval on; in BORRADOR there is nothing to compare with.
   const baseDisponible = proyecto.estado !== "BORRADOR";

@@ -43,6 +43,7 @@ import {
   useProjectFinancialSheet,
   useProjectObjectives,
   useReopenActivityExpenses,
+  type ProjectBase,
   type ProjectFinancialSheet,
   type ProjectListRow,
   type ProjectObjective,
@@ -95,8 +96,17 @@ function cierreDe(fila: ActividadRow): { etiqueta: "Ahorro" | "Sobreejecución";
     : { etiqueta: "Ahorro", valor: fila.ahorro ?? "0.00" };
 }
 
-export function PorActividad({ proyecto }: { proyecto: ProjectListRow }) {
-  const query = useProjectFinancialSheet(proyecto.id, null, "vigente");
+/** `corte` y `base` son los que eligió «Por rubro» (L32.1); sin ellos, el corte del servidor y el plan vigente. */
+export function PorActividad({
+  proyecto,
+  corte = null,
+  base = "vigente",
+}: {
+  proyecto: ProjectListRow;
+  corte?: string | null;
+  base?: ProjectBase;
+}) {
+  const query = useProjectFinancialSheet(proyecto.id, corte, base);
   // L32.3: la hoja solo publica `objetivo_codigo`, así que la descripción del título se lee de la estructura, la
   // misma fuente que usa la pantalla de Actividades. Mientras carga, si falla o si el objetivo no está en la
   // lista, el título se queda como hoy («Objetivo 1»).

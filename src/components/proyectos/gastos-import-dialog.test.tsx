@@ -152,6 +152,26 @@ describe("GastosImportDialog", () => {
     expect(within(dialogo).getByRole("button", { name: "Importar 2 gastos" })).toBeEnabled()
   })
 
+  it("shows each row's activity code next to its rubro, and a dash when the cell is empty", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        ...PREVIEW,
+        filas: [filaVista({ actividad: "1.2" }), filaVista({ fila: 3, actividad: null })],
+      }),
+    )
+    const { user, dialogo } = await abrir()
+    await validar(user, dialogo)
+
+    const tabla = await within(dialogo).findByRole("table")
+    const encabezados = within(tabla).getAllByRole("columnheader").map((th) => th.textContent)
+    expect(encabezados.slice(0, 4)).toEqual(["Fila", "Estado", "Rubro", "Actividad"])
+    const celdas = within(tabla)
+      .getAllByRole("row")
+      .slice(1)
+      .map((fila) => within(fila).getAllByRole("cell")[3]!.textContent)
+    expect(celdas).toEqual(["1.2", "—"])
+  })
+
   it("imports only the valid rows on confirm and shows the result with the rejected rows and the support reminder", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(PREVIEW)).mockResolvedValueOnce(jsonResponse(APLICADO))
     const { user, dialogo } = await abrir()
