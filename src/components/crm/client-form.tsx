@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { useTaskTags } from "@/hooks/admin";
 import {
   useCreateClient,
+  useDepartamentos,
   useUpdateClient,
   type ClientDetail,
 } from "@/hooks/crm";
@@ -198,11 +199,49 @@ function ClientTagsField({
   );
 }
 
+/* ── Departamento (V5, S3, decisión L8 «Campo departamento») ─────────────
+ * Select de la lista oficial (los departamentos del catálogo de municipios).
+ * Opcional: «Sin departamento» deja el campo vacío, y el mapa muestra a ese
+ * cliente aparte. Un valor guardado que ya no esté en la lista se conserva
+ * como opción para no perderlo al editar. */
+function DepartamentoField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const query = useDepartamentos();
+  const oficiales = (query.data ?? []).map((d) => d.departamento);
+  const opciones = value && !oficiales.includes(value) ? [...oficiales, value] : oficiales;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label id="cliente-departamento-label">Departamento</Label>
+      <Select value={value} onValueChange={(v) => onChange(v ?? "")}>
+        <SelectTrigger aria-labelledby="cliente-departamento-label" className="w-full px-3">
+          <SelectValue placeholder="Sin departamento" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Sin departamento</SelectItem>
+          {opciones.map((d) => (
+            <SelectItem key={d} value={d}>
+              {d}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export type ClientFormState = {
   nombre: string;
   empresa: string;
   tamano_org: string;
   ubicacion: string;
+  /** V5: "" = sin departamento. */
+  departamento: string;
   canal_contacto_inicial: string;
   fecha_primer_contacto: string;
   tipo_cliente: TipoCliente;
@@ -220,6 +259,7 @@ const EMPTY_CLIENT_STATE: ClientFormState = {
   empresa: "",
   tamano_org: "",
   ubicacion: "",
+  departamento: "",
   canal_contacto_inicial: "",
   fecha_primer_contacto: "",
   tipo_cliente: "GOBIERNO_LOCAL",
@@ -269,6 +309,7 @@ export function ClientFormDialog({
           empresa: cliente.empresa ?? "",
           tamano_org: cliente.tamano_org ?? "",
           ubicacion: cliente.ubicacion ?? "",
+          departamento: cliente.departamento ?? "",
           canal_contacto_inicial: cliente.canal_contacto_inicial ?? "",
           fecha_primer_contacto: toDateInput(cliente.fecha_primer_contacto),
           tipo_cliente: cliente.tipo_cliente,
@@ -324,8 +365,13 @@ export function ClientFormDialog({
     };
 
     if (isEdit && cliente) {
+      // V5: the departamento travels only when it changed, so an untouched edit sends the same
+      // payload as before; "" clears it with null.
+      const departamentoCambio = form.departamento !== (cliente.departamento ?? "");
       try {
-        await updateMutation.mutateAsync(payload);
+        await updateMutation.mutateAsync(
+          departamentoCambio ? { ...payload, departamento: form.departamento || null } : payload,
+        );
         onOpenChange(false);
         onSaved();
       } catch {
@@ -335,7 +381,7 @@ export function ClientFormDialog({
     }
 
     try {
-      await createMutation.mutateAsync(payload);
+      await createMutation.mutateAsync({ ...payload, departamento: form.departamento || undefined });
       onOpenChange(false);
       onSaved();
     } catch {
@@ -465,6 +511,8 @@ export function ClientFormDialog({
                 className="px-3"
               />
             </div>
+
+            <DepartamentoField value={form.departamento} onChange={(v) => set("departamento", v)} />
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="cliente-canal">Canal de contacto inicial</Label>

@@ -14,6 +14,10 @@ vi.mock("@/lib/db", () => ({
     usuario: {
       findFirst: vi.fn(),
     },
+    // V5: the departamento is checked against the municipios catalogue.
+    municipio: {
+      findFirst: vi.fn(),
+    },
     oportunidad: {
       groupBy: vi.fn(),
     },
@@ -659,5 +663,104 @@ describe("último contacto y días sin gestión (N6)", () => {
     const res = await GET(new Request("http://localhost/api/v1/clients?sinGestion=abc"));
 
     expect(res.status).toBe(400);
+  });
+});
+
+// V5 (S3, decision L8): the client's departamento, picked from the municipios catalogue.
+describe("client departamento (V5)", () => {
+  const created = {
+    ...baseClientRow,
+    tamano_org: null,
+    canal_contacto_inicial: null,
+    fecha_primer_contacto: null,
+    prioridades_identificadas: null,
+    riesgos_barreras: null,
+    resumen_relacion: null,
+    created_at: new Date("2026-01-01"),
+  };
+
+  beforeEach(() => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+  });
+
+  it("POST saves a departamento that is in the catalogue (trimmed) and returns it", async () => {
+    vi.mocked(db.municipio.findFirst).mockResolvedValue({ id: "m1" } as never);
+    vi.mocked(db.cliente.create).mockResolvedValue({ ...created, departamento: "Antioquia" } as never);
+
+    const res = await POST(
+      postRequest({
+        nombre: "Acme",
+        tipo_cliente: "EMPRESA_PRIVADA",
+        responsable_id: "colab-1",
+        departamento: "  Antioquia ",
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.municipio.findFirst).toHaveBeenCalledWith({
+      where: { departamento: "Antioquia" },
+      select: { id: true },
+    });
+    const args = vi.mocked(db.cliente.create).mock.calls[0][0];
+    expect(args.data.departamento).toBe("Antioquia");
+    expect(args.select).toMatchObject({ departamento: true });
+    expect((await res.json()).cliente.departamento).toBe("Antioquia");
+  });
+
+  it("POST rejects a departamento outside the catalogue with 400 VALIDATION_ERROR", async () => {
+    vi.mocked(db.municipio.findFirst).mockResolvedValue(null);
+
+    const res = await POST(
+      postRequest({ nombre: "Acme", tipo_cliente: "EMPRESA_PRIVADA", responsable_id: "colab-1", departamento: "Narnia" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      code: "VALIDATION_ERROR",
+      error: "El departamento no está en el catálogo oficial de departamentos.",
+    });
+    expect(db.cliente.create).not.toHaveBeenCalled();
+  });
+
+  it("POST without departamento creates the client as before, without reading the catalogue", async () => {
+    vi.mocked(db.cliente.create).mockResolvedValue(created as never);
+
+    const res = await POST(postRequest({ nombre: "Acme", tipo_cliente: "EMPRESA_PRIVADA", responsable_id: "colab-1" }));
+
+    expect(res.status).toBe(201);
+    expect(db.municipio.findFirst).not.toHaveBeenCalled();
+    expect(vi.mocked(db.cliente.create).mock.calls[0][0].data.departamento).toBeUndefined();
+  });
+
+  it("GET keeps the list row shape unchanged (no departamento key)", async () => {
+    vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, etiquetas: [] }] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients"));
+    const json = await res.json();
+
+    expect(Object.keys(json.items[0]).sort()).toEqual(
+      [
+        "compromisos_abiertos",
+        "dias_sin_gestion",
+        "empresa",
+        "estado",
+        "etiquetas",
+        "id",
+        "next_compromiso",
+        "nombre",
+        "prioridad",
+        "puede_editar",
+        "puede_gestionar_oportunidades",
+        "responsable_id",
+        "responsable_nombre",
+        "tipo_cliente",
+        "ubicacion",
+        "ultimo_contacto",
+        "updated_at",
+        "valor_potencial",
+      ].sort(),
+    );
+    expect(vi.mocked(db.cliente.findMany).mock.calls[0][0]?.select).not.toHaveProperty("departamento");
   });
 });

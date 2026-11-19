@@ -147,6 +147,10 @@ const ClienteFullSchema = registry.register(
     estado: EstadoClienteSchema,
     prioridad: PrioridadClienteSchema.nullable(),
     ubicacion: z.string().nullable(),
+    departamento: z.string().nullable().openapi({
+      description:
+        "V5: departamento del catálogo de municipios (lista oficial). null = sin departamento; nunca se deduce de `ubicacion`.",
+    }),
     responsable_id: z.string().uuid(),
     updated_at: z.string().datetime(),
     responsable: z.object({ nombre: z.string() }),
@@ -312,15 +316,8 @@ const BitacoraEntradaSchema = registry.register(
 );
 
 // ── GET /api/v1/clients — list ──────────────────────────────────────────
-registry.registerPath({
-  method: "get",
-  path: "/api/v1/clients",
-  tags: ["Clientes"],
-  summary: "Lista de clientes con búsqueda, filtros y paginación",
-  description: `${SCOPE_NOTE} Cuando COLABORADOR envía el filtro "responsable", el servidor lo fuerza a su propio id (no se filtran clientes ajenos por este parámetro).`,
-  security: [{ sessionCookie: [] }],
-  request: {
-    query: z.object({
+/** The clients list's filter params, shared by GET /clients and GET /clients/map (V5). */
+const ClientFiltersQuery = z.object({
       q: z.string().optional().openapi({ description: "Búsqueda por nombre, empresa, nombre de contacto o texto de bitácora." }),
       tipo: TipoClienteSchema.optional(),
       estado: EstadoClienteSchema.optional(),
@@ -344,6 +341,17 @@ registry.registerPath({
         description:
           "PR-11 (N6): deja solo los clientes sin contacto en los últimos N días (un cliente sin bitácora cuenta como sin gestión).",
       }),
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/clients",
+  tags: ["Clientes"],
+  summary: "Lista de clientes con búsqueda, filtros y paginación",
+  description: `${SCOPE_NOTE} Cuando COLABORADOR envía el filtro "responsable", el servidor lo fuerza a su propio id (no se filtran clientes ajenos por este parámetro).`,
+  security: [{ sessionCookie: [] }],
+  request: {
+    query: ClientFiltersQuery.extend({
       page: z.coerce.number().int().min(1).optional().openapi({ description: "Página, 1-indexada. Default 1." }),
       limit: z.coerce.number().int().min(1).max(200).optional().openapi({ description: "Tamaño de página, 1-200. Default 25." }),
     }),
@@ -366,6 +374,64 @@ registry.registerPath({
   },
 });
 
+// ── GET /api/v1/clients/map — V5 coverage by departamento ───────────────
+const MapaClienteSchema = z.object({
+  id: z.string().uuid(),
+  nombre: z.string(),
+  estado: EstadoClienteSchema,
+  departamento: z.string().nullable(),
+  ubicacion: z.string().nullable().openapi({ description: "Solo informativo: el mapa nunca la usa para ubicar." }),
+  responsable_nombre: z.string(),
+  proyectos: z.number().int().openapi({ description: "Proyectos vivos (no eliminados) del cliente." }),
+});
+
+const MapaGrupoSchema = z.object({
+  aliados: z.number().int(),
+  proyectos: z.number().int(),
+  clientes: z.array(MapaClienteSchema),
+});
+
+const MapaAliadosSchema = registry.register(
+  "MapaAliados",
+  z.object({
+    departamentos: z.array(
+      MapaGrupoSchema.extend({
+        departamento: z.string(),
+        codigo: z.string().nullable().openapi({
+          description: "Código DANE del departamento (prefijo de sus municipios), null si no se conoce.",
+        }),
+      }),
+    ).openapi({
+      description:
+        "Un elemento por departamento del catálogo de municipios (también con 0), más uno por cada valor guardado que ya no esté en el catálogo.",
+    }),
+    sin_departamento: MapaGrupoSchema.openapi({ description: "Clientes visibles sin departamento." }),
+    total: z.number().int(),
+    con_departamento: z.number().int(),
+    max_aliados: z.number().int(),
+  }),
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/clients/map",
+  tags: ["Clientes"],
+  summary: "Mapa de aliados por departamento (V5)",
+  description:
+    `${SCOPE_NOTE} Agrega en el servidor los clientes que ve la lista, con sus mismos filtros. ` +
+    "Solo cuentan en un departamento los clientes que lo tienen asignado; el resto va en `sin_departamento`. " +
+    "Nunca se deduce un departamento del texto libre de `ubicacion`.",
+  security: [{ sessionCookie: [] }],
+  request: { query: ClientFiltersQuery },
+  responses: {
+    200: {
+      description: "Cobertura por departamento.",
+      content: { "application/json": { schema: z.object({ data: MapaAliadosSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 500]),
+  },
+});
+
 // ── POST /api/v1/clients — create ───────────────────────────────────────
 registry.registerPath({
   method: "post",
@@ -374,6 +440,7 @@ registry.registerPath({
   summary: "Crea un cliente",
   description:
     "Formulario mínimo: nombre, tipo_cliente, responsable_id; estado por defecto PROSPECTO. " +
+    "`departamento` es opcional y debe estar en el catálogo de municipios (GET /api/v1/departamentos); otro valor responde 400 VALIDATION_ERROR. " +
     "COLABORADOR solo puede crear clientes de los que él mismo será responsable — el servidor fuerza responsable_id a su propio id sin importar lo enviado en el body.",
   security: [{ sessionCookie: [] }],
   request: {
@@ -417,7 +484,8 @@ registry.registerPath({
   description:
     `${SCOPE_NOTE} Escritura además requiere ser el responsable si el rol no es de acceso total; un cliente visible pero no editable responde 403. ` +
     "Body parcial: cualquier subconjunto no vacío de campos es válido, incluyendo enviar SOLO responsable_id (corregido: antes un body con únicamente responsable_id era rechazado con 400 por error). " +
-    "COLABORADOR no puede reasignar responsable_id a otra persona — solo puede confirmarse a sí mismo; intentarlo con otro id responde 403.",
+    "COLABORADOR no puede reasignar responsable_id a otra persona — solo puede confirmarse a sí mismo; intentarlo con otro id responde 403. " +
+    "`departamento` debe estar en el catálogo de municipios (otro valor responde 400 VALIDATION_ERROR); null lo borra.",
   security: [{ sessionCookie: [] }],
   request: {
     params: z.object({ id: z.string().uuid() }),

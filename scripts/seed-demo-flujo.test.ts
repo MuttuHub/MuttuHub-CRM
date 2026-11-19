@@ -38,6 +38,7 @@ const none = (): ExistingIds => ({
   oportunidades: new Set(),
   interacciones: new Set(),
   tareas: new Set(),
+  clientesSinDepartamento: new Set(),
 })
 
 function allIds(d: DemoFlujoData): ExistingIds {
@@ -47,6 +48,7 @@ function allIds(d: DemoFlujoData): ExistingIds {
     oportunidades: new Set(d.oportunidades.map((o) => o.id)),
     interacciones: new Set(d.interacciones.map((i) => i.id)),
     tareas: new Set(d.tareas.map((t) => t.id)),
+    clientesSinDepartamento: new Set(),
   }
 }
 
@@ -223,16 +225,71 @@ describe("planDemoFlujo (idempotency)", () => {
   })
 })
 
+// V5 (S3, decision L8): the demo clients carry a departamento matching their ubicación city, so the
+// Mapa is not empty. The seed stays insert-only for rows; the one exception is filling a NULL
+// departamento on a demo client seeded before V5, which a second run no longer finds.
+describe("departamento (V5)", () => {
+  it("gives every demo client the departamento of its ubicación city, from the demo municipios catalog", () => {
+    expect(data.clientes.map((c) => [c.ubicacion, c.departamento])).toEqual([
+      ["Barranquilla, Atlántico", "Atlántico"],
+      ["Cali, Valle del Cauca", "Valle del Cauca"],
+      ["Manizales, Caldas", "Caldas"],
+      ["Bucaramanga, Santander", "Santander"],
+      ["Bogotá D.C.", "Bogotá D.C."],
+      ["Medellín, Antioquia", "Antioquia"],
+    ])
+  })
+
+  it("flags a demo client without departamento", () => {
+    const broken = { ...data, clientes: data.clientes.map((c, i) => (i === 0 ? { ...c, departamento: "" } : c)) }
+    expect(checkDemoFlujoData(broken).join("\n")).toMatch(/has no departamento/)
+  })
+
+  it("fills the departamento only on existing demo clients that lack it, and nothing else", () => {
+    const existing = allIds(data)
+    existing.clientesSinDepartamento = new Set([data.clientes[0].id, data.clientes[2].id])
+    const plan = planDemoFlujo(data, existing)
+    expect(plan.decision).toBe("top-up")
+    expect(plan.departamentos).toEqual([
+      { id: data.clientes[0].id, departamento: "Atlántico" },
+      { id: data.clientes[2].id, departamento: "Caldas" },
+    ])
+    expect(plan.clientes).toHaveLength(0)
+  })
+
+  it("does not plan a departamento fill for clients it is about to create", () => {
+    expect(planDemoFlujo(data, none()).departamentos).toEqual([])
+  })
+
+  it("reports already seeded once every demo client has its departamento", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://u:p@127.0.0.1:54322/postgres")
+    const existing = allIds(data)
+    existing.clientesSinDepartamento = new Set([data.clientes[1].id])
+    const first = fakeClient(existing)
+    const writer = vi.fn(async () => ({ lines: [] }))
+    await runSeedDemoFlujo(first.client, ["--apply"], () => {}, writer)
+    expect(writer).toHaveBeenCalledTimes(1)
+
+    const second = fakeClient(allIds(data))
+    const result = await runSeedDemoFlujo(second.client, ["--apply"], () => {}, writer)
+    expect(result.mode).toBe("already-seeded")
+    expect(writer).toHaveBeenCalledTimes(1)
+    vi.unstubAllEnvs()
+  })
+})
+
 function fakeClient(existing: ExistingIds): { client: DemoFlujoClient; count: { findMany: number } } {
   const count = { findMany: 0 }
-  const finder = (set: Set<string>) => ({
-    findMany: vi.fn(async (args: { where: { id: { in: string[] } } }) => {
+  const finder = (set: Set<string>, sinDepartamento?: Set<string>) => ({
+    findMany: vi.fn(async (args: { where: { id: { in: string[] }; departamento?: null } }) => {
       count.findMany += 1
-      return args.where.id.in.filter((id) => set.has(id)).map((id) => ({ id }))
+      // V5: the departamento backfill reads the existing clients whose departamento is NULL.
+      const source = args.where.departamento === null && sinDepartamento ? sinDepartamento : set
+      return args.where.id.in.filter((id) => source.has(id)).map((id) => ({ id }))
     }),
   })
   const client = {
-    cliente: finder(existing.clientes),
+    cliente: finder(existing.clientes, existing.clientesSinDepartamento),
     contacto: finder(existing.contactos),
     oportunidad: finder(existing.oportunidades),
     bitacoraEntrada: finder(existing.interacciones),
