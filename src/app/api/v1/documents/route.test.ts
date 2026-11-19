@@ -282,7 +282,7 @@ describe("GET /api/v1/documents", () => {
     const res = await GET(new Request("http://localhost/api/v1/documents?orden=nombre_asc"));
 
     expect(res.status).toBe(200);
-    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual({ titulo: "asc" });
+    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual([{ titulo: "asc" }, { id: "asc" }]);
   });
 
   it("orden=nombre_desc also orders the full-text search page", async () => {
@@ -295,7 +295,7 @@ describe("GET /api/v1/documents", () => {
     const res = await GET(new Request("http://localhost/api/v1/documents?q=informe&orden=nombre_desc"));
 
     expect(res.status).toBe(200);
-    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual({ titulo: "desc" });
+    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual([{ titulo: "desc" }, { id: "asc" }]);
   });
 
   it("keeps the existing filters when orden is combined with them", async () => {
@@ -313,6 +313,16 @@ describe("GET /api/v1/documents", () => {
     expect(where.carpeta_id).toBe("folder-1");
     expect(where.categoria).toBe("Comercial");
     expect(where.deleted_at).toBeNull();
+  });
+
+  it("treats an empty orden= like no orden (newest first)", async () => {
+    baseListMocks();
+    vi.mocked(db.documento.findMany).mockResolvedValue([]);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents?orden="));
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.documento.findMany).mock.calls[0]![0]!.orderBy).toEqual({ created_at: "desc" });
   });
 
   it("rejects an unknown orden with the validation error shape", async () => {

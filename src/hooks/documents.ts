@@ -627,15 +627,31 @@ export function useTrashedDocuments(params: {
   });
 }
 
-/** Restores a document from the trash (S8); the server moves it to the root if its folder is gone. */
-export function useRestoreDocument(): UseMutationResult<ApiVoid, Error, string> {
+/** A document id, or `{ id, force }` to restore despite a live document with the same title. */
+export type RestoreDocumentInput = string | { id: string; force?: boolean };
+
+/** True for the duplicate-title 409 the restore (and create) endpoints answer. */
+export function isDuplicateTitleConflict(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && err.code === "CONFLICT";
+}
+
+/**
+ * Restores a document from the trash (S8); the server moves it to the root if
+ * its folder is gone. A duplicate-title 409 is not toasted: the caller asks
+ * whether to restore anyway and retries with `force`.
+ */
+export function useRestoreDocument(): UseMutationResult<ApiVoid, Error, RestoreDocumentInput> {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
+    mutationFn: async (input) => {
+      const { id, force } = typeof input === "string" ? { id: input, force: false } : input;
       try {
-        return await apiPost<ApiVoid>(`/api/v1/documents/${id}/restore`);
+        return await apiPost<ApiVoid>(
+          `/api/v1/documents/${id}/restore`,
+          force ? { force: true } : undefined,
+        );
       } catch (err) {
-        if (err instanceof ApiError) toast.error(err.message);
+        if (err instanceof ApiError && !isDuplicateTitleConflict(err)) toast.error(err.message);
         throw err;
       }
     },

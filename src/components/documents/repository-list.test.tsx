@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { createElement, type ComponentProps } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { DocumentItem, FolderNode } from "@/hooks/documents"
+import { ApiError } from "@/lib/api/http"
 import { RepositoryList } from "./repository-list"
 
 // Lane 1, task 1.3 (S3–S5): the repository uploads into the open folder,
@@ -478,6 +479,30 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
     expect(moveMutation.mutate).toHaveBeenCalledWith({ id: "doc-1", carpeta_id: "f-acme" })
   })
 
+  it("does not let a user who cannot modify a document drag it, in the list or the grid", () => {
+    currentUser.value = { id: "u2", nombre: "Otro", rol: "COLABORADOR" }
+    const { container } = render(<RepositoryList />)
+    const draggables = () => [...container.querySelectorAll('[aria-roledescription="draggable"]')]
+
+    expect(draggables().map((el) => el.getAttribute("aria-disabled"))).toEqual(["true"])
+    showGrid()
+    expect(draggables().map((el) => el.getAttribute("aria-disabled"))).toEqual(["true"])
+
+    act(() => {
+      dnd.onDragEnd!({ active: { id: "doc:doc-1" }, over: { id: "carpeta:f-acme" } })
+    })
+    expect(moveMutation.mutate).not.toHaveBeenCalled()
+  })
+
+  it("still lets the author drag their own document", () => {
+    currentUser.value = { id: "u1", nombre: "Ana", rol: "COLABORADOR" }
+    const { container } = render(<RepositoryList />)
+    showGrid()
+
+    const tiles = [...container.querySelectorAll('[aria-roledescription="draggable"]')]
+    expect(tiles.map((el) => el.getAttribute("aria-disabled"))).toEqual(["false"])
+  })
+
   it("dragging a document onto «Todas» takes it out of its folder", async () => {
     const user = userEvent.setup()
     render(<RepositoryList />)
@@ -828,6 +853,36 @@ describe("RepositoryList — explorer redesign (S1, S2, S4–S7, S9, S10)", () =
     await user.click(within(papelera).getByRole("button", { name: "Restaurar Viejo.pdf" }))
 
     expect(restoreMutation.mutateAsync).toHaveBeenCalledWith("doc-9")
+  })
+
+  it("S8 UI: a duplicate title asks before restoring, and «Restaurar igual» forces it", async () => {
+    currentUser.value = { id: "u3", nombre: "Coord", rol: "COORDINADOR" }
+    useTrashedMock.mockReturnValue({
+      data: {
+        items: [{ ...DOC, id: "doc-9", titulo: "Viejo.pdf", deleted_at: "2026-11-12T09:00:00.000Z", eliminado_por_nombre: "Camila Rojas" }],
+        total: 1,
+        page: 1,
+        limit: 25,
+      },
+      isLoading: false,
+      isError: false,
+    })
+    restoreMutation.mutateAsync
+      .mockRejectedValueOnce(new ApiError('Ya existe un documento llamado "Viejo.pdf".', 409, "CONFLICT"))
+      .mockResolvedValueOnce({})
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(screen.getByRole("tab", { name: "Papelera" }))
+    const papelera = await screen.findByRole("region", { name: "Papelera" })
+    await user.click(within(papelera).getByRole("button", { name: "Restaurar Viejo.pdf" }))
+
+    const dialog = await screen.findByRole("dialog", { name: "¿Restaurar de todos modos?" })
+    expect(within(dialog).getByText(/Ya existe un documento llamado "Viejo.pdf"\./)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole("button", { name: "Restaurar igual" }))
+
+    expect(restoreMutation.mutateAsync).toHaveBeenLastCalledWith({ id: "doc-9", force: true })
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   })
 
   it("S9: Actividad renders the document audit events", async () => {

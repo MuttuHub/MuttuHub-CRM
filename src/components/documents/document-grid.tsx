@@ -121,11 +121,21 @@ function FolderTile({
   );
 }
 
-function GridDocTile({ doc, onOpen }: { doc: DocumentItem; onOpen: () => void }) {
+function GridDocTile({
+  doc,
+  canWrite,
+  onOpen,
+}: {
+  doc: DocumentItem;
+  canWrite: boolean;
+  onOpen: () => void;
+}) {
   const meta = documentFileMeta(doc);
   const Icon = meta.Icon;
+  // Moving is a write: only who can modify the document may drag it.
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `${DOC_DRAG_PREFIX}${doc.id}`,
+    disabled: !canWrite,
   });
   return (
     <button
@@ -154,6 +164,7 @@ export function DocumentsGrid({
   items,
   folders,
   folderHandlers,
+  canWrite,
   onOpenFicha,
   onOpenUpload,
   footer,
@@ -162,6 +173,7 @@ export function DocumentsGrid({
   items: DocumentItem[];
   folders: FolderNode[];
   folderHandlers: FolderHandlers;
+  canWrite: (doc: DocumentItem) => boolean;
   onOpenFicha: (id: string) => void;
   onOpenUpload: () => void;
   footer: React.ReactNode;
@@ -196,7 +208,7 @@ export function DocumentsGrid({
           >
             {items.map((doc) => (
               <li key={doc.id}>
-                <GridDocTile doc={doc} onOpen={() => onOpenFicha(doc.id)} />
+                <GridDocTile doc={doc} canWrite={canWrite(doc)} onOpen={() => onOpenFicha(doc.id)} />
               </li>
             ))}
           </ul>

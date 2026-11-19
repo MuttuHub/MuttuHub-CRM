@@ -4,14 +4,22 @@
 // roles completos o el autor, y nunca sobre una categoría restringida para
 // quien no puede leerla). Si la carpeta del documento ya no existe (borrada o
 // ausente), el documento vuelve a la raíz (carpeta_id = null). Deja una fila
-// de Auditoria "restaurar", igual que el DELETE deja "eliminar".
+// de Auditoria "restaurar", igual que el DELETE deja "eliminar". Si ya hay un
+// documento vivo con el mismo título responde 409, la misma regla que la
+// creación; con body `{ force: true }` restaura igual.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logAudit, type AuditAccion } from "@/lib/api/audit";
-import { documentAccessError, loadDocumentForWrite } from "@/lib/api/documents";
+import {
+  documentAccessError,
+  duplicateTitleResponse,
+  findLiveTitleTwin,
+  loadDocCategories,
+  loadDocumentForWrite,
+} from "@/lib/api/documents";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +30,24 @@ const ACCION_RESTAURAR: AuditAccion = "restaurar";
 export const POST = withApiErrorHandling(
   "documents",
   "No pudimos restaurar el documento. Inténtalo de nuevo.",
-  async (_request: Request, ctx: RouteContext) => {
+  async (request: Request, ctx: RouteContext) => {
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
     const { id } = await ctx.params;
 
     const access = await loadDocumentForWrite(id, auth.usuario, { deleted: true });
     if (!access.ok) return documentAccessError(access.code);
+
+    if (!(await readForce(request))) {
+      const { restringidas } = await loadDocCategories();
+      const twin = await findLiveTitleTwin({
+        titulo: access.documento.titulo,
+        usuario: auth.usuario,
+        restringidas,
+        excludeId: id,
+      });
+      if (twin) return duplicateTitleResponse(twin);
+    }
 
     // A folder deleted (or gone) while the document sat in the trash cannot
     // hold it again: the document comes back at the root.
@@ -42,10 +61,13 @@ export const POST = withApiErrorHandling(
       folderGone = carpeta === null;
     }
 
-    await db.documento.update({
-      where: { id },
+    // Conditional on still being in the trash: of two concurrent restores only
+    // one flips the row, and only that one writes the audit entry.
+    const restored = await db.documento.updateMany({
+      where: { id, deleted_at: { not: null } },
       data: { deleted_at: null, ...(folderGone ? { carpeta_id: null } : {}) },
     });
+    if (restored.count === 0) return documentAccessError("NOT_FOUND");
     await logAudit({
       entidad: "documento",
       entidad_id: id,
@@ -56,3 +78,13 @@ export const POST = withApiErrorHandling(
     return new NextResponse(null, { status: 204 });
   },
 );
+
+/** The body is optional (the historical call sends none); only `force: true` counts. */
+async function readForce(request: Request): Promise<boolean> {
+  try {
+    const body = (await request.json()) as { force?: unknown } | null;
+    return body?.force === true;
+  } catch {
+    return false;
+  }
+}

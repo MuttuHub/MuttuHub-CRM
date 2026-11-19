@@ -307,8 +307,10 @@ function DocumentRow({
   onAction: (action: DocumentAction) => void;
 }) {
   const activa = doc.version_activa;
+  // Moving is a write: only who can modify the document may drag it.
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `${DOC_DRAG_PREFIX}${doc.id}`,
+    disabled: !canWrite,
   });
   const tags = etiquetasVisibles(doc.etiquetas, doc.categoria);
   const subline = [
