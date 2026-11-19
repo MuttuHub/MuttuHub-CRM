@@ -1597,7 +1597,10 @@ export function useProjectProgramming(id: string): UseQueryResult<ProjectProgram
   });
 }
 
-/** Refreshes everything a budget or programming write can change. */
+/**
+ * Refreshes everything a budget or programming write can change. The S-curve's financial plan is the cumulative
+ * programming over the assigned budget, so its reads (every base: the key prefix) are refreshed too (V9).
+ */
 function useRefreshPresupuesto(projectId: string) {
   const qc = useQueryClient();
   return () => {
@@ -1606,6 +1609,7 @@ function useRefreshPresupuesto(projectId: string) {
       projectQueryKeys.programming(projectId),
       projectQueryKeys.detail(projectId),
       ["projects", "financial-sheet", projectId],
+      ["projects", "curve", projectId],
     ]) {
       void qc.invalidateQueries({ queryKey: key });
     }

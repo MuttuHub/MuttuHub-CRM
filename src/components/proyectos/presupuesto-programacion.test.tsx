@@ -398,6 +398,23 @@ describe("PresupuestoProgramacion", () => {
       expect(within(form).getByRole("combobox", { name: "Línea" })).toHaveValue("lt")
     })
 
+    it("re-reads the programming after a move, so the grid shows the new plan (V9 shares this form)", async () => {
+      const user = userEvent.setup()
+      enEjecucion()
+      const form = await screen.findByTestId("programacion-mover")
+      const lecturas = () =>
+        fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/programming") && (init as RequestInit | undefined)?.method !== "POST").length
+      await waitFor(() => expect(lecturas()).toBe(1))
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Línea" }), "lt")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de origen" }), "2026-11")
+      await user.selectOptions(within(form).getByRole("combobox", { name: "Mes de destino" }), "2026-12")
+      await user.type(within(form).getByLabelText("Valor a mover"), "1000")
+      await user.click(within(form).getByRole("button", { name: "Mover valor" }))
+
+      await waitFor(() => expect(moves()).toHaveLength(1))
+      await waitFor(() => expect(lecturas()).toBe(2))
+    })
+
     it("cannot move without a line, both months and a value above zero", async () => {
       const user = userEvent.setup()
       enEjecucion()
