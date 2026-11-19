@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   txOportunidadUpdate: vi.fn(),
   txProyectoCreate: vi.fn(),
   txMiembroCreate: vi.fn(),
+  txTareaUpdateMany: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -166,8 +167,10 @@ beforeEach(() => {
       oportunidad: { update: mocks.txOportunidadUpdate },
       proyecto: { create: mocks.txProyectoCreate },
       proyectoMiembro: { create: mocks.txMiembroCreate },
+      tarea: { updateMany: mocks.txTareaUpdateMany },
     }),
   );
+  mocks.txTareaUpdateMany.mockResolvedValue({ count: 2 });
   mocks.txOportunidadUpdate.mockResolvedValue({ ...oportunidad, fase: "EJECUCION" });
   mocks.txProyectoCreate.mockResolvedValue(proyectoRow);
   mocks.txMiembroCreate.mockResolvedValue({ id: "mem-1", usuario_id: "user-2" });
@@ -230,6 +233,34 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
       municipios: { create: [{ municipio_id: "mun-1" }] },
     });
     expect(String(createArgs.data.valor_total)).toBe("0");
+  });
+
+  it("V2: links the opportunity's open and completed, non-deleted tasks to the new project in the same transaction", async () => {
+    const res = await POST(postRequest(prefillBody), routeContext);
+
+    expect(res.status).toBe(201);
+    // Inside the transaction (the tx client), scoped to this opportunity only:
+    // CANCELADA and soft-deleted tasks are left out, and the id is the created project's.
+    expect(mocks.txTareaUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.txTareaUpdateMany).toHaveBeenCalledWith({
+      where: { oportunidad_id: "opp-1", deleted_at: null, estado: { not: "CANCELADA" } },
+      data: { proyecto_id: "pry-1" },
+    });
+    expect(mocks.txTareaUpdateMany.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.txProyectoCreate.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("V2: linking the tasks keeps the conversion's other effects (fase, project, audit, team)", async () => {
+    const res = await POST(postRequest(prefillBody), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(json.proyecto.id).toBe("pry-1");
+    expect(mocks.txOportunidadUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.txProyectoCreate).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(logChanges)).toHaveBeenCalledTimes(2);
+    expect(mocks.txMiembroCreate).toHaveBeenCalled();
   });
 
   it("stores the optional description on conversion", async () => {

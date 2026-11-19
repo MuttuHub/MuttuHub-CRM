@@ -108,6 +108,8 @@ export async function getTaskForWrite(id: string, usuario: Usuario) {
       id: true,
       responsable_id: true,
       cliente_id: true,
+      oportunidad_id: true,
+      proyecto_id: true,
       estado: true,
       motivo_bloqueo: true,
       cliente: { select: { responsable_id: true } },
@@ -414,6 +416,7 @@ export const TASK_SELECT = {
   responsable_id: true,
   cliente_id: true,
   oportunidad_id: true,
+  proyecto_id: true,
   estado: true,
   origen: true,
   prioridad: true,
@@ -436,6 +439,8 @@ export const TASK_SELECT = {
       proyecto: { select: { id: true, codigo: true, deleted_at: true } },
     },
   },
+  // V2 (S2): the direct link `tareas.proyecto_id`. It wins over the transitive one above.
+  proyecto: { select: { id: true, codigo: true, deleted_at: true } },
   _count: { select: { comentarios: true, subtareas: true } },
 } as const;
 
@@ -452,7 +457,12 @@ export type TaskItem = {
   oportunidad_id: string | null;
   oportunidad_nombre: string | null;
   oportunidad_fase: FaseOportunidad | null;
-  /** The project this task's opportunity became (D3); null when it has none or it was deleted. */
+  /** V2: the task's direct project link (`tareas.proyecto_id`), as stored. */
+  proyecto_id: string | null;
+  /**
+   * The task's project: the direct link (V2) when set, otherwise the project this task's opportunity
+   * became (D3); null when there is none or it was deleted.
+   */
   proyecto: { id: string; codigo: string } | null;
   estado: Tarea["estado"];
   origen: Tarea["origen"];
@@ -467,6 +477,13 @@ export type TaskItem = {
   created_at: Date;
   updated_at: Date;
 };
+
+type ProjectLinkRow = { id: string; codigo: string; deleted_at: Date | null } | null | undefined;
+
+/** `{ id, codigo }` of a project that is not soft-deleted; null otherwise. */
+function liveProject(proyecto: ProjectLinkRow): { id: string; codigo: string } | null {
+  return proyecto && !proyecto.deleted_at ? { id: proyecto.id, codigo: proyecto.codigo } : null;
+}
 
 /** Row -> JSON shape shared by every task endpoint. */
 export function toTaskItem(
@@ -484,10 +501,8 @@ export function toTaskItem(
     oportunidad_id: tarea.oportunidad_id,
     oportunidad_nombre: tarea.oportunidad?.nombre ?? null,
     oportunidad_fase: tarea.oportunidad?.fase ?? null,
-    proyecto:
-      tarea.oportunidad?.proyecto && !tarea.oportunidad.proyecto.deleted_at
-        ? { id: tarea.oportunidad.proyecto.id, codigo: tarea.oportunidad.proyecto.codigo }
-        : null,
+    proyecto_id: tarea.proyecto_id ?? null,
+    proyecto: liveProject(tarea.proyecto) ?? liveProject(tarea.oportunidad?.proyecto),
     estado: tarea.estado,
     origen: tarea.origen,
     prioridad: tarea.prioridad,

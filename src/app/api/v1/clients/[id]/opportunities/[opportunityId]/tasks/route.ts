@@ -3,6 +3,8 @@
 // create both go through the commercial gate; creation forces `cliente_id`
 // and `oportunidad_id` from the URL — the invariant (D1/D2) cannot be
 // violated from this path because neither value is ever taken from the body.
+// V2 (S2): likewise `proyecto_id` comes from the opportunity — a task created on
+// an opportunity that already became a (live) project joins that project.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -29,7 +31,7 @@ type RouteContext = { params: Promise<{ id: string; opportunityId: string }> };
 async function loadOportunidad(clienteId: string, opportunityId: string) {
   return db.oportunidad.findFirst({
     where: { id: opportunityId, cliente_id: clienteId, deleted_at: null },
-    select: { id: true },
+    select: { id: true, proyecto: { select: { id: true, deleted_at: true } } },
   });
 }
 
@@ -90,7 +92,7 @@ export const POST = withApiErrorHandling(
     }
     // cliente_id / oportunidad_id are forced below — never taken from the
     // body, so an inconsistent override is structurally impossible here.
-    const parsed = TASK_SCHEMA.omit({ cliente_id: true, oportunidad_id: true }).safeParse(body);
+    const parsed = TASK_SCHEMA.omit({ cliente_id: true, oportunidad_id: true, proyecto_id: true }).safeParse(body);
     if (!parsed.success) return zodError(parsed.error);
     if (!bloqueoValido(parsed.data.estado, parsed.data.motivo_bloqueo)) {
       return apiError("Indica un motivo para bloquear.", 400, "VALIDATION_ERROR");
@@ -110,6 +112,10 @@ export const POST = withApiErrorHandling(
       return apiError("La oportunidad no existe.", 404, "NOT_FOUND");
     }
 
+    // V2: a soft-deleted project is not joined (same rule as the migration backfill).
+    const proyectoId =
+      oportunidad.proyecto && !oportunidad.proyecto.deleted_at ? oportunidad.proyecto.id : null;
+
     const responsable_id =
       auth.usuario.rol === "COLABORADOR" ? auth.usuario.id : parsed.data.responsable_id;
 
@@ -128,6 +134,7 @@ export const POST = withApiErrorHandling(
         responsable_id,
         cliente_id: id,
         oportunidad_id: opportunityId,
+        proyecto_id: proyectoId,
         estado: parsed.data.estado ?? "POR_HACER",
         origen: parsed.data.origen ?? "KANBAN",
         prioridad: parsed.data.prioridad,
@@ -145,7 +152,7 @@ export const POST = withApiErrorHandling(
       entidad_id: tarea.id,
       accion: "crear",
       usuario_id: auth.usuario.id,
-      cambios: { ...parsed.data, cliente_id: id, oportunidad_id: opportunityId },
+      cambios: { ...parsed.data, cliente_id: id, oportunidad_id: opportunityId, proyecto_id: proyectoId },
     });
     return NextResponse.json({ task: toTaskItem(tarea) }, { status: 201 });
   },

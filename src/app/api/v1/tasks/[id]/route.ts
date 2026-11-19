@@ -17,6 +17,8 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/api/audit";
 import {
   bloqueoValido,
+  checkProyectoOportunidadConsistency,
+  checkTaskProyecto,
   TASK_SCHEMA,
 } from "@/app/api/v1/tasks/route";
 import {
@@ -160,6 +162,25 @@ export const PATCH = withApiErrorHandling(
       if (invariantError) return invariantError;
     }
 
+    // V2 (S2): a new project link follows POST's rules; changing only the opportunity of a task
+    // that keeps its project must still land on that project's opportunity.
+    const effectiveOportunidadId =
+      parsed.data.oportunidad_id !== undefined ? parsed.data.oportunidad_id : access.tarea.oportunidad_id;
+    if (parsed.data.proyecto_id !== undefined && parsed.data.proyecto_id !== null) {
+      const proyectoError = await checkTaskProyecto(
+        parsed.data.proyecto_id,
+        effectiveOportunidadId,
+        auth.usuario,
+      );
+      if (proyectoError) return proyectoError;
+    } else if (parsed.data.oportunidad_id !== undefined && parsed.data.proyecto_id === undefined) {
+      const proyectoError = await checkProyectoOportunidadConsistency(
+        access.tarea.proyecto_id,
+        effectiveOportunidadId,
+      );
+      if (proyectoError) return proyectoError;
+    }
+
     const data: Prisma.TareaUncheckedUpdateInput = {};
     if (parsed.data.titulo !== undefined) data.titulo = parsed.data.titulo;
     if (parsed.data.descripcion !== undefined) {
@@ -168,6 +189,7 @@ export const PATCH = withApiErrorHandling(
     if (parsed.data.responsable_id !== undefined) data.responsable_id = parsed.data.responsable_id;
     if (parsed.data.cliente_id !== undefined) data.cliente_id = parsed.data.cliente_id;
     if (parsed.data.oportunidad_id !== undefined) data.oportunidad_id = parsed.data.oportunidad_id;
+    if (parsed.data.proyecto_id !== undefined) data.proyecto_id = parsed.data.proyecto_id;
     if (parsed.data.estado !== undefined) {
       data.estado = parsed.data.estado;
       // Plan Fase 3 (3B): marca real de cierre, vía el helper central (misma

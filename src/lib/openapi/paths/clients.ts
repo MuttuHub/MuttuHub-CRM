@@ -799,7 +799,7 @@ registry.registerPath({
     params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }),
     body: {
       content: {
-        "application/json": { schema: TASK_SCHEMA.omit({ cliente_id: true, oportunidad_id: true }) },
+        "application/json": { schema: TASK_SCHEMA.omit({ cliente_id: true, oportunidad_id: true, proyecto_id: true }) },
       },
     },
   },
