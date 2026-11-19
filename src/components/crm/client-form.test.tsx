@@ -4,7 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ClientDetail } from "@/hooks/crm"
 import { ClientFormDialog, NewClientButton } from "./client-form"
 
-const { createMutation, updateMutation, documentsQuery, useDocumentsMock, taskTagsQuery } = vi.hoisted(() => ({
+const { createMutation, updateMutation, documentsQuery, useDocumentsMock, taskTagsQuery, departamentosQuery } = vi.hoisted(() => ({
+  // V5: the official departamentos (GET /api/v1/departamentos).
+  departamentosQuery: {
+    data: [
+      { departamento: "Antioquia", codigo: "05" },
+      { departamento: "Caldas", codigo: "17" },
+    ] as { departamento: string; codigo: string | null }[] | undefined,
+  },
   // Live task_tags catalog (2.6, A1): includes "Aliado clave", a tag the
   // factory list does not have — i.e. one created in the admin panel.
   taskTagsQuery: { data: ["Urgente", "Aliado clave"] as string[] | undefined },
@@ -17,6 +24,7 @@ const { createMutation, updateMutation, documentsQuery, useDocumentsMock, taskTa
 vi.mock("@/hooks/crm", () => ({
   useCreateClient: () => createMutation,
   useUpdateClient: () => updateMutation,
+  useDepartamentos: () => departamentosQuery,
 }))
 
 vi.mock("@/hooks/admin", () => ({
@@ -385,5 +393,65 @@ describe("ClientFormDialog — modal review (2.7)", () => {
   it("keeps Cancelar enabled when nothing is saving", () => {
     render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
+  })
+})
+
+// V5 (S3, decision L8): the departamento is a select of the official list, optional.
+describe("ClientFormDialog — departamento (V5)", () => {
+  function departamentoTrigger() {
+    return screen.getByRole("combobox", { name: "Departamento" })
+  }
+
+  beforeEach(() => {
+    createMutation.mutateAsync.mockReset()
+    createMutation.mutateAsync.mockResolvedValue({ cliente: {} })
+    updateMutation.mutateAsync.mockReset()
+    updateMutation.mutateAsync.mockResolvedValue({ cliente: {} })
+  })
+
+  it("offers the official departamentos in a select and sends the picked one on create", async () => {
+    const user = userEvent.setup()
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    await user.type(screen.getByLabelText(/Nombre \*/), "Alcaldía de Prueba")
+    await pickResponsable(user)
+
+    expect(departamentoTrigger()).toHaveTextContent("Sin departamento")
+    await user.click(departamentoTrigger())
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent)
+    expect(options).toEqual(["Sin departamento", "Antioquia", "Caldas"])
+    await user.click(screen.getByRole("option", { name: "Caldas" }))
+    await user.click(screen.getByRole("button", { name: "Crear cliente" }))
+
+    expect(createMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: "Alcaldía de Prueba", departamento: "Caldas" }),
+    )
+  })
+
+  it("clears a stored departamento on edit by sending null", async () => {
+    const user = userEvent.setup()
+    const cliente = { ...CLIENTE, departamento: "Antioquia" }
+    const { rerender } = render(
+      <ClientFormDialog open={false} cliente={cliente} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+    )
+    rerender(<ClientFormDialog open cliente={cliente} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />)
+
+    expect(departamentoTrigger()).toHaveTextContent("Antioquia")
+    await user.click(departamentoTrigger())
+    await user.click(await screen.findByRole("option", { name: "Sin departamento" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    expect(updateMutation.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ departamento: null }))
+  })
+
+  it("does not send departamento on edit when it did not change (previous payload)", async () => {
+    const user = userEvent.setup()
+    const cliente = { ...CLIENTE, departamento: "Antioquia" }
+    const { rerender } = render(
+      <ClientFormDialog open={false} cliente={cliente} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+    )
+    rerender(<ClientFormDialog open cliente={cliente} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />)
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    expect(updateMutation.mutateAsync.mock.calls[0][0]).not.toHaveProperty("departamento")
   })
 })

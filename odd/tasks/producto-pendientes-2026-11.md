@@ -54,7 +54,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
 | T4 | S2 V2 | delegated | done, verifier PASS after 1 correction (01cfa6fc, cf7e5738, fde3361e) | RED → GREEN 392 tests; invariant 6/6; parent rerun 115/115 |
 | T5 | S1 B6 | delegated | done, verifier PASS after 1 correction (2f816d3a + reset fix) | RED → GREEN 719 + 403 tests; invariants 14/14; parent rerun 201/201 |
-| T6 | S3 V5 | delegated | queued: after T5 (shared prisma/schema.prisma) | — |
+| T6 | S3 V5 | delegated | done, verifier pending (Risk 1, 3) | RED → GREEN 210 + 86 tests; invariant 4/4; parent rerun 40/40 |
 
 ## Log
 
@@ -134,3 +134,11 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   programming cells (BORRADOR PUT, programming items of modification requests) are not checked against disabled rubros
   (not money; the S8.2 baseline gate still blocks); A4 a template re-import may delete a disabled rubro's hidden $0
   lines (harmless).
+- **L18** (2026-11-19): T6 done by a bounded writer. Migration `20261119150000_v5_cliente_departamento`: nullable
+  `clientes.departamento` plus trigger `clientes_departamento_en_catalogo` refusing a value with no row in `municipios`
+  (no FK possible: `municipios.departamento` is not unique; no second list to drift). API 400 «El departamento no está
+  en el catálogo oficial de departamentos.». `GET /clients/map` reuses the list's filters and visibility; one tile per
+  catalogue departamento, clients without one apart as «sin departamento», `ubicacion` never read. `GET /departamentos`.
+  `/clientes/mapa` tile grid + panel; Mapa back in the subnav; form select; demo seed fills departamento (only where
+  NULL, idempotent). Parent added the map refresh on client create/update/delete. Open: the select is empty while the
+  municipios catalogue is empty (production depends on it being loaded); a catalogue rename does not propagate.

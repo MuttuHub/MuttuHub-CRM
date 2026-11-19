@@ -95,6 +95,11 @@ export type ClientListResponse = {
 };
 
 export type ClientDetail = ClientListRow & {
+  /**
+   * V5 (S3): departamento from the municipios catalogue; null = «sin departamento». Sent by the
+   * detail/create/update responses (not by the list); optional so older fixtures stay valid.
+   */
+  departamento?: string | null;
   tamano_org: string | null;
   canal_contacto_inicial: string | null;
   fecha_primer_contacto: string | null;
@@ -268,6 +273,40 @@ export type SaludCartera = {
   promedio: number | null;
 };
 
+/** V5 (S3): one official departamento (GET /api/v1/departamentos). */
+export type DepartamentoItem = {
+  departamento: string;
+  /** DANE departamento code when the catalogue's municipios agree on it. */
+  codigo: string | null;
+};
+
+/** V5 (S3): a client inside a map group (GET /api/v1/clients/map). */
+export type MapaCliente = {
+  id: string;
+  nombre: string;
+  estado: EstadoCliente;
+  departamento: string | null;
+  ubicacion: string | null;
+  responsable_nombre: string;
+  proyectos: number;
+};
+
+type MapaGrupo = { aliados: number; proyectos: number; clientes: MapaCliente[] };
+
+export type MapaDepartamento = MapaGrupo & DepartamentoItem;
+
+/** V5 (S3): payload of GET /api/v1/clients/map. */
+export type MapaAliadosData = {
+  departamentos: MapaDepartamento[];
+  sin_departamento: MapaGrupo;
+  total: number;
+  con_departamento: number;
+  max_aliados: number;
+};
+
+/** V5 (S3): the map's filters, the same query params as the clients list. */
+export type MapaFilters = { estado?: string; responsable?: string };
+
 /** v7 C5a: payload de GET /api/v1/clients/health. */
 export type SaludCarteraData = {
   clientes: SaludClienteRow[];
@@ -356,6 +395,10 @@ export const clientQueryKeys = {
   interactions: (filters: InteractionFilters) => ["interactions", "list", filters] as const,
   contactsFeed: (filters: ContactoFilters) => ["contacts", "list", filters] as const,
   saludCartera: () => ["clients", "salud"] as const,
+  mapa: (filters: MapaFilters) => ["clients", "map", filters] as const,
+  /** Prefix of every map query: client writes invalidate it, whatever the filters (V5). */
+  mapaAll: () => ["clients", "map"] as const,
+  departamentos: () => ["catalogs", "departamentos"] as const,
   users: () => ["catalogs", "users"] as const,
 };
 
@@ -533,6 +576,32 @@ export function useSaludCartera(): UseQueryResult<SaludCarteraData> {
   });
 }
 
+/** V5 (S3): the official departamentos, for the client form's select. */
+export function useDepartamentos(): UseQueryResult<DepartamentoItem[]> {
+  return useQuery({
+    queryKey: clientQueryKeys.departamentos(),
+    queryFn: async () => {
+      const res = await apiGet<{ departamentos: DepartamentoItem[] }>("/api/v1/departamentos");
+      return res.departamentos;
+    },
+  });
+}
+
+/** V5 (S3): the coverage map by departamento, aggregated and filtered on the server. */
+export function useMapaAliados(filters: MapaFilters): UseQueryResult<MapaAliadosData> {
+  return useQuery({
+    queryKey: clientQueryKeys.mapa(filters),
+    queryFn: async () => {
+      const sp = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) {
+        if (value) sp.set(key, value);
+      }
+      const res = await apiGet<{ data: MapaAliadosData }>(`/api/v1/clients/map?${sp.toString()}`);
+      return res.data;
+    },
+  });
+}
+
 /**
  * v7 alignment C7a: the Automatizaciones settings (admin-only on the server).
  * Reads the daily-summary configuration that the cron consumes.
@@ -587,6 +656,8 @@ export type ClientInput = {
   empresa?: string | null;
   tamano_org?: string | null;
   ubicacion?: string | null;
+  // V5 (S3): a catalogue departamento; null clears it (PATCH).
+  departamento?: string | null;
   canal_contacto_inicial?: string | null;
   fecha_primer_contacto?: string | null;
   prioridad?: PrioridadCliente | null;
@@ -610,6 +681,7 @@ export function useCreateClient(): UseMutationResult<{ cliente: ClientDetail }, 
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.list({}) });
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.mapaAll() });
       toast.success("Cliente creado.");
     },
   });
@@ -632,6 +704,7 @@ export function useUpdateClient(id: string): UseMutationResult<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(id) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.list({}) });
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.mapaAll() });
       toast.success("Cliente actualizado.");
     },
   });
@@ -649,6 +722,7 @@ export function useDeleteClient(id: string): UseMutationResult<ApiVoid, string, 
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.list({}) });
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.mapaAll() });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(id) });
       void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
       toast.success("Cliente desactivado.");

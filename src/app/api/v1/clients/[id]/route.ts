@@ -35,6 +35,11 @@ import {
   CLIENT_ETIQUETAS_SCHEMA,
   enrichClients,
 } from "@/app/api/v1/clients/route";
+import {
+  DEPARTAMENTO_NO_VALIDO,
+  DEPARTAMENTO_SCHEMA,
+  departamentoEnCatalogo,
+} from "@/lib/api/mapa-aliados";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +54,8 @@ export const PATCH_CLIENT_SCHEMA = z.object({
   empresa: z.string().nullable().optional(),
   tamano_org: z.string().nullable().optional(),
   ubicacion: z.string().nullable().optional(),
+  // V5: a departamento of the municipios catalogue; null clears it («sin departamento»).
+  departamento: DEPARTAMENTO_SCHEMA.nullable().optional(),
   canal_contacto_inicial: z.string().nullable().optional(),
   fecha_primer_contacto: z
     .string()
@@ -180,6 +187,12 @@ export const PATCH = withApiErrorHandling(
     if (parsed.data.empresa !== undefined) data.empresa = parsed.data.empresa;
     if (parsed.data.tamano_org !== undefined) data.tamano_org = parsed.data.tamano_org;
     if (parsed.data.ubicacion !== undefined) data.ubicacion = parsed.data.ubicacion;
+    if (parsed.data.departamento !== undefined) {
+      if (parsed.data.departamento !== null && !(await departamentoEnCatalogo(parsed.data.departamento))) {
+        return apiError(DEPARTAMENTO_NO_VALIDO, 400, "VALIDATION_ERROR");
+      }
+      data.departamento = parsed.data.departamento;
+    }
     if (parsed.data.canal_contacto_inicial !== undefined) {
       data.canal_contacto_inicial = parsed.data.canal_contacto_inicial;
     }

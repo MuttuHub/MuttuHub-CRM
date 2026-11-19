@@ -1,8 +1,9 @@
 "use client";
 
 // v7 alignment, unit C1a: the Clientes sub-navigation shell. The sections are
-// the user's list, so v7's extra "Convocatorias" is intentionally left out, and
-// M4 (Y3) still hides Mapa (its route redirects to /clientes). V1 turned
+// the user's list, so v7's extra "Convocatorias" is intentionally left out. V5
+// built Mapa (it used to redirect to /clientes), so it takes its v7 place
+// between Salud and Automatizaciones. V1 turned
 // Oportunidades into a real section, so it moves into the position the v7 order
 // gives it: right after Aliados. Each item navigates between pages, so they are
 // links carrying `aria-current="page"` (the app's route convention, see
@@ -10,7 +11,7 @@
 // section here is its own route with its own content.
 //
 // Interacciones (C3b), Relaciones (C4b), Salud (C5b) and Automatizaciones (C7b)
-// render their real sections; V1 adds Oportunidades.
+// render their real sections; V1 adds Oportunidades and V5 adds Mapa.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,6 +29,7 @@ export const CLIENTES_SECTIONS: readonly ClientesSection[] = [
   { href: "/clientes/interacciones", label: "Interacciones" },
   { href: "/clientes/relaciones", label: "Relaciones" },
   { href: "/clientes/salud", label: "Salud" },
+  { href: "/clientes/mapa", label: "Mapa" },
   { href: "/clientes/automatizaciones", label: "Automatizaciones" },
 ];
 

@@ -1,11 +1,11 @@
 // v7 alignment, unit C1a: the Clientes sub-navigation shell. These tests pin the
 // three behaviours the shell owes: (1) the built sections render in the v7 order
-// — NOT Convocatorias (which v7 has but the user's list does not) and NOT Mapa
-// (still hidden by M4) — including Oportunidades, which V1 turned into a real
-// section, (2) the active item follows the current route exactly, and (3)
+// — NOT Convocatorias (which v7 has but the user's list does not) — including
+// Oportunidades, which V1 turned into a real section, and Mapa, which V5 built
+// (between Salud and Automatizaciones, as in v7), (2) the active item follows the current route exactly, and (3)
 // Aliados still renders the untouched ClientList. Interacciones (C3b),
 // Relaciones (C4b), Salud (C5b), Automatizaciones (C7b) and Oportunidades (V1)
-// render their real sections; Mapa still redirects to `/clientes`.
+// render their real sections; V5 turns Mapa into a real section too.
 
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -65,6 +65,12 @@ vi.mock("@/components/crm/oportunidades-kanban", () => ({
   OportunidadesKanban: () => <div data-testid="oportunidades-kanban-stub" />,
 }))
 
+// Mapa (V5) renders the departamento tile map, which fetches its own feed; stub
+// it so this shell test stays independent of the CRM data layer.
+vi.mock("@/components/crm/mapa/mapa-vista", () => ({
+  MapaVista: () => <div data-testid="mapa-vista-stub" />,
+}))
+
 import ClientesPage from "@/app/(app)/clientes/page"
 import ClientesOportunidadesPage from "@/app/(app)/clientes/oportunidades/page"
 import ClientesInteraccionesPage from "@/app/(app)/clientes/interacciones/page"
@@ -73,21 +79,20 @@ import ClientesSaludPage from "@/app/(app)/clientes/salud/page"
 import ClientesMapaPage from "@/app/(app)/clientes/mapa/page"
 import ClientesAutomatizacionesPage from "@/app/(app)/clientes/automatizaciones/page"
 
-const REDIRECTED_PAGES = [{ label: "Mapa", Page: ClientesMapaPage }] as const
-
 beforeEach(() => {
   pathname.value = "/clientes"
   redirect.mockClear()
 })
 
 describe("ClientesSubNav", () => {
-  it("lists the built sections in order, including Oportunidades but without Mapa or Convocatorias", () => {
+  it("lists the built sections in order, including Oportunidades and Mapa but without Convocatorias", () => {
     expect(CLIENTES_SECTIONS.map((section) => section.label)).toEqual([
       "Aliados",
       "Oportunidades",
       "Interacciones",
       "Relaciones",
       "Salud",
+      "Mapa",
       "Automatizaciones",
     ])
     render(<ClientesSubNav />)
@@ -95,7 +100,7 @@ describe("ClientesSubNav", () => {
       "href",
       "/clientes/oportunidades",
     )
-    expect(screen.queryByRole("link", { name: "Mapa" })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Mapa" })).toHaveAttribute("href", "/clientes/mapa")
     expect(screen.queryByRole("link", { name: "Convocatorias" })).not.toBeInTheDocument()
   })
 
@@ -128,9 +133,10 @@ describe("Clientes sections", () => {
     expect(screen.getByTestId("client-list-stub")).toBeInTheDocument()
   })
 
-  it.each(REDIRECTED_PAGES)("$label redirects to /clientes instead of a placeholder", ({ Page }) => {
-    render(<Page />)
-    expect(redirect).toHaveBeenCalledWith("/clientes")
+  it("Mapa renders the departamento map instead of redirecting", () => {
+    render(<ClientesMapaPage />)
+    expect(redirect).not.toHaveBeenCalled()
+    expect(screen.getByTestId("mapa-vista-stub")).toBeInTheDocument()
   })
 
   it("Oportunidades renders the global kanban instead of redirecting", () => {

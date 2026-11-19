@@ -184,6 +184,11 @@ model Cliente {
   tipo_cliente              TipoCliente
   tamano_org                String?
   ubicacion                 String?
+  // V5 (PO-14, «Campo departamento»): optional departamento for the coverage map. It can only
+  // hold a value present in `municipios.departamento` (the trigger
+  // `clientes_departamento_en_catalogo`, see the migration); NULL means «sin departamento» and is
+  // never guessed from the free-text `ubicacion`.
+  departamento              String?
   canal_contacto_inicial    String?
   fecha_primer_contacto     DateTime?
   prioridad                 PrioridadCliente?
