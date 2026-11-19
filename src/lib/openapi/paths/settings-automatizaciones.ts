@@ -12,6 +12,11 @@ const CategoriasSchema = z.object({
   proximos: z.boolean(),
 });
 
+const ReglaSchema = z.object({
+  activo: z.boolean(),
+  dias: z.number().int(),
+});
+
 const AutomatizacionesSchema = registry.register(
   "Automatizaciones",
   z.object({
@@ -24,6 +29,14 @@ const AutomatizacionesSchema = registry.register(
       .openapi({ description: "Días de la ventana del bucket «próximos» (1–30)." }),
     categorias: CategoriasSchema.openapi({
       description: "Categorías del resumen que se incluyen.",
+    }),
+    recordar_compromisos: ReglaSchema.openapi({
+      description:
+        "V8: «Recordar compromisos N días antes» (1–30, default activa con 2). Avisa al responsable en el resumen, por correo y en la campana.",
+    }),
+    alertar_sin_contacto: ReglaSchema.openapi({
+      description:
+        "V8: «Alertar N días sin contacto» (1–365, default activa con 30). Solo clientes activos; sin bitácora cuenta desde la creación.",
     }),
   }),
 );

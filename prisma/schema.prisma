@@ -107,6 +107,8 @@ enum TipoNotificacion {
   POR_VENCER
   SOBREGASTO_RUBRO
   GASTO_RECHAZADO
+  // V8: a client went `alertar_sin_contacto.dias` days without contact.
+  SIN_CONTACTO
 }
 
 // v2 projects module (RF-04) — lifecycle of a project. New enum on this branch:
@@ -204,6 +206,7 @@ model Cliente {
   documentos    DocumentoCliente[]
   proyectos     Proyecto[]
   carpeta       Carpeta?
+  notificaciones Notificacion[]
 
   @@map("clientes")
 }
@@ -481,6 +484,8 @@ model Notificacion {
   // collide in the unique key, so there is one project row per (usuario, tipo, gasto).
   proyecto_id String?
   gasto_id    String?
+  // V8: the client a SIN_CONTACTO row is about. Other rows keep it NULL.
+  cliente_id  String?
   leida      Boolean          @default(false)
   created_at DateTime         @default(now())
 
@@ -488,8 +493,10 @@ model Notificacion {
   tarea    Tarea?    @relation(fields: [tarea_id], references: [id])
   proyecto Proyecto? @relation(fields: [proyecto_id], references: [id], onDelete: SetNull)
   gasto    Gasto?    @relation(fields: [gasto_id], references: [id], onDelete: SetNull)
+  cliente  Cliente?  @relation(fields: [cliente_id], references: [id], onDelete: SetNull)
 
   @@unique([usuario_id, tipo, gasto_id])
+  @@unique([usuario_id, tipo, cliente_id])
   @@index([usuario_id, leida])
   @@map("notificaciones")
 }

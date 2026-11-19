@@ -216,3 +216,107 @@ describe("NotificationPanel: grupo PROYECTOS (S6)", () => {
     expect(screen.queryByText("PROYECTOS")).not.toBeInTheDocument()
   })
 })
+
+describe("NotificationPanel: reglas V8", () => {
+  const SIN_CONTACTO_ITEM = {
+    notificacion_id: "ns-1",
+    tipo: "SIN_CONTACTO" as const,
+    cliente_id: "c-1",
+    cliente_nombre: "Fundación Uno",
+    dias_sin_contacto: 40,
+    mensaje: "Fundación Uno lleva 40 días sin contacto",
+    leida: false,
+    created_at: "2026-11-18T13:00:00.000Z",
+  }
+  const RECORDATORIO_ITEM: AlertItemNotificacion = {
+    ...UNREAD_ITEM,
+    id: "t-5",
+    titulo: "Enviar informe",
+    origen: "CRM",
+    cliente_id: "c-2",
+    cliente_nombre: "Colegio Dos",
+    notificacion_id: "n-5",
+    fecha_entrega: "2026-11-24T15:00:00.000Z",
+  }
+
+  it("renders a SIN_CONTACTO row, counts it and opens the client marking it read", async () => {
+    apiGet.mockImplementation(async () => ({
+      ...snapshotWith([]),
+      total: 1,
+      vencidos: [],
+      sin_contacto: [SIN_CONTACTO_ITEM],
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+    expect(screen.getByText("ALIADOS SIN CONTACTO")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Fundación Uno lleva 40 días sin contacto/ }))
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/api/v1/notifications/ns-1/read"))
+    expect(push).toHaveBeenCalledWith("/clientes?cliente=c-1")
+  })
+
+  it("renders rule-1 reminders in their own group and opens them like any alert", async () => {
+    apiGet.mockImplementation(async () => ({
+      ...snapshotWith([]),
+      total: 1,
+      vencidos: [],
+      recordatorios: [RECORDATORIO_ITEM],
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+    expect(screen.getByText("RECORDATORIOS")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Enviar informe/ }))
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/api/v1/notifications/n-5/read"))
+    expect(push).toHaveBeenCalledWith("/clientes?cliente=c-2")
+  })
+
+  it("keeps the pre-V8 rows and groups unchanged next to the new ones", async () => {
+    apiGet.mockImplementation(async () => ({
+      total: 4,
+      vencidos: [UNREAD_ITEM],
+      hoy: [],
+      proximos3: [],
+      leidas_ids: [],
+      proyectos: [
+        {
+          notificacion_id: "np-1",
+          tipo: "SOBREGASTO_RUBRO" as const,
+          mensaje: "Gasto supera el asignado del rubro",
+          proyecto_id: "pry-1",
+          proyecto_codigo: "PRY-001",
+          gasto_id: "gas-1",
+          leida: false,
+          created_at: "2026-10-16T12:00:00.000Z",
+        },
+      ],
+      recordatorios: [RECORDATORIO_ITEM],
+      sin_contacto: [SIN_CONTACTO_ITEM],
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 4 sin leer" }))
+    expect(screen.getByText("VENCIDOS")).toBeInTheDocument()
+    expect(screen.getByText("Entrega vencida")).toBeInTheDocument()
+    expect(screen.getByText("PROYECTOS")).toBeInTheDocument()
+    expect(screen.getByText("Gasto supera el asignado del rubro")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Marcar todas como leídas" }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    const options = toast.success.mock.calls[0][1] as { action: { onClick: () => void } }
+    options.action.onClick()
+    // Undo reverts every row that was unread, the V8 ones included.
+    await waitFor(() => expect(apiDelete).toHaveBeenCalledTimes(4))
+    expect(apiDelete.mock.calls.map(([path]) => path).sort()).toEqual([
+      "/api/v1/notifications/n-1/read",
+      "/api/v1/notifications/n-5/read",
+      "/api/v1/notifications/np-1/read",
+      "/api/v1/notifications/ns-1/read",
+    ])
+  })
+})

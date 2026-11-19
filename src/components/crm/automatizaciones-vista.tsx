@@ -10,9 +10,9 @@
 // summary includes. Only the fields that changed are PUT (the route merges a
 // partial body), and the min/max of the numeric input mirror the schema.
 //
-// Scope note: this unit only surfaces the real cron setting. The rest of the v7
-// "Automatizaciones" screen (the "2 days before" and "30 days without contact"
-// rules, the email templates) is still unmodeled.
+// V8 adds the "remind commitments N days before" and "alert after N days
+// without contact" rules: each one an on/off switch plus its day threshold,
+// stored in the same setting. The email templates are still unmodeled.
 
 import { useState } from "react";
 import { LoaderCircle, Save } from "lucide-react";
@@ -21,6 +21,7 @@ import {
   useUpdateAutomatizaciones,
   type Automatizaciones,
   type AutomatizacionesInput,
+  type ReglaAutomatizacion,
 } from "@/hooks/crm";
 import { useCurrentUser } from "@/hooks/kanban";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,43 @@ const DIAS_MIN = 1;
 const DIAS_MAX = 30;
 
 type CategoriaKey = "vencidos" | "hoy" | "proximos";
+
+type ReglaKey = "recordar_compromisos" | "alertar_sin_contacto";
+
+/** V8 rules. min/max/default mirror src/lib/settings.ts (the schema). */
+const REGLAS: readonly {
+  key: ReglaKey;
+  label: string;
+  hint: string;
+  diasLabel: string;
+  min: number;
+  max: number;
+  default: ReglaAutomatizacion;
+}[] = [
+  {
+    key: "recordar_compromisos",
+    label: "Recordar compromisos",
+    hint: "Avisa al responsable cuando a un compromiso abierto le faltan estos días para vencer.",
+    diasLabel: "Días antes del compromiso",
+    min: 1,
+    max: 30,
+    default: { activo: true, dias: 2 },
+  },
+  {
+    key: "alertar_sin_contacto",
+    label: "Alertar sin contacto",
+    hint: "Avisa al responsable de un aliado que lleva estos días o más sin contacto registrado.",
+    diasLabel: "Días sin contacto",
+    min: 1,
+    max: 365,
+    default: { activo: true, dias: 30 },
+  },
+];
+
+/** A server deployed before V8 omits the rules: fall back to their defaults. */
+function reglaGuardada(data: Automatizaciones, key: ReglaKey): ReglaAutomatizacion {
+  return (data[key] as ReglaAutomatizacion | undefined) ?? REGLAS.find((r) => r.key === key)!.default;
+}
 
 const CATEGORIAS: readonly { key: CategoriaKey; label: string; hint: string }[] = [
   { key: "vencidos", label: "Vencidos", hint: "Compromisos cuya fecha ya pasó." },
@@ -49,10 +87,16 @@ type Draft = {
   resumen_diario: boolean;
   dias_por_vencer: string;
   categorias: Record<CategoriaKey, boolean>;
+  reglas: Record<ReglaKey, { activo: boolean; dias: string }>;
 };
 
 function toDraft(data: Automatizaciones): Draft {
+  const regla = (key: ReglaKey) => {
+    const saved = reglaGuardada(data, key);
+    return { activo: saved.activo, dias: String(saved.dias) };
+  };
   return {
+    reglas: { recordar_compromisos: regla("recordar_compromisos"), alertar_sin_contacto: regla("alertar_sin_contacto") },
     resumen_diario: data.resumen_diario,
     dias_por_vencer: String(data.dias_por_vencer),
     categorias: {
@@ -118,6 +162,15 @@ export function AutomatizacionesVista() {
       if (draft!.categorias[key] !== saved.categorias[key]) categorias[key] = draft!.categorias[key];
     }
     if (Object.keys(categorias).length > 0) patch.categorias = categorias;
+    for (const { key } of REGLAS) {
+      const actual = reglaGuardada(saved, key);
+      const borrador = draft!.reglas[key];
+      const cambios: Partial<ReglaAutomatizacion> = {};
+      if (borrador.activo !== actual.activo) cambios.activo = borrador.activo;
+      const reglaDias = Number(borrador.dias);
+      if (Number.isInteger(reglaDias) && reglaDias !== actual.dias) cambios.dias = reglaDias;
+      if (Object.keys(cambios).length > 0) patch[key] = cambios;
+    }
     return patch;
   }
 
@@ -129,6 +182,13 @@ export function AutomatizacionesVista() {
     const dias = Number(raw);
     if (raw === "" || !Number.isInteger(dias) || dias < DIAS_MIN || dias > DIAS_MAX) {
       return `Días por vencer debe estar entre ${DIAS_MIN} y ${DIAS_MAX}.`;
+    }
+    for (const regla of REGLAS) {
+      const reglaRaw = draft!.reglas[regla.key].dias.trim();
+      const reglaDias = Number(reglaRaw);
+      if (reglaRaw === "" || !Number.isInteger(reglaDias) || reglaDias < regla.min || reglaDias > regla.max) {
+        return `${regla.diasLabel} debe estar entre ${regla.min} y ${regla.max}.`;
+      }
     }
     return null;
   }
@@ -164,6 +224,12 @@ export function AutomatizacionesVista() {
     setError(null);
     setFeedback(null);
     setDraft({ ...draft!, categorias: { ...draft!.categorias, [key]: checked } });
+  }
+
+  function updateRegla(key: ReglaKey, next: Partial<{ activo: boolean; dias: string }>) {
+    setError(null);
+    setFeedback(null);
+    setDraft({ ...draft!, reglas: { ...draft!.reglas, [key]: { ...draft!.reglas[key], ...next } } });
   }
 
   return (
@@ -235,6 +301,44 @@ export function AutomatizacionesVista() {
             />
           </div>
         ))}
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2" disabled={!puedeEditar}>
+        <legend className="text-[13px] font-semibold text-ink-950">Reglas de aviso</legend>
+        <p className="text-[12px] text-ink-600">
+          Cada aviso llega en el resumen diario, en un correo propio y como notificación en el CRM.
+        </p>
+        <ul className="flex flex-col divide-y divide-ink-100">
+          {REGLAS.map((regla) => (
+            <li key={regla.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-[220px] flex-1">
+                <span className="text-[13px] font-medium text-ink-900">{regla.label}</span>
+                <p className="mt-0.5 text-[12px] text-ink-600">
+                  {regla.hint} ({regla.min}–{regla.max} días)
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={regla.min}
+                  max={regla.max}
+                  inputMode="numeric"
+                  aria-label={regla.diasLabel}
+                  disabled={!puedeEditar}
+                  value={draft.reglas[regla.key].dias}
+                  onChange={(e) => updateRegla(regla.key, { dias: e.target.value })}
+                  className="h-10 w-24"
+                />
+                <Switch
+                  label={regla.label}
+                  checked={draft.reglas[regla.key].activo}
+                  disabled={!puedeEditar}
+                  onCheckedChange={(checked) => updateRegla(regla.key, { activo: checked })}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
       </fieldset>
 
       {!puedeEditar && (
