@@ -46,6 +46,12 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
   const hoy = todayInBogota()
   const corte = periodo.hasta !== null && periodo.hasta < hoy ? periodo.hasta : hoy
   const comercial = hasCommercialAccess(usuario)
+  // Opportunities are a snapshot at the cut-off: those created up to the end of `corte` (their current state).
+  const abiertasAlCorte = {
+    deleted_at: null,
+    estado: { in: [...OPEN_OPPORTUNITY_STATES] },
+    created_at: rangoDeFechas({ hasta: corte }),
+  } satisfies Prisma.OportunidadWhereInput
 
   const portafolioUrl = new URL(url.origin)
   portafolioUrl.searchParams.set("etiqueta", etiqueta)
@@ -65,7 +71,7 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
       _count: {
         select: {
           proyectos: { where: projectListWhere(usuario, {}) },
-          ...(comercial && { oportunidades: { where: { deleted_at: null, estado: { in: [...OPEN_OPPORTUNITY_STATES] } } } }),
+          ...(comercial && { oportunidades: { where: abiertasAlCorte } }),
         },
       },
     },
@@ -77,7 +83,7 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
     db.bitacoraEntrada.groupBy({ by: ["cliente_id"], where: { cliente_id: { in: clienteIds } }, _max: { created_at: true } }),
     comercial
       ? db.oportunidad.findMany({
-          where: { deleted_at: null, cliente_id: { in: clienteIds }, estado: { in: [...OPEN_OPPORTUNITY_STATES] } },
+          where: { ...abiertasAlCorte, cliente_id: { in: clienteIds } },
           orderBy: [{ valor_estimado_cop: { sort: "desc", nulls: "last" } }, { nombre: "asc" }],
           select: { id: true, nombre: true, estado: true, valor_estimado_cop: true, cliente: { select: { id: true, nombre: true } } },
         })
