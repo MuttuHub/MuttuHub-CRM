@@ -3,7 +3,9 @@
 // Reportes (Hito 6, PRD §5.4 + §7): tabs entre el reporte de tareas (el mismo
 // ReportView del tablero, con exportación Excel/PDF y alcance por rol), el
 // reporte semanal (S5: portafolio, actividades atrasadas, tareas de la semana
-// contra la anterior, «Requiere atención» y gastos por validar) y las 4
+// contra la anterior, «Requiere atención» y gastos por validar), el reporte
+// por etiqueta (T3: clientes, proyectos, oportunidades, bitácora y tareas de
+// una etiqueta en un período) y las 4
 // caras del dashboard, cada una con su barra de filtros comunes (§7.2) y un
 // bloque "Generar reporte" que abre la vista de impresión por cara. El estado
 // de filtros vive acá (hoisted) para que cambiar de cara no los pierda; el
@@ -12,7 +14,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarRange, Gauge, ListChecks, Printer, UserRound, UsersRound } from "lucide-react";
+import { CalendarRange, Gauge, ListChecks, Printer, Tag, UserRound, UsersRound } from "lucide-react";
 import {
   buildDashboardQuery,
   rangoMesActual,
@@ -23,6 +25,7 @@ import { ENUM_VALUES, TIPO_CLIENTE_LABELS } from "@/lib/catalogs";
 import { RANGO_OPCIONES, useFiltersStore } from "@/store/filters";
 import { ReportView } from "@/components/kanban/report-view";
 import { ReporteSemanalTab } from "@/components/reportes/reporte-semanal";
+import { ReporteEtiquetaTab } from "@/components/reportes/reporte-etiqueta";
 import {
   Select,
   SelectContent,
@@ -69,7 +72,8 @@ export function ReportesPage() {
       <Tabs defaultValue="tareas" className="flex min-w-0 flex-col gap-4">
         {/* Patrón A (plan Fase 5): tira con scroll abajo (flex-none +
             overflow-x-auto), ancho igual arriba (lg:flex-wrap + lg:flex-1).
-            6 tabs → el umbral de "ancho igual" es lg.
+            7 tabs → el umbral de "ancho igual" sigue siendo lg (a 1024px
+            caben en una fila; si no, lg:flex-wrap las baja a otra).
             !h-auto/!justify-start: el primitivo base fuerza h-8 (32px) y
             justify-center; con overflow-x-auto eso recorta los triggers y hace
             inalcanzable el arranque scrolleando. La importancia gana al orden
@@ -79,6 +83,10 @@ export function ReportesPage() {
           <TabsTrigger value="semanal" className={TAB_TRIGGER_CLASS}>
             <CalendarRange className="size-4" strokeWidth={1.9} />
             Semanal
+          </TabsTrigger>
+          <TabsTrigger value="etiqueta" className={TAB_TRIGGER_CLASS}>
+            <Tag className="size-4" strokeWidth={1.9} />
+            Etiqueta
           </TabsTrigger>
           {CARAS.map((cara) => (
             <TabsTrigger
@@ -98,6 +106,10 @@ export function ReportesPage() {
 
         <TabsContent value="semanal" className="mt-0">
           <ReporteSemanalTab />
+        </TabsContent>
+
+        <TabsContent value="etiqueta" className="mt-0">
+          <ReporteEtiquetaTab />
         </TabsContent>
 
         {CARAS.map((cara) => (
