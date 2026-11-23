@@ -1,4 +1,4 @@
-// OpenAPI registration of the tag report (T2, S2–S5): `GET /api/v1/reports/tag`.
+// OpenAPI registration of the tag report (T2, S2–S5): `GET /api/v1/reports/tag`, and its Excel export (T3, S6).
 // Registered from the real route file: same query, status codes and field names.
 
 import { z } from "zod";
@@ -89,6 +89,39 @@ registry.registerPath({
   },
   responses: {
     200: { description: "El reporte de la etiqueta.", content: { "application/json": { schema: ReporteEtiquetaSchema } } },
+    ...standardErrorResponses([400, 401, 403, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/reports/tag/export",
+  tags: ["Projects"],
+  summary: "Exporta a Excel el reporte por etiqueta",
+  description:
+    "Mismo acceso, alcance y números que `GET /api/v1/reports/tag`. El 403 va antes que el 400 de `formato`. Hojas: " +
+    "Resumen, Proyectos, Clientes, Oportunidades (solo con acceso comercial), Bitácora y Tareas; montos como números, " +
+    "fechas como fechas y filas de totales en Proyectos, Clientes y Oportunidades. Archivo " +
+    "`reporte-etiqueta-<etiqueta>-<corte>.xlsx`. Cada descarga escribe una fila de auditoría `EXPORTAR` (si la auditoría " +
+    "falla, la descarga no falla).",
+  security: [{ sessionCookie: [] }],
+  request: {
+    query: z.object({
+      etiqueta: z.string().openapi({ example: "Fábrica Milagro", description: "Etiqueta del catálogo `task_tags`." }),
+      desde: FECHA.optional().openapi({ description: "Inicio del período (bitácora por fecha, tareas por entrega)." }),
+      hasta: FECHA.optional().openapi({ description: "Fin del período; también fija el corte." }),
+      formato: z.enum(["xlsx"]).optional().openapi({ description: "Solo `xlsx`; `pdf` (u otro) responde 400." }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Libro de Excel (.xlsx).",
+      content: {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+          schema: { type: "string" as const, format: "binary" as const },
+        },
+      },
+    },
     ...standardErrorResponses([400, 401, 403, 500]),
   },
 });
