@@ -16,9 +16,9 @@
 // groupBy — patrón fijado del repo en Prisma 7).
 
 import { NextResponse } from "next/server";
-import type { EstadoOportunidad } from "@prisma/client";
 import { db } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { OPEN_OPPORTUNITY_STATES } from "@/lib/api/crm";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   clienteScopeWhere,
@@ -30,13 +30,7 @@ import { hasCommercialAccess } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 /** Orden del embudo: estados no finalizados del schema (PRD §7.1). */
-const OFFER_STATES: readonly EstadoOportunidad[] = [
-  "DISENANDO_PROPUESTA",
-  "PRESENTADA",
-  "EN_REVISION",
-  "EN_NEGOCIACION",
-  "STANDBY",
-];
+const OFFER_STATES = OPEN_OPPORTUNITY_STATES;
 
 export const GET = withApiErrorHandling(
   "dashboard/pipeline",
