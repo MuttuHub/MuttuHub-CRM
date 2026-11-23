@@ -114,7 +114,7 @@ Approved 2026-11-23 (L7). Route: inline unless a writer trigger fires.
 | ID | Specs | Risk | Status |
 |----|-------|------|--------|
 | T1 | S1: migration, API, OpenAPI, form chips, list filter | item 3 (adds an optional field and filter only) | done (inline): RED→GREEN route, lib, form and dialog tests; tsc, knip, changed-file lint clean; full suite green except live-DB invariants (local DB down) and a WSL fs-scan timeout in guard-utils (passes alone); commit 605d1972 |
-| T2 | S2, S3, S4, S5: tag report data endpoint | item 2 (scope rules) | in progress (inline): RED→GREEN `reports/tag/route.test.ts` 5/5; tsc, knip, changed-file lint clean; affected dirs (dashboard, reports, clients, lib) 110 files / 1623 tests green; independent verifier (item 2): S2, S4, S5 pass, S3 partial (opportunities ignored the cut-off) → fixed with `created_at <= end of corte` + member-scope count test; commits af70a029 + see L11 |
+| T2 | S2, S3, S4, S5: tag report data endpoint | item 2 (scope rules) | done (inline): RED→GREEN `reports/tag/route.test.ts` 5/5; tsc, knip, changed-file lint clean; affected dirs (dashboard, reports, clients, lib) 110 files / 1623 tests green; independent verifier (item 2): S2, S4, S5 pass, S3 partial (opportunities ignored the cut-off) → fixed with `created_at <= end of corte` + member-scope count test; commits af70a029, c54cc7e5 |
 | T3 | S4, S6, S7: tag report tab, print page and Excel | none expected | pending |
 | T4 | S8, S9, S13: origin, nullable client with CHECK, ProyectoCliente, API | items 1 and 3 | pending |
 | T5 | S8, S9, S14: creation choice and allies management in the ficha | item 2 (D3) | pending, blocked by D3 |
