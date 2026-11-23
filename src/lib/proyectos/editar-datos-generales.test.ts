@@ -20,6 +20,7 @@ const BASE: DatosGenerales = {
     { id: "l2", principal: false },
   ],
   municipioIds: ["m1", "m2"],
+  etiquetas: ["Reconstrucción"],
 }
 
 describe("validarDatosGenerales", () => {
@@ -99,5 +100,17 @@ describe("cuerpoDeCambios", () => {
   it("sends ONLY descripcion and beneficiarios_meta in EN_EJECUCION", () => {
     const actual = { ...BASE, nombre: "Otro", fechaFin: "2027-01-01", descripcion: "Nueva", beneficiarios: "150" }
     expect(cuerpoDeCambios(BASE, actual, "EN_EJECUCION")).toEqual({ descripcion: "Nueva", beneficiarios_meta: 150 })
+  })
+
+  it("T1 (S1): sends the tags when the set changed, in both modes", () => {
+    const actual = { ...BASE, etiquetas: ["Reconstrucción", "Fábrica Milagro"] }
+    expect(cuerpoDeCambios(BASE, actual, "BORRADOR")).toEqual({ etiquetas: ["Reconstrucción", "Fábrica Milagro"] })
+    expect(cuerpoDeCambios(BASE, actual, "EN_EJECUCION")).toEqual({ etiquetas: ["Reconstrucción", "Fábrica Milagro"] })
+  })
+
+  it("T1 (S1): sends [] to clear the tags, and nothing when only their order changed", () => {
+    expect(cuerpoDeCambios(BASE, { ...BASE, etiquetas: [] }, "BORRADOR")).toEqual({ etiquetas: [] })
+    const dos = { ...BASE, etiquetas: ["A", "B"] }
+    expect(cuerpoDeCambios(dos, { ...dos, etiquetas: ["B", "A"] }, "EN_EJECUCION")).toEqual({})
   })
 })

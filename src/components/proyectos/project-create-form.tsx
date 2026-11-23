@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { LoaderCircle } from "lucide-react";
+import { EtiquetasField, alternarEtiqueta } from "@/components/crm/etiquetas-field";
 import { CampoLineas, CampoMunicipios } from "@/components/proyectos/nuevo-proyecto/campos-proyecto";
 import { ClienteCombobox } from "@/components/proyectos/cliente-combobox";
 import { ClienteResumen } from "@/components/proyectos/nuevo-proyecto/cliente-resumen";
@@ -67,6 +68,8 @@ type CuerpoCreacion = {
   fecha_inicio: string;
   fecha_fin: string;
   beneficiarios_meta?: number;
+  /** T1 (S1): only sent when at least one tag is chosen. */
+  etiquetas?: string[];
 };
 
 function pad(value: number): string {
@@ -155,6 +158,7 @@ export function ProjectCreateForm({
   const [lineaIdsEstado, setLineaIdsEstado] = useState<string[] | null>(null);
   const [principalIdsEstado, setPrincipalIdsEstado] = useState<string[] | null>(null);
   const [municipioIds, setMunicipioIds] = useState<string[]>([]);
+  const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [prefillAplicado, setPrefillAplicado] = useState(false);
   // El error se pinta junto al botón de envío (el diálogo hace scroll y el pie queda fuera de la vista).
@@ -250,6 +254,7 @@ export function ProjectCreateForm({
     if (descripcionLimpia !== "") cuerpo.descripcion = descripcionLimpia;
     const beneficiarios = beneficiariosMeta.trim();
     if (beneficiarios !== "") cuerpo.beneficiarios_meta = Number(beneficiarios);
+    if (etiquetas.length > 0) cuerpo.etiquetas = etiquetas;
     return cuerpo;
   }
 
@@ -531,6 +536,12 @@ export function ProjectCreateForm({
       />
 
       <CampoMunicipios municipios={municipios} municipioIds={municipioIds} onToggle={toggleMunicipio} />
+
+      <EtiquetasField
+        labelId="proyecto-etiquetas-label"
+        selected={etiquetas}
+        onToggle={(tag) => setEtiquetas((prev) => alternarEtiqueta(prev, tag))}
+      />
 
       {error && (
         <div

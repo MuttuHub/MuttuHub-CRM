@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma, TipoCliente, EstadoCliente, PrioridadCliente, Usuario } from "@prisma/client";
 import { z } from "zod";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -43,18 +44,6 @@ export const dynamic = "force-dynamic";
 export type ClientListRow = Prisma.ClienteGetPayload<{
   select: typeof CLIENT_BASE_SELECT;
 }>;
-
-/**
- * Jefe 2026-10-28 lane 2 task 2.6 (S6): client tags, picked from the same
- * live `task_tags` catalog as tasks (assumption A1). Same per-tag rules as
- * the tasks API (POST/PATCH /tasks: trim, non-empty, <= 50 chars, <= 20
- * tags), plus dedupe keeping the first occurrence's order. Shared by
- * POST /clients and PATCH /clients/:id.
- */
-export const CLIENT_ETIQUETAS_SCHEMA = z
-  .array(z.string().trim().min(1, "Hay una etiqueta vacía.").max(50, "Etiqueta muy larga."))
-  .max(20, "Demasiadas etiquetas (máximo 20).")
-  .transform((tags) => [...new Set(tags)]);
 
 /** List row projection: the shared base select plus the client's tags. */
 export const CLIENT_LIST_SELECT = { ...CLIENT_BASE_SELECT, etiquetas: true } as const;
@@ -99,7 +88,7 @@ export const POST_CLIENT_SCHEMA = z.object({
   prioridades_identificadas: z.string().optional(),
   riesgos_barreras: z.string().optional(),
   resumen_relacion: z.string().optional(),
-  etiquetas: CLIENT_ETIQUETAS_SCHEMA.optional(),
+  etiquetas: ETIQUETAS_SCHEMA.optional(),
 });
 
 /** Builds the shared list/export `where`. Reads are global (PR 3): no

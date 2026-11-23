@@ -1,7 +1,7 @@
 // GET /api/v1/projects — v2 project list (contract E-02, P01).
 // POST /api/v1/projects — independent project creation (contract E-03, P05).
 //
-// Filters `?estado&cliente_id&linea_id&municipio_id&responsable_id`; any
+// Filters `?estado&cliente_id&linea_id&municipio_id&responsable_id&etiqueta`; any
 // authenticated user may call it, but the rows are narrowed by the project
 // read scope in `src/lib/api/projects.ts` (`canViewPortfolio`, plus the
 // membership clause for a COORDINADOR since S2.6) — never by a role list
@@ -24,6 +24,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { parseDate } from "@/lib/api/crm";
 import { canCreateProject, canManageProjects } from "@/lib/permissions";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
@@ -66,6 +67,7 @@ function parseProjectListFilters(
       linea_id: sp.get("linea_id") ?? undefined,
       municipio_id: sp.get("municipio_id") ?? undefined,
       responsable_id: sp.get("responsable_id") ?? undefined,
+      etiqueta: sp.get("etiqueta")?.trim() || undefined,
     },
   };
 }
@@ -132,6 +134,8 @@ const PROJECT_CREATE_BASE = {
   // COORDINADORs are accepted (validated before the transaction); a repeated id
   // or one naming the responsable collapses into a single membership.
   miembro_ids: z.array(z.string().min(1, "El usuario no es válido.")).optional(),
+  // T1 (S1): tags from the `task_tags` catalogue, same rules as clients and tasks.
+  etiquetas: ETIQUETAS_SCHEMA.optional(),
 } as const;
 
 /** V-03 (PO-4): start strictly before end. Runs once both dates parsed, so it never masks a bad-date error. */
@@ -299,6 +303,7 @@ export const POST = withApiErrorHandling(
           // S2: Σ of the budget lines, and a new project has none yet.
           valor_total: toProjectDecimal(0),
           beneficiarios_meta: parsed.data.beneficiarios_meta ?? null,
+          etiquetas: parsed.data.etiquetas ?? [],
           lineas: {
             create: parsed.data.lineas.map((linea) => ({
               linea_id: linea.id,

@@ -1,5 +1,5 @@
 // "Editar datos generales" (UX-3): diálogo de la ficha Resumen. En BORRADOR edita todos los datos generales; en
-// EN_EJECUCION solo la descripción y los beneficiarios, porque fechas y valor cambian la línea base y se piden
+// EN_EJECUCION solo la descripción, los beneficiarios y las etiquetas (T1, S1), porque fechas y valor cambian la línea base y se piden
 // como modificación (el diálogo las muestra de solo lectura y lleva al Historial). El valor total nunca se digita
 // (T11 S2): es la suma de las líneas del presupuesto y aquí solo se muestra. Las reglas son las de la
 // creación (`validarDatosGenerales`) y el cuerpo solo lleva lo que cambió. La API sigue siendo la autoridad.
@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
+import { EtiquetasField, alternarEtiqueta } from "@/components/crm/etiquetas-field";
 import { CampoLineas, CampoMunicipios } from "@/components/proyectos/nuevo-proyecto/campos-proyecto";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { CAPTURE_TEXTAREA } from "@/components/proyectos/ui";
@@ -64,6 +65,7 @@ function datosDelProyecto(proyecto: ProjectListRow): DatosGenerales {
     beneficiarios: proyecto.beneficiarios_meta === null ? "" : String(proyecto.beneficiarios_meta),
     lineas: proyecto.lineas.map((linea) => ({ id: linea.id, principal: linea.principal })),
     municipioIds: proyecto.municipios.map((municipio) => municipio.id),
+    etiquetas: proyecto.etiquetas ?? [],
   };
 }
 
@@ -104,7 +106,7 @@ export function EditarDatosGenerales({
           <DialogDescription>
             {modo === "BORRADOR"
               ? "Cambia lo que necesites y guarda. Todo queda en el historial."
-              : "En ejecución puedes cambiar la descripción y los beneficiarios."}
+              : "En ejecución puedes cambiar la descripción, los beneficiarios y las etiquetas."}
           </DialogDescription>
         </DialogHeader>
         {open && (
@@ -243,6 +245,11 @@ function EditarForm({
         )}
         {mensaje("beneficiarios")}
       </div>
+      <EtiquetasField
+        labelId="editar-etiquetas-label"
+        selected={datos.etiquetas}
+        onToggle={(tag) => cambiar({ etiquetas: alternarEtiqueta(datos.etiquetas, tag) })}
+      />
     </>
   );
 
