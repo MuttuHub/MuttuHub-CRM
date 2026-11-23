@@ -3,13 +3,12 @@ import { login, openCliente } from "./helpers";
 
 // Guide §10 (what changed in Clientes).
 
-test("sub-navigation lists «Oportunidades» with its board and still hides «Mapa», whose route redirects to /clientes", async ({ page }) => {
+test("sub-navigation lists «Oportunidades» with its board and «Mapa» with the allies map (V5)", async ({ page }) => {
   await login(page, "gerencia", "/clientes");
   const nav = page.getByRole("navigation", { name: "Secciones de clientes" });
-  for (const s of ["Aliados", "Oportunidades", "Interacciones", "Relaciones", "Salud", "Automatizaciones"]) {
+  for (const s of ["Aliados", "Oportunidades", "Mapa", "Interacciones", "Relaciones", "Salud", "Automatizaciones"]) {
     await expect(nav.getByRole("link", { name: s, exact: true })).toBeVisible();
   }
-  await expect(nav.getByRole("link", { name: "Mapa" })).toHaveCount(0);
 
   // V1: the board replaced the redirect, with the seven stages the PO agreed on.
   await nav.getByRole("link", { name: "Oportunidades", exact: true }).click();
@@ -26,10 +25,10 @@ test("sub-navigation lists «Oportunidades» with its board and still hides «Ma
     await expect(page.getByText(etapa, { exact: true }).first()).toBeVisible();
   }
 
-  // Mapa is still unbuilt, so its route keeps redirecting.
-  await page.goto("/clientes/mapa");
-  await expect(page).toHaveURL(/\/clientes$/);
-  await expect(page.getByRole("heading", { name: "Aliados y clientes", level: 1 })).toBeVisible();
+  // V5: Mapa is built, so its route no longer redirects to /clientes.
+  await nav.getByRole("link", { name: "Mapa", exact: true }).click();
+  await expect(page).toHaveURL(/\/clientes\/mapa$/);
+  await expect(page.getByText("La cobertura de aliados por departamento.", { exact: false })).toBeVisible();
 });
 
 test("gerencia: first-contact date is human readable; «Crear proyecto» opens the stepper with the client preselected", async ({ page }) => {
