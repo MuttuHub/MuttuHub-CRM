@@ -7,7 +7,7 @@
 //   - COLABORADOR: reads only clients/tasks where they are the responsable
 //     (list, detail); writes only on records where they are the responsable.
 
-import type { EstadoTarea, FaseOportunidad, Prisma, RolUsuario, Tarea, Usuario } from "@prisma/client";
+import type { EstadoOportunidad, EstadoTarea, FaseOportunidad, Prisma, RolUsuario, Tarea, Usuario } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
@@ -217,6 +217,15 @@ export async function checkOportunidadClienteConsistency(
 export const OPEN_TASK_STATES: { notIn: EstadoTarea[] } = {
   notIn: ["COMPLETADA", "CANCELADA"],
 };
+
+/** Opportunity states still in the funnel, in funnel order (GANADA and PERDIDA are closed; PRD §7.1). */
+export const OPEN_OPPORTUNITY_STATES: readonly EstadoOportunidad[] = [
+  "DISENANDO_PROPUESTA",
+  "PRESENTADA",
+  "EN_REVISION",
+  "EN_NEGOCIACION",
+  "STANDBY",
+];
 
 /** Light projection used by the clients list (shared with the xlsx export). */
 export const CLIENT_BASE_SELECT = {
