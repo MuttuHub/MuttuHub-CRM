@@ -174,6 +174,8 @@ describe("GET /api/v1/reports/tag", () => {
     const opWhere = vi.mocked(db.oportunidad.findMany).mock.calls[0][0]?.where
     expect(opWhere).toMatchObject({ deleted_at: null, cliente_id: { in: ["c1", "c2", "c3"] } })
     expect(opWhere?.estado).toEqual({ in: ["DISENANDO_PROPUESTA", "PRESENTADA", "EN_REVISION", "EN_NEGOCIACION", "STANDBY"] })
+    // Snapshot at the cut-off: nothing created after the end of `corte`.
+    expect(opWhere?.created_at).toEqual({ lte: new Date("2026-10-29T23:59:59.999Z") })
     expect(body.oportunidades).toEqual([
       { id: "o1", nombre: "Dotación", estado: "PRESENTADA", valor_estimado_cop: "2000000.50", cliente: { id: "c1", nombre: "Acme" } },
       { id: "o2", nombre: "Capacitación", estado: "STANDBY", valor_estimado_cop: null, cliente: { id: "c2", nombre: "Beta" } },
@@ -212,6 +214,15 @@ describe("GET /api/v1/reports/tag", () => {
     expect(body.oportunidades).toBeNull()
     expect(body.resumen.pipeline).toBeNull()
     expect(body.clientes[0]).not.toHaveProperty("oportunidades_abiertas")
+    // The client project count keeps the member scope, and no opportunity count is selected.
+    const sel = vi.mocked(db.cliente.findMany).mock.calls[0][0]?.select as unknown as {
+      _count: { select: Record<string, { where: unknown }> }
+    }
+    expect(sel._count.select.proyectos.where).toMatchObject({
+      deleted_at: null,
+      miembros: { some: { usuario_id: "COLABORADOR-1", removed_at: null } },
+    })
+    expect(sel._count.select).not.toHaveProperty("oportunidades")
     // Without a period: no date filter on bitácora, and the cut-off is today.
     expect(body.periodo).toEqual({ desde: null, hasta: null })
     expect(body.corte).toBe("2026-10-29")
