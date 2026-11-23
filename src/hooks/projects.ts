@@ -84,6 +84,8 @@ export type ProjectListRow = {
   /** Avisos no bloqueantes derivados de la diferencia (S2.4). */
   alertas: ProjectAlert[];
   beneficiarios_meta: number | null;
+  /** T1 (S1): etiquetas del catálogo `task_tags`. Opcional en el tipo para no obligar a todos los fixtures. */
+  etiquetas?: string[];
   lineas: ProjectLinea[];
   municipios: ProjectMunicipio[];
 };

@@ -113,6 +113,7 @@ const existente = {
   valor_total: new Prisma.Decimal("245450000.00"),
   diferencia_valor_oportunidad: null,
   beneficiarios_meta: 120,
+  etiquetas: ["Reconstrucción"],
   lineas: [{ principal: true, linea: { id: "linea-1", codigo: "LE01", nombre: "Empleabilidad" } }],
   municipios: [{ municipio: { id: "mun-1", nombre: "Medellín", departamento: "Antioquia" } }],
   // Membership probe folded into the GET existence read (S2.6): the default
@@ -191,6 +192,7 @@ describe("GET /api/v1/projects/:id", () => {
       diferencia_valor_oportunidad: null,
       alertas: [],
       beneficiarios_meta: 120,
+      etiquetas: ["Reconstrucción"],
       lineas: [{ id: "linea-1", codigo: "LE01", nombre: "Empleabilidad", principal: true }],
       municipios: [{ id: "mun-1", nombre: "Medellín", departamento: "Antioquia" }],
     });
@@ -352,7 +354,7 @@ describe("PATCH /api/v1/projects/:id", () => {
       expect(res.status).toBe(409);
       expect(json.code).toBe("INVALID_STATE");
       expect(json.error).toBe(
-        "En un proyecto en ejecución solo se pueden editar la descripción y los beneficiarios. Los demás datos cambian la línea base: solicítalo como modificación.",
+        "En un proyecto en ejecución solo se pueden editar la descripción, los beneficiarios y las etiquetas. Los demás datos cambian la línea base: solicítalo como modificación.",
       );
       expect(mocks.txUpdate).not.toHaveBeenCalled();
       expect(vi.mocked(logChanges)).not.toHaveBeenCalled();
@@ -365,6 +367,16 @@ describe("PATCH /api/v1/projects/:id", () => {
       expect(res.status).toBe(400);
       expect(json.error).toBe("El campo 'valor_total' no se puede modificar en este endpoint.");
       expect(mocks.txUpdate).not.toHaveBeenCalled();
+    });
+
+    it("accepts etiquetas (S1): a tag does not change the baseline", async () => {
+      const res = await PATCH(patchRequest({ etiquetas: ["Reconstrucción", "Fábrica Milagro"] }), routeContext);
+
+      expect(res.status).toBe(200);
+      expect(mocks.txUpdate).toHaveBeenCalledWith({
+        where: { id: "pry-1" },
+        data: { etiquetas: { set: ["Reconstrucción", "Fábrica Milagro"] } },
+      });
     });
 
     it("rejects a negative beneficiarios_meta", async () => {
@@ -769,5 +781,58 @@ describe("project row lock (S8: a baseline approval cannot interleave with a str
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("INVALID_STATE");
     expect(write).not.toHaveBeenCalled();
+  });
+});
+
+// T1 (S1): project tags through PATCH — written with `{ set }` and audited like any other field.
+describe("PATCH /api/v1/projects/:id etiquetas (S1)", () => {
+  it("replaces the tags with { set } (trimmed, deduplicated) and audits one row", async () => {
+    const res = await PATCH(
+      patchRequest({ etiquetas: [" Distrito Creativo ", "Distrito Creativo", "Reconstrucción"] }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.txUpdate).toHaveBeenCalledWith({
+      where: { id: "pry-1" },
+      data: { etiquetas: { set: ["Distrito Creativo", "Reconstrucción"] } },
+    });
+    const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
+    expect(rows).toEqual([
+      expect.objectContaining({
+        accion: "EDITAR",
+        entidad: "proyecto",
+        proyecto_id: "pry-1",
+        campo: "etiquetas",
+        valor_anterior: ["Reconstrucción"],
+        valor_nuevo: ["Distrito Creativo", "Reconstrucción"],
+      }),
+    ]);
+  });
+
+  it("clears the tags with an empty list", async () => {
+    const res = await PATCH(patchRequest({ etiquetas: [] }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(mocks.txUpdate).toHaveBeenCalledWith({ where: { id: "pry-1" }, data: { etiquetas: { set: [] } } });
+  });
+
+  it("does not audit tags sent unchanged", async () => {
+    await PATCH(patchRequest({ etiquetas: ["Reconstrucción"], nombre: "Otro nombre" }), routeContext);
+
+    const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
+    expect(rows.map((row) => row.campo)).toEqual(["nombre"]);
+  });
+
+  it("rejects more than 20 tags with 400 and writes nothing", async () => {
+    const res = await PATCH(
+      patchRequest({ etiquetas: Array.from({ length: 21 }, (_, i) => `t${i}`) }),
+      routeContext,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: "Demasiadas etiquetas (máximo 20)." });
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 });

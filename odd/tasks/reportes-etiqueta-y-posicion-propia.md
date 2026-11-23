@@ -113,7 +113,7 @@ Approved 2026-11-23 (L7). Route: inline unless a writer trigger fires.
 
 | ID | Specs | Risk | Status |
 |----|-------|------|--------|
-| T1 | S1: migration, API, OpenAPI, form chips, list filter | item 3 (adds an optional field and filter only) | pending |
+| T1 | S1: migration, API, OpenAPI, form chips, list filter | item 3 (adds an optional field and filter only) | done (inline): RED→GREEN route, lib, form and dialog tests; tsc, knip, changed-file lint clean; full suite green except live-DB invariants (local DB down) and a WSL fs-scan timeout in guard-utils (passes alone); commit: see L9 |
 | T2 | S2, S3, S4, S5: tag report data endpoint | item 2 (scope rules) | pending |
 | T3 | S4, S6, S7: tag report tab, print page and Excel | none expected | pending |
 | T4 | S8, S9, S13: origin, nullable client with CHECK, ProyectoCliente, API | items 1 and 3 | pending |
@@ -145,3 +145,10 @@ Approved 2026-11-23 (L7). Route: inline unless a writer trigger fires.
   - Covers S1–S17, each with an acceptance criterion («Se acepta si») and touchpoints, plus D1–D4 and T1–T10 with estimates.
   - The acceptance criteria restate the specs; they add no new requirements.
 - **L7 (2026-11-23, user):** «me dijo que si, que empezaramos». The boss approved; the decisions D1–D4 were not answered, so T5, T7 and T10 stay blocked. Before branching, `feat/producto-pendientes` (16 unpushed commits) went up as six stacked PRs to `main`, one per item (user: «primero sube pendientes por aparte», then «PRs encadenados por ítem»): #214 D4 → #215 V9 → #216 V8 → #217 V2 → #218 B6 → #219 V5. The knip fix moved into the V8 slice so `lint:dead` passes there. Phase 2 starts with T1.
+- **L8 (2026-11-23, T1 implementation):** decisions and assumptions, not asked:
+  - Tags are editable while the project is EN_EJECUCION too, because they classify the project for reports and do not change the baseline. This changes the existing 409 message to «En un proyecto en ejecución solo se pueden editar la descripción, los beneficiarios y las etiquetas. Los demás datos cambian la línea base: solicítalo como modificación.» and the dialog copy to «En ejecución puedes cambiar la descripción, los beneficiarios y las etiquetas.»
+  - `CLIENT_ETIQUETAS_SCHEMA` moved to `src/lib/api/etiquetas.ts` as `ETIQUETAS_SCHEMA` (same rules), shared by clients and projects. `ClientTagsField` became the shared `EtiquetasField` (`src/components/crm/etiquetas-field.tsx`), used by the client form, the create form and «Editar datos generales». The tasks dialog keeps its own chips (not touched).
+  - The GANADA conversion (E-05) also accepts and stores `etiquetas`, since it shares `PROJECT_CREATE_BASE` with E-03 and the same form posts to both.
+  - The tags change is audited as one `etiquetas` row (before/after arrays), like any other general field.
+  - The list filter is API-only (`GET /projects?etiqueta=`), as S1 states; no list UI filter was added.
+- **L9 (2026-11-23, T1 closed):** full unit suite: every failure is a `prisma/*.invariant.test.ts` (`Can't reach database server at 127.0.0.1:54322`) or the `guard-utils` 5 s timeout scanning `/mnt/c` (passes alone). Live-DB invariants for the `etiquetas` migration remain pending until the local DB is up; CI runs them. Next: T2.

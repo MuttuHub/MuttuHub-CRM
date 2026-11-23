@@ -37,6 +37,7 @@ const PROYECTO: ProjectListRow = {
     { id: "l2", codigo: "LE02", nombre: "Emprendimiento", principal: false },
   ],
   municipios: [{ id: "m1", nombre: "Barranquilla", departamento: "Atlántico" }],
+  etiquetas: ["Reconstrucción"],
 }
 const EN_EJECUCION: ProjectListRow = { ...PROYECTO, estado: "EN_EJECUCION" }
 
@@ -56,6 +57,9 @@ describe("EditarDatosGenerales", () => {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
       if (init?.method === "PATCH") return Promise.resolve(patchResponse())
+      if (url.includes("/catalogs/settings")) {
+        return Promise.resolve(jsonResponse({ task_tags: ["Reconstrucción", "Fábrica Milagro", "Distrito Creativo"] }))
+      }
       if (url.includes("/catalogs/users")) {
         return Promise.resolve(
           jsonResponse({ users: [{ id: "u1", nombre: "Ana Pérez" }, { id: "u2", nombre: "Luis Mora" }] }),
@@ -153,6 +157,19 @@ describe("EditarDatosGenerales", () => {
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ["projects"] })
       expect(toast.success).toHaveBeenCalledWith("Datos generales guardados.")
+    })
+
+    it("T1 (S1): removes a tag in BORRADOR and sends the remaining set", async () => {
+      const user = userEvent.setup()
+      renderDialog()
+      const dialog = await screen.findByRole("dialog")
+
+      const grupo = within(dialog).getByRole("group", { name: "Etiquetas" })
+      await user.click(within(grupo).getByRole("button", { name: "Reconstrucción" }))
+      await user.click(within(dialog).getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patches()).toHaveLength(1))
+      expect(JSON.parse((patches()[0]![1] as RequestInit).body as string)).toEqual({ etiquetas: [] })
     })
 
     it("closes without a request when nothing changed", async () => {
@@ -271,6 +288,23 @@ describe("EditarDatosGenerales", () => {
         beneficiarios_meta: 150,
       })
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    })
+
+    it("T1 (S1): edits the tags during execution too, and sends only them", async () => {
+      const user = userEvent.setup()
+      renderDialog(EN_EJECUCION)
+      const dialog = await screen.findByRole("dialog")
+      expect(within(dialog).getByText("En ejecución puedes cambiar la descripción, los beneficiarios y las etiquetas.")).toBeInTheDocument()
+
+      const grupo = within(dialog).getByRole("group", { name: "Etiquetas" })
+      expect(within(grupo).getByRole("button", { name: "Reconstrucción" })).toHaveAttribute("aria-pressed", "true")
+      await user.click(await within(grupo).findByRole("button", { name: "Fábrica Milagro" }))
+      await user.click(within(dialog).getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patches()).toHaveLength(1))
+      expect(JSON.parse((patches()[0]![1] as RequestInit).body as string)).toEqual({
+        etiquetas: ["Reconstrucción", "Fábrica Milagro"],
+      })
     })
 
     it("does not let the beneficiaries be emptied or zero (same rule as the baseline approval)", async () => {

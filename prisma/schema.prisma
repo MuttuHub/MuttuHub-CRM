@@ -790,6 +790,8 @@ model Proyecto {
   valor_total                  Decimal?        @db.Decimal(15, 2)
   diferencia_valor_oportunidad Decimal?        @db.Decimal(15, 2)
   beneficiarios_meta           Int?
+  // T1 (S1): project tags, from the same admin catalogue as clients and tasks (`task_tags` setting).
+  etiquetas                    String[]        @default([])
   umbrales_override            Json?
   programacion_pendiente       Boolean         @default(false)
   // T13 (S7): the Gestor confirmed the programming (every line fully programmed). Cleared by any later
