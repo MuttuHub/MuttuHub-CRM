@@ -20,8 +20,13 @@ vi.mock("@/hooks/reportes", async (importOriginal) => {
   return {
     ...(await importOriginal<typeof import("@/hooks/reportes")>()),
     useReporteSemanal: () => ({ data: REPORTE_SEMANAL, isLoading: false, isError: false, error: null }),
+    useReporteEtiqueta: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
   }
 })
+vi.mock("@/hooks/admin", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/admin")>()),
+  useTaskTags: () => ({ data: ["Comercial"] }),
+}))
 
 describe("ReportesPage", () => {
   it("opens the printable report of a cara in the same tab (S4)", async () => {
@@ -45,5 +50,25 @@ describe("ReportesPage", () => {
     expect(generar).toHaveAttribute("href", "/print/reportes/semanal?semana=2026-10-19")
     expect(generar).not.toHaveAttribute("target")
     expect(screen.getByRole("region", { name: "Portafolio por proyecto" })).toBeInTheDocument()
+  })
+
+  it("adds an Etiqueta tab next to Tareas and Semanal and keeps the other tabs (S7)", async () => {
+    const user = userEvent.setup()
+    render(<ReportesPage />)
+
+    const tabs = screen.getAllByRole("tab").map((t) => t.textContent)
+    expect(tabs).toEqual([
+      "Tareas",
+      "Semanal",
+      "Etiqueta",
+      "Pipeline comercial",
+      "Gestión de tareas",
+      "Actividad de clientes",
+      "Mi resumen",
+    ])
+
+    await user.click(screen.getByRole("tab", { name: "Etiqueta" }))
+    expect(await screen.findByText("Elige una etiqueta para ver su reporte.")).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toBeInTheDocument()
   })
 })
