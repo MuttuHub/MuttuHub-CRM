@@ -7,6 +7,7 @@
 
 import { useId, useState } from "react";
 import { PorActividad } from "@/components/proyectos/ficha/finanzas/por-actividad";
+import { useFiltroFinanciero } from "@/components/proyectos/ficha/finanzas/filtro-financiero";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { CAPTURE_CHOICE } from "@/components/proyectos/ui";
 import type { ProjectListRow } from "@/hooks/projects";
@@ -30,6 +31,9 @@ export function VistasFinancieras({
   onVerGastos?: () => void;
 }) {
   const [vista, setVista] = useState<Vista>("rubro");
+  // El corte y la base viven aquí, encima de las dos vistas: «Por actividad» lee la misma hoja que «Por rubro» y
+  // lo elegido sigue al cambiar de vista (L32.1).
+  const filtro = useFiltroFinanciero();
   const grupo = useId();
 
   return (
@@ -59,9 +63,14 @@ export function VistasFinancieras({
       </div>
 
       {vista === "rubro" ? (
-        <ProjectFinanciero proyecto={proyecto} onVerActividades={onVerActividades} onVerGastos={onVerGastos} />
+        <ProjectFinanciero
+          proyecto={proyecto}
+          filtro={filtro}
+          onVerActividades={onVerActividades}
+          onVerGastos={onVerGastos}
+        />
       ) : (
-        <PorActividad proyecto={proyecto} />
+        <PorActividad proyecto={proyecto} corte={filtro.corte} base={filtro.base} />
       )}
     </div>
   );

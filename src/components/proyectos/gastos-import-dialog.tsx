@@ -69,7 +69,7 @@ function VistaPrevia({ preview }: { preview: ExpensesImportPreview }) {
         <Table className="w-full text-[12.5px]">
           <TableHeader>
             <TableRow>
-              {["Fila", "Estado", "Rubro", "Tercero", "Documento"].map((titulo) => (
+              {["Fila", "Estado", "Rubro", "Actividad", "Tercero", "Documento"].map((titulo) => (
                 <TableHead key={titulo} scope="col">
                   {titulo}
                 </TableHead>
@@ -88,6 +88,7 @@ function VistaPrevia({ preview }: { preview: ExpensesImportPreview }) {
                   <StatusChip tone={f.valida ? "exito" : "destructivo"}>{f.valida ? "Válida" : "Con error"}</StatusChip>
                 </TableCell>
                 <TableCell className="max-w-[12rem] align-top break-words whitespace-normal">{f.rubro ?? "—"}</TableCell>
+                <TableCell className="align-top font-mono">{f.actividad ?? "—"}</TableCell>
                 <TableCell className="max-w-[12rem] align-top break-words whitespace-normal">{f.tercero ?? "—"}</TableCell>
                 <TableCell className="align-top font-mono">{f.numero_documento ?? "—"}</TableCell>
                 <TableCell numeric className="align-top">
