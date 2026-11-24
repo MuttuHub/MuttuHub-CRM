@@ -61,18 +61,29 @@ function createFakeStore(rows: FakeRow[]): OutboxStore & { rows: FakeRow[] } {
     },
     async markSent(id, { now, providerId }) {
       const row = rows.find((r) => r.id === id)!;
-      if (row.estado !== "ENVIANDO") return;
+      if (row.estado === "ENVIADO") return;
       Object.assign(row, { estado: "ENVIADO", enviado_at: now, proveedor_id: providerId ?? null, bloqueado_hasta: null });
     },
-    async markRetry(id, { nextAttemptAt, error }) {
+    async markRetry(id, { attempt, nextAttemptAt, error }) {
       const row = rows.find((r) => r.id === id)!;
-      if (row.estado !== "ENVIANDO") return;
+      if (row.estado !== "ENVIANDO" || row.intentos !== attempt) return;
       Object.assign(row, { estado: "PENDIENTE", proximo_intento_at: nextAttemptAt, ultimo_error: error, bloqueado_hasta: null });
     },
-    async markFailed(id, { error }) {
+    async markFailed(id, { attempt, error }) {
       const row = rows.find((r) => r.id === id)!;
-      if (row.estado !== "ENVIANDO") return;
+      if (row.estado !== "ENVIANDO" || row.intentos !== attempt) return;
       Object.assign(row, { estado: "FALLIDO", ultimo_error: error, bloqueado_hasta: null });
+    },
+    async release(id, { attempt, nextAttemptAt, error }) {
+      const row = rows.find((r) => r.id === id)!;
+      if (row.estado !== "ENVIANDO" || row.intentos !== attempt) return;
+      Object.assign(row, {
+        estado: "PENDIENTE",
+        intentos: attempt - 1,
+        proximo_intento_at: nextAttemptAt,
+        ultimo_error: error,
+        bloqueado_hasta: null,
+      });
     },
   };
 }
@@ -119,7 +130,7 @@ describe("processOutbox", () => {
 
     const summary = await processOutbox(sender, NOW, 10, { store });
 
-    expect(summary).toEqual({ claimed: 2, sent: 2, retried: 0, failed: 0 });
+    expect(summary).toEqual({ claimed: 2, sent: 2, retried: 0, failed: 0, deferred: 0 });
     expect(sent).toEqual([
       { to: "a@muttu.co", subject: "Asunto a", html: "<p>a</p>", idempotencyKey: "prueba/a" },
       { to: "b@muttu.co", subject: "Asunto b", html: "<p>b</p>", idempotencyKey: "prueba/b" },
@@ -151,7 +162,7 @@ describe("processOutbox", () => {
     );
 
     const first = await processOutbox(sender, NOW, 10, { store });
-    expect(first).toEqual({ claimed: 1, sent: 0, retried: 1, failed: 0 });
+    expect(first).toEqual({ claimed: 1, sent: 0, retried: 1, failed: 0, deferred: 0 });
     expect(store.rows[0]).toMatchObject({
       estado: "PENDIENTE",
       intentos: 1,
@@ -166,7 +177,7 @@ describe("processOutbox", () => {
     fail = false;
     const later = new Date(NOW.getTime() + nextAttemptDelayMs(1));
     const second = await processOutbox(sender, later, 10, { store });
-    expect(second).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
+    expect(second).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0, deferred: 0 });
 
     // A further run never resends a sent row.
     const third = await processOutbox(sender, new Date(later.getTime() + 86_400_000), 10, { store });
@@ -194,7 +205,7 @@ describe("processOutbox", () => {
 
     const summary = await processOutbox(sender, NOW, 10, { store });
 
-    expect(summary).toEqual({ claimed: 1, sent: 0, retried: 0, failed: 1 });
+    expect(summary).toEqual({ claimed: 1, sent: 0, retried: 0, failed: 1, deferred: 0 });
     expect(store.rows[0]).toMatchObject({
       estado: "FALLIDO",
       intentos: OUTBOX_MAX_ATTEMPTS,
@@ -236,9 +247,97 @@ describe("processOutbox", () => {
     expect((await processOutbox(sender, NOW, 10, { store })).claimed).toBe(0);
     const after = await processOutbox(sender, new Date(NOW.getTime() + 120_000), 10, { store });
 
-    expect(after).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
+    expect(after).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0, deferred: 0 });
     expect(sent).toHaveLength(1);
     expect(store.rows[0]).toMatchObject({ estado: "ENVIADO", intentos: 2 });
+  });
+
+  it("keeps a row sent when a worker whose lease expired reports success after a newer worker failed", async () => {
+    const store = createFakeStore([row("a")]);
+    let releaseSlow!: () => void;
+    const slowSender: EmailSender = {
+      send: () => new Promise<SendResult>((resolve) => (releaseSlow = () => resolve({ ok: true, id: "slow" }))),
+    };
+    const failing = recordingSender(() => ({ ok: false, error: "HTTP 500" }));
+
+    const slowRun = processOutbox(slowSender, NOW, 10, { store });
+    await Promise.resolve();
+    const lateRun = await processOutbox(failing.sender, new Date(NOW.getTime() + 11 * 60_000), 10, { store });
+    expect(lateRun).toEqual({ claimed: 1, sent: 0, retried: 1, failed: 0, deferred: 0 });
+
+    releaseSlow();
+    expect(await slowRun).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0, deferred: 0 });
+    expect(store.rows[0]).toMatchObject({ estado: "ENVIADO", proveedor_id: "slow", bloqueado_hasta: null });
+
+    const resend = recordingSender(() => ({ ok: true }));
+    const nextDay = await processOutbox(resend.sender, new Date(NOW.getTime() + 24 * 60 * 60_000), 10, { store });
+    expect(nextDay.claimed).toBe(0);
+    expect(resend.sent).toHaveLength(0);
+  });
+
+  it("ignores a failure reported by a worker whose lease a newer worker has taken", async () => {
+    const store = createFakeStore([row("a")]);
+    let failSlow!: () => void;
+    const slowSender: EmailSender = {
+      send: () => new Promise<SendResult>((resolve) => (failSlow = () => resolve({ ok: false, error: "stale" }))),
+    };
+    let releaseLate!: () => void;
+    const lateSender: EmailSender = {
+      send: () => new Promise<SendResult>((resolve) => (releaseLate = () => resolve({ ok: true, id: "late" }))),
+    };
+
+    const slowRun = processOutbox(slowSender, NOW, 10, { store });
+    await Promise.resolve();
+    const lateRun = processOutbox(lateSender, new Date(NOW.getTime() + 11 * 60_000), 10, { store });
+    await Promise.resolve();
+
+    failSlow();
+    await slowRun;
+    expect(store.rows[0]).toMatchObject({ estado: "ENVIANDO", intentos: 2, ultimo_error: null });
+
+    releaseLate();
+    expect(await lateRun).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0, deferred: 0 });
+    expect(store.rows[0]).toMatchObject({ estado: "ENVIADO", proveedor_id: "late" });
+  });
+
+  it("on a rate limit, stops the batch and defers the limited row and the rest without spending an attempt", async () => {
+    const store = createFakeStore([row("a"), row("b", { intentos: 2 }), row("c"), row("d")]);
+    const { sender, sent } = recordingSender((msg) =>
+      msg.to === "b@muttu.co"
+        ? { ok: false, error: "Resend HTTP 429 · rate_limit_exceeded", retryAfterMs: 30_000 }
+        : { ok: true },
+    );
+
+    const summary = await processOutbox(sender, NOW, 10, { store });
+
+    expect(summary).toEqual({ claimed: 4, sent: 1, retried: 0, failed: 0, deferred: 3 });
+    expect(sent.map((m) => m.to)).toEqual(["a@muttu.co", "b@muttu.co"]);
+    const retryAt = new Date(NOW.getTime() + 30_000);
+    expect(store.rows.map((r) => [r.id, r.estado, r.intentos])).toEqual([
+      ["a", "ENVIADO", 1],
+      ["b", "PENDIENTE", 2],
+      ["c", "PENDIENTE", 0],
+      ["d", "PENDIENTE", 0],
+    ]);
+    for (const r of store.rows.slice(1)) {
+      expect(r).toMatchObject({
+        proximo_intento_at: retryAt,
+        bloqueado_hasta: null,
+        ultimo_error: "Resend HTTP 429 · rate_limit_exceeded",
+      });
+    }
+
+    expect((await processOutbox(sender, new Date(retryAt.getTime() - 1), 10, { store })).claimed).toBe(0);
+  });
+
+  it("never fails a row on its last attempt because of a rate limit", async () => {
+    const store = createFakeStore([row("a", { intentos: OUTBOX_MAX_ATTEMPTS - 1 })]);
+    const { sender } = recordingSender(() => ({ ok: false, error: "Resend HTTP 429", retryAfterMs: 60_000 }));
+
+    const summary = await processOutbox(sender, NOW, 10, { store });
+
+    expect(summary).toEqual({ claimed: 1, sent: 0, retried: 0, failed: 0, deferred: 1 });
+    expect(store.rows[0]).toMatchObject({ estado: "PENDIENTE", intentos: OUTBOX_MAX_ATTEMPTS - 1 });
   });
 });
 

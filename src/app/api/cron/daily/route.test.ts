@@ -78,7 +78,7 @@ function usuario(overrides: Partial<Usuario> = {}): Usuario {
   } as Usuario;
 }
 
-const emptyOutboxRun = { claimed: 0, sent: 0, retried: 0, failed: 0 };
+const emptyOutboxRun = { claimed: 0, sent: 0, retried: 0, failed: 0, deferred: 0 };
 
 beforeEach(() => {
   vi.mocked(getAutomatizaciones).mockResolvedValue(automatizacionesEnabled);
@@ -330,7 +330,7 @@ describe("POST /api/cron/daily", () => {
       vi.stubEnv("RESEND_API_KEY", "re_test_key");
       mockHeader("the-secret");
       vi.mocked(getAutomatizaciones).mockResolvedValue({ ...automatizacionesEnabled, resumen_diario: false });
-      vi.mocked(processOutbox).mockResolvedValue({ claimed: 3, sent: 2, retried: 1, failed: 0 });
+      vi.mocked(processOutbox).mockResolvedValue({ claimed: 3, sent: 2, retried: 1, failed: 0, deferred: 0 });
 
       const res = await POST();
       const json = await res.json();
@@ -341,7 +341,7 @@ describe("POST /api/cron/daily", () => {
       expect(now).toBeInstanceOf(Date);
       expect(limit).toBeGreaterThan(0);
       expect(db.cronLog.create).toHaveBeenCalledWith({
-        data: { job_name: OUTBOX_JOB_NAME, estado: "OK", detalle: "claimed=3 sent=2 retried=1 failed=0" },
+        data: { job_name: OUTBOX_JOB_NAME, estado: "OK", detalle: "claimed=3 sent=2 retried=1 failed=0 deferred=0" },
       });
       // The summary's own response is untouched by the drain.
       expect(json).toMatchObject({ ok: true, processed: 0, sent: 0, failed: 0 });

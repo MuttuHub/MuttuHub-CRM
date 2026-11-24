@@ -16,8 +16,18 @@
 //   3. ok → ENVIADO (terminal: never claimed again). Failure → back to PENDIENTE with an
 //      exponential backoff, or FALLIDO once `intentos` reaches OUTBOX_MAX_ATTEMPTS.
 //   A row whose worker died keeps ENVIANDO until its lease expires, then it is claimable again
-//   (or FALLIDO if it had no attempts left). Every state change after the claim is guarded by
-//   `estado = 'ENVIANDO'`, so a late writer cannot resurrect or overwrite a settled row.
+//   (or FALLIDO if it had no attempts left).
+//   A worker can also outlive its lease (a slow send) while another run reclaims the row. The
+//   claim's `intentos` is its fencing token:
+//     * a failure (retry or FALLIDO) applies only while the row is still ENVIANDO under that same
+//       attempt, so a stale worker cannot move a row another worker now holds;
+//     * a success applies to any row not yet ENVIADO: the mail did go out, so it must never be
+//       claimed and sent again, even if a newer worker already put the row back to PENDIENTE.
+//   A rate limit (the sender returns `retryAfterMs`) is not a delivery failure: nothing was sent.
+//   The run stops sending and releases the limited row and every row it has not tried yet:
+//   back to PENDIENTE after the provider's wait, with the claim's attempt given back. Release is
+//   fenced like a failure; giving the attempt back cannot reissue a token to a stale worker,
+//   because the only holder of that token is the worker doing the release.
 
 import { Prisma, type PrismaClient } from "@prisma/client";
 
@@ -90,8 +100,11 @@ export type ClaimedEmail = {
 export interface OutboxStore {
   claimDue(args: { now: Date; limit: number; leaseMs: number; maxAttempts: number }): Promise<ClaimedEmail[]>;
   markSent(id: string, args: { now: Date; providerId?: string }): Promise<void>;
-  markRetry(id: string, args: { nextAttemptAt: Date; error: string }): Promise<void>;
-  markFailed(id: string, args: { error: string }): Promise<void>;
+  /** `attempt` is the claimed `intentos`; the update is a no-op once another claim holds the row. */
+  markRetry(id: string, args: { attempt: number; nextAttemptAt: Date; error: string }): Promise<void>;
+  markFailed(id: string, args: { attempt: number; error: string }): Promise<void>;
+  /** Back to PENDIENTE without spending the claimed attempt; same fencing as `markRetry`. */
+  release(id: string, args: { attempt: number; nextAttemptAt: Date; error: string }): Promise<void>;
 }
 
 /** `timestamp(3)` columns hold UTC wall time (Prisma's convention); bind dates the same way. */
@@ -129,7 +142,7 @@ export function createPrismaOutboxStore(client: PrismaClient = db): OutboxStore 
     },
     async markSent(id, { now, providerId }) {
       await client.emailOutbox.updateMany({
-        where: { id, estado: "ENVIANDO" },
+        where: { id, estado: { not: "ENVIADO" } },
         data: {
           estado: "ENVIADO",
           enviado_at: now,
@@ -139,22 +152,35 @@ export function createPrismaOutboxStore(client: PrismaClient = db): OutboxStore 
         },
       });
     },
-    async markRetry(id, { nextAttemptAt, error }) {
+    async markRetry(id, { attempt, nextAttemptAt, error }) {
       await client.emailOutbox.updateMany({
-        where: { id, estado: "ENVIANDO" },
+        where: { id, estado: "ENVIANDO", intentos: attempt },
         data: { estado: "PENDIENTE", proximo_intento_at: nextAttemptAt, ultimo_error: error, bloqueado_hasta: null },
       });
     },
-    async markFailed(id, { error }) {
+    async markFailed(id, { attempt, error }) {
       await client.emailOutbox.updateMany({
-        where: { id, estado: "ENVIANDO" },
+        where: { id, estado: "ENVIANDO", intentos: attempt },
         data: { estado: "FALLIDO", ultimo_error: error, bloqueado_hasta: null },
+      });
+    },
+    async release(id, { attempt, nextAttemptAt, error }) {
+      await client.emailOutbox.updateMany({
+        where: { id, estado: "ENVIANDO", intentos: attempt },
+        data: {
+          estado: "PENDIENTE",
+          intentos: attempt - 1,
+          proximo_intento_at: nextAttemptAt,
+          ultimo_error: error,
+          bloqueado_hasta: null,
+        },
       });
     },
   };
 }
 
-export type OutboxRunSummary = { claimed: number; sent: number; retried: number; failed: number };
+/** `deferred`: rows released untouched by a rate limit (the limited one and those after it). */
+export type OutboxRunSummary = { claimed: number; sent: number; retried: number; failed: number; deferred: number };
 
 export async function processOutbox(
   sender: EmailSender,
@@ -167,9 +193,9 @@ export async function processOutbox(
   const leaseMs = options.leaseMs ?? OUTBOX_LEASE_MS;
 
   const claimed = await store.claimDue({ now, limit, leaseMs, maxAttempts });
-  const summary: OutboxRunSummary = { claimed: claimed.length, sent: 0, retried: 0, failed: 0 };
+  const summary: OutboxRunSummary = { claimed: claimed.length, sent: 0, retried: 0, failed: 0, deferred: 0 };
 
-  for (const email of claimed) {
+  for (const [index, email] of claimed.entries()) {
     let result;
     try {
       result = await sender.send({
@@ -185,11 +211,20 @@ export async function processOutbox(
     if (result.ok) {
       await store.markSent(email.id, { now, providerId: result.id });
       summary.sent += 1;
+    } else if (result.retryAfterMs !== undefined) {
+      const nextAttemptAt = new Date(now.getTime() + result.retryAfterMs);
+      const error = result.error.slice(0, 500);
+      for (const held of claimed.slice(index)) {
+        await store.release(held.id, { attempt: held.intentos, nextAttemptAt, error });
+        summary.deferred += 1;
+      }
+      break;
     } else if (email.intentos >= maxAttempts) {
-      await store.markFailed(email.id, { error: result.error.slice(0, 500) });
+      await store.markFailed(email.id, { attempt: email.intentos, error: result.error.slice(0, 500) });
       summary.failed += 1;
     } else {
       await store.markRetry(email.id, {
+        attempt: email.intentos,
         nextAttemptAt: new Date(now.getTime() + nextAttemptDelayMs(email.intentos)),
         error: result.error.slice(0, 500),
       });
