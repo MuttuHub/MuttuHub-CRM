@@ -270,6 +270,9 @@ model Oportunidad {
   // nivel de base de datos que una tarea u entrada de bitácora vinculada a
   // esta oportunidad solo pueda apuntar al mismo cliente_id.
   @@unique([id, cliente_id])
+  // Pendientes #22: the client tab and the pipeline board filter opportunities by client and by estado.
+  @@index([cliente_id])
+  @@index([estado])
   @@map("oportunidades")
 }
 
