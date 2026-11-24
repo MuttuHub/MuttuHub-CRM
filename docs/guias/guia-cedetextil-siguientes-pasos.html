@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>CedeTextil: siguientes pasos | Muttu Hub</title>
+<style>
+  @font-face { font-family: "Bricolage Grotesque"; src: url("../../src/fonts/bricolage-grotesque-latin.woff2") format("woff2"); font-weight: 200 800; }
+  @font-face { font-family: "Instrument Sans"; src: url("../../src/fonts/instrument-sans-latin.woff2") format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "JetBrains Mono"; src: url("../../src/fonts/jetbrains-mono-latin.woff2") format("woff2"); font-weight: 400 700; }
+
+  :root {
+    --ink-950: #191113; --ink-900: #281d20; --ink-700: #5a474c; --ink-500: #725d62;
+    --ink-200: #ece5e7; --ink-100: #f7f3f4; --panel: #ffffff;
+    --rose-500: #cd1560; --rose-700: #940d44; --rose-50: #fcf1f5; --rose-200: #f5bad2;
+    --alerta: #b45309; --alerta-bg: #fef4e6; --exito: #127c4a; --exito-bg: #e7f5ed;
+  }
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--panel); color: var(--ink-900); font-family: "Instrument Sans", system-ui, sans-serif; font-size: 10.5pt; line-height: 1.55; }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", sans-serif; color: var(--ink-950); line-height: 1.2; margin: 0; }
+  h1 { font-size: 22pt; font-weight: 800; letter-spacing: -0.01em; }
+  h2 { font-size: 15pt; font-weight: 700; margin: 0 0 6pt; }
+  h2.sub { font-size: 11.5pt; margin: 12pt 0 4pt; }
+  h3 { font-size: 11.5pt; font-weight: 700; margin: 12pt 0 4pt; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 16pt; }
+  li { margin-bottom: 3pt; }
+  b, strong { color: var(--ink-950); }
+  .mono { font-family: "JetBrains Mono", monospace; font-size: 9pt; }
+  .btn { display: inline-block; padding: 0 6pt; border: 1px solid var(--ink-200); border-radius: 6pt; background: var(--ink-100); font-weight: 600; font-size: 9.5pt; color: var(--ink-950); white-space: nowrap; }
+
+  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ink-200); padding-bottom: 8pt; margin-bottom: 16pt; }
+  .head .brand { display: flex; align-items: center; gap: 7pt; }
+  .head .brand img { width: 54pt; height: auto; }
+  .head .brand span { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; color: var(--ink-700); font-size: 12pt; }
+  .chip { display: inline-flex; align-items: center; height: 17pt; padding: 0 8pt; border-radius: 99pt; border: 1px solid var(--rose-200); background: var(--rose-50); color: var(--rose-700); font-weight: 700; font-size: 8.5pt; }
+
+  .eyebrow { font-size: 8.5pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rose-700); margin-bottom: 6pt; }
+  .lead { font-size: 11.5pt; color: var(--ink-700); margin: 8pt 0 12pt; max-width: 46em; }
+
+  .card { border: 1px solid var(--ink-200); border-radius: 10pt; padding: 11pt 13pt; margin: 0 0 11pt; break-inside: avoid; }
+  .card.rosa { background: var(--rose-50); border-color: var(--rose-200); }
+  .card.alerta { background: var(--alerta-bg); border-color: #f3d3a6; }
+  .card.exito { background: var(--exito-bg); border-color: #b9e1cb; }
+  .card .titulo { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 11pt; color: var(--ink-950); margin-bottom: 4pt; }
+  .card p:last-child, .card ul:last-child, .card ol:last-child { margin-bottom: 0; }
+
+  .ruta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 6pt 0 14pt; }
+  .ruta div { border: 1px solid var(--ink-200); border-radius: 8pt; padding: 7pt 8pt; font-size: 9pt; line-height: 1.35; }
+  .ruta b { display: block; font-family: "Bricolage Grotesque", sans-serif; color: var(--rose-700); font-size: 13pt; }
+
+  .paso { display: grid; grid-template-columns: 30pt 1fr; gap: 10pt; margin: 0 0 16pt; }
+  .paso .num { width: 26pt; height: 26pt; border-radius: 99pt; background: var(--rose-500); color: #fff; display: flex; align-items: center; justify-content: center; font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 12pt; }
+  .paso h2 { margin-top: 3pt; }
+  h2, h3 { break-after: avoid; }
+  .paso > div > p:first-of-type { break-before: avoid; }
+
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9.2pt; break-inside: avoid; }
+  th { text-align: left; font-size: 7.8pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500); border-bottom: 1px solid var(--ink-200); padding: 5pt 6pt; }
+  td { border-bottom: 1px solid var(--ink-100); padding: 5pt 6pt; vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+
+  .check li { list-style: none; position: relative; padding-left: 4pt; }
+  .check li::before { content: "☐"; position: absolute; left: -14pt; color: var(--rose-700); }
+
+  .pie { margin-top: 20pt; border-top: 1px solid var(--ink-200); padding-top: 7pt; font-size: 8.5pt; color: var(--ink-500); display: flex; justify-content: space-between; }
+  .pie b { color: var(--rose-700); letter-spacing: 0.08em; text-transform: uppercase; }
+  .porque { border-left: 3pt solid var(--rose-500); background: var(--rose-50); border-radius: 0 8pt 8pt 0; padding: 7pt 10pt; margin: 2pt 0 9pt; font-size: 10pt; break-inside: avoid; }
+  .porque b:first-child { color: var(--rose-700); }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="brand"><img src="../../public/brand/logo-color.svg" alt="Muttu Innovación Social" /><span>Hub</span></div>
+  <span class="chip">Siguientes pasos</span>
+</div>
+
+<div class="eyebrow">Proyectos · CedeTextil</div>
+<h1>CedeTextil quedó actualizado: lo que te falta</h1>
+<p class="lead">Hola, Laurina. CedeTextil ya tiene la estructura nueva, con tu plantilla. Sigue siendo el mismo proyecto, <b>PRY-2026-001</b>, con su avance, sus reportes y sus soportes. Te quedan cuatro revisiones cortas; aquí va cada una, paso a paso.</p>
+
+<div class="card exito">
+  <div class="titulo">Lo que cambió en PRY-2026-001</div>
+  <table>
+    <tr><th>Qué</th><th>Cómo quedó</th></tr>
+    <tr><td>Presupuesto</td><td>Ahora va <b>por actividad y rubro</b>: 19 líneas, tal como las llenaste. Total: <b>$180.846.000</b>.</td></tr>
+    <tr><td>Gestión del proyecto</td><td>Se agregó la transversal <b>G.1 · Gestión del proyecto</b>, con personal y gastos generales.</td></tr>
+    <tr><td>Programación</td><td>Cada línea quedó repartida por mes con la propuesta del Hub.</td></tr>
+    <tr><td>Lo que ya tenías</td><td>Los mismos objetivos, actividades, entregables e indicadores, y los mismos avances, reportes y soportes. El avance técnico no cambió.</td></tr>
+    <tr><td>Gasto de $938.000</td><td>Ahora tiene actividad: quedó en la <b>1.1</b>, de forma <b>provisional</b>.</td></tr>
+  </table>
+  <p>El borrador de prueba que se había creado (PRY-2026-003) ya no existe: todo quedó en un solo proyecto.</p>
+</div>
+
+<h2>Tus cuatro revisiones</h2>
+<div class="ruta">
+  <div><b>1</b>La actividad del gasto de $938.000</div>
+  <div><b>2</b>El valor total</div>
+  <div><b>3</b>La programación por mes</div>
+  <div><b>4</b>Las fechas de las actividades</div>
+</div>
+
+<div class="paso">
+  <div class="num">1</div>
+  <div>
+    <h2>Revisa la actividad del gasto de $938.000</h2>
+    <p class="porque"><b>¿Por qué?</b> Ese gasto se había registrado antes de que el Hub manejara actividades, así que no tenía una. Lo dejamos en la 1.1 para que cuente en las finanzas, pero tú sabes a cuál corresponde de verdad. Así aparece bien tanto en la vista por actividad como en la vista por rubro.</p>
+    <p>Si la 1.1 está bien, no tienes que hacer nada. Si no:</p>
+    <ol>
+      <li>Abre el proyecto, ve a <b>Finanzas</b> y busca el gasto de $938.000 en la lista de gastos.</li>
+      <li>Ábrelo y elige <span class="btn">Corregir gasto</span>.</li>
+      <li>Cambia la <b>Actividad</b>. El rubro Promoción y divulgación (R04) está en la <b>1.1</b>, la <b>3.3</b> y la <b>G.1</b>; si eliges la G.1, el objetivo es «Gestión del proyecto».</li>
+      <li>Escribe el <b>Motivo de la corrección</b>, por ejemplo «Actividad real del gasto», y guarda.</li>
+    </ol>
+    <p>Puedes corregirlo mientras el gasto no esté validado. El cambio y su motivo quedan en el registro de cambios.</p>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">2</div>
+  <div>
+    <h2>Confirma el valor total</h2>
+    <p class="porque"><b>¿Por qué?</b> Con tu reparto, el proyecto suma $180.846.000, y antes sumaba $177.040.000: son <b>$3.806.000 más</b>. Este valor es contra el que se mide la ejecución financiera, así que tiene que ser el acordado con el cliente.</p>
+    <p>Si el total es correcto, no tienes que hacer nada: solo avísame. Si no lo es, como el proyecto ya está en ejecución, el ajuste se pide a Gerencia:</p>
+    <ol>
+      <li>Ve a <b>Historial › Solicitudes</b> y pulsa <span class="btn">Solicitar modificación</span>.</li>
+      <li>Elige el tipo <b>Reducción de recursos</b> (o <b>Adición de recursos</b>, si falta plata), indica las líneas y los valores, y escribe el motivo.</li>
+      <li>Gerencia la revisa y la aprueba o la rechaza con un comentario.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">3</div>
+  <div>
+    <h2>Revisa la programación por mes</h2>
+    <p class="porque"><b>¿Por qué?</b> Cada mes, el Hub compara lo gastado con lo programado para ese mes. De ahí salen la curva S financiera y el aviso «Este gasto supera lo programado del rubro hasta este periodo». La programación de hoy es la propuesta automática: reparte cada línea entre los meses de su actividad, y la G.1 en partes iguales. Si no se parece a como de verdad se va a gastar, las alertas saldrán donde no deben.</p>
+    <ol>
+      <li>Ve a <b>Finanzas › Presupuesto</b> y mira la <b>Programación mensual</b> de cada línea.</li>
+      <li>Si a un mes le sobra o le falta, usa <b>Mover valor entre meses</b>: elige la línea, el mes de origen, el de destino y el valor, y pulsa <span class="btn">Mover valor</span>.</li>
+    </ol>
+    <p>Mover valor entre meses de una misma línea no necesita aprobación, y cada movimiento queda en el registro. Pasar plata de una actividad o un rubro a otro sí la necesita: para eso está <span class="btn">Solicitar traslado</span>, en Finanzas.</p>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">4</div>
+  <div>
+    <h2>Confirma las fechas de las actividades</h2>
+    <p class="porque"><b>¿Por qué?</b> De las semanas de cada actividad sale el avance que el Hub espera cada semana, y su semáforo. Hoy todas las actividades normales terminan, como máximo, en la <b>semana 8</b> (finales de noviembre), aunque el proyecto dura hasta el 31 de enero. Si alguna va a seguir después, el Hub la verá atrasada sin estarlo.</p>
+    <p>Si las fechas están bien, no tienes que hacer nada. Si alguna actividad se extiende:</p>
+    <ol>
+      <li>Ve a <b>Historial › Solicitudes</b> y pulsa <span class="btn">Solicitar modificación</span>.</li>
+      <li>Elige el tipo <b>Cronograma</b>, la actividad y sus nuevas semanas, y escribe el motivo.</li>
+      <li>Gerencia la aprueba y el semáforo se ajusta.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="card">
+  <div class="titulo">Y de aquí en adelante</div>
+  <p>Sigues trabajando como siempre: registras los avances con <span class="btn">Registrar avance</span> y los gastos con <span class="btn">Registrar gasto</span>. Lo único nuevo es que, en cada gasto, eliges <b>objetivo, actividad y rubro</b>. El personal y los gastos generales van en la <b>G.1</b>, con el objetivo «Gestión del proyecto».</p>
+</div>
+
+<div class="card rosa">
+  <div class="titulo">Lista para saber que quedó bien</div>
+  <ul class="check">
+    <li>El gasto de $938.000 está en la actividad que le corresponde.</li>
+    <li>Me confirmaste el total de $180.846.000, o enviaste la solicitud para ajustarlo.</li>
+    <li>La programación por mes se parece a como de verdad se va a gastar.</li>
+    <li>Las fechas de las actividades son las reales, o enviaste la solicitud de cronograma.</li>
+  </ul>
+</div>
+
+<p>Si algo te sale distinto a lo que dice aquí, mándame un pantallazo del mensaje y lo resolvemos. Si prefieres, lo hacemos juntos en una llamada corta.</p>
+
+<div class="pie"><span><b>Muttu Hub</b> · Siguientes pasos de CedeTextil</span><span>Noviembre de 2026</span></div>
+
+</body>
+</html>
