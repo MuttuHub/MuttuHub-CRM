@@ -9,5 +9,5 @@
     "e2e/**/*.spec.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "prisma/**/*.ts", "e2e/**/*.ts"],
-  "ignoreDependencies": ["pg", "tailwindcss", "tw-animate-css", "shadcn"]
+  "ignoreDependencies": ["pg", "tailwindcss", "tw-animate-css"]
 }
