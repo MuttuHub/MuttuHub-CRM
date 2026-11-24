@@ -144,35 +144,54 @@ export async function guardDocumentCreate(input: {
   const titulo = input.titulo.trim().slice(0, MAX_TITULO_LENGTH);
 
   if (!input.force) {
-    const existing = await db.documento.findFirst({
-      where: {
-        titulo: { equals: titulo, mode: "insensitive" },
-        deleted_at: null,
-        // Excluir las restringidas para un COLABORADOR: un 409 filtraría la
-        // existencia/id de un documento que ese rol ni siquiera puede listar
-        // (code review PR #23).
-        ...(canReadRestrictedDocs(input.usuario.rol)
-          ? {}
-          : { categoria: { notIn: [...categories.restringidas] } }),
-      },
-      select: { id: true, titulo: true },
+    const existing = await findLiveTitleTwin({
+      titulo,
+      usuario: input.usuario,
+      restringidas: categories.restringidas,
     });
-    if (existing) {
-      return {
-        ok: false,
-        response: NextResponse.json(
-          {
-            error: `Ya existe un documento llamado "${existing.titulo}".`,
-            code: "CONFLICT",
-            documento: existing,
-          },
-          { status: 409 },
-        ),
-      };
-    }
+    if (existing) return { ok: false, response: duplicateTitleResponse(existing) };
   }
 
   return { ok: true, titulo };
+}
+
+/**
+ * A live document with the same title (case-insensitive), the one rule both
+ * create and restore use for the duplicate-title 409. `excludeId` leaves the
+ * document being restored out of its own lookup.
+ */
+export async function findLiveTitleTwin(input: {
+  titulo: string;
+  usuario: Pick<Usuario, "rol">;
+  restringidas: readonly string[];
+  excludeId?: string;
+}): Promise<{ id: string; titulo: string } | null> {
+  return db.documento.findFirst({
+    where: {
+      titulo: { equals: input.titulo, mode: "insensitive" },
+      deleted_at: null,
+      ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      // Excluir las restringidas para un COLABORADOR: un 409 filtraría la
+      // existencia/id de un documento que ese rol ni siquiera puede listar
+      // (code review PR #23).
+      ...(canReadRestrictedDocs(input.usuario.rol)
+        ? {}
+        : { categoria: { notIn: [...input.restringidas] } }),
+    },
+    select: { id: true, titulo: true },
+  });
+}
+
+/** The duplicate-title 409 envelope: the client offers to go ahead with `force`. */
+export function duplicateTitleResponse(existing: { id: string; titulo: string }) {
+  return NextResponse.json(
+    {
+      error: `Ya existe un documento llamado "${existing.titulo}".`,
+      code: "CONFLICT",
+      documento: existing,
+    },
+    { status: 409 },
+  );
 }
 
 /** HTTP status/message mapping shared by the 404/403 document gates. */
@@ -259,16 +278,20 @@ export type DocumentOrder = (typeof DOCUMENT_ORDERS)[number];
 
 /**
  * `orderBy` for each sort option. Prisma has no case-insensitive orderBy, so
- * the name sort relies on the column collation (plain `titulo` order).
+ * the name sort relies on the column collation (plain `titulo` order). Titles
+ * repeat, so the name sort breaks ties by `id`: without it, rows with the same
+ * title could swap places between pages.
  */
-export function documentOrderBy(orden: DocumentOrder): Prisma.DocumentoOrderByWithRelationInput {
+export function documentOrderBy(
+  orden: DocumentOrder,
+): Prisma.DocumentoOrderByWithRelationInput | Prisma.DocumentoOrderByWithRelationInput[] {
   switch (orden) {
     case "antiguo":
       return { created_at: "asc" };
     case "nombre_asc":
-      return { titulo: "asc" };
+      return [{ titulo: "asc" }, { id: "asc" }];
     case "nombre_desc":
-      return { titulo: "desc" };
+      return [{ titulo: "desc" }, { id: "asc" }];
     case "reciente":
       return { created_at: "desc" };
   }
@@ -315,7 +338,8 @@ export function parseDocumentFilters(
   if (hasta && !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
     return { ok: false, response: apiError("Fecha 'hasta' no válida (YYYY-MM-DD).", 400, "VALIDATION_ERROR") };
   }
-  const ordenRaw = sp.get("orden");
+  // An empty `orden=` (a cleared select) means the default, like no param at all.
+  const ordenRaw = sp.get("orden") || null;
   if (ordenRaw !== null && !(DOCUMENT_ORDERS as readonly string[]).includes(ordenRaw)) {
     return { ok: false, response: apiError("Orden no válido.", 400, "VALIDATION_ERROR") };
   }

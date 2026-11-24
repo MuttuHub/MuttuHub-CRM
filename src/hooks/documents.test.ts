@@ -541,6 +541,36 @@ describe("explorer admin hooks (S3, S8, S4, S9)", () => {
     expect(invalidateSpy).not.toHaveBeenCalled()
   })
 
+  it("useRestoreDocument leaves a duplicate-title 409 to the caller instead of toasting it", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: 'Ya existe un documento llamado "A".', code: "CONFLICT", documento: { id: "d2", titulo: "A" } }, 409),
+    )
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useRestoreDocument(), { wrapper })
+
+    await expect(
+      act(async () => {
+        await result.current.mutateAsync("doc-1")
+      }),
+    ).rejects.toMatchObject({ status: 409, code: "CONFLICT" })
+
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it("useRestoreDocument sends force when asked to restore despite a duplicate title", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useRestoreDocument(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ id: "doc-1", force: true })
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toBe("/api/v1/documents/doc-1/restore")
+    expect(JSON.parse(String(init.body))).toEqual({ force: true })
+  })
+
   // S4: one "Editar documento" dialog over the existing PATCH.
   it("useUpdateDocument PATCHes only the metadata fields and refreshes list, detail and folders", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ documento: UPLOADED }))

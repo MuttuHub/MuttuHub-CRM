@@ -1,12 +1,14 @@
 // Papelera (S8 UI): documentos enviados a la papelera (soft delete) con
 // "Restaurar". Sin borrado permanente (PRD: solo soft delete). Restaurar
-// sigue la regla de escritura del documento (S10).
+// sigue la regla de escritura del documento (S10). Si ya hay un documento vivo
+// con el mismo título, pregunta antes de restaurar igual (force).
 
 "use client";
 
 import { useState } from "react";
 import { LoaderCircle, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/crm/entity-dialogs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,6 +22,7 @@ import {
 import type { CurrentUser } from "@/hooks/kanban";
 import {
   formatVersionFecha,
+  isDuplicateTitleConflict,
   useRestoreDocument,
   useTrashedDocuments,
 } from "@/hooks/documents";
@@ -32,6 +35,7 @@ import { FileTypeBadge, PaginationFooter } from "@/components/documents/document
 export function TrashTab({ user }: { user: CurrentUser | null | undefined }) {
   const [page, setPage] = useState(1);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<{ id: string; message: string } | null>(null);
   const query = useTrashedDocuments({ page, enabled: true });
   const restore = useRestoreDocument();
 
@@ -42,12 +46,14 @@ export function TrashTab({ user }: { user: CurrentUser | null | undefined }) {
   const desde = total === 0 ? 0 : (page - 1) * limit + 1;
   const hasta = Math.min(page * limit, total);
 
-  async function restaurar(id: string) {
+  async function restaurar(id: string, force = false) {
     setRestoringId(id);
     try {
-      await restore.mutateAsync(id);
-    } catch {
-      /* el hook muestra el error */
+      await restore.mutateAsync(force ? { id, force: true } : id);
+      setDuplicate(null);
+    } catch (err) {
+      // El hook muestra los demás errores; el título duplicado se pregunta.
+      if (isDuplicateTitleConflict(err)) setDuplicate({ id, message: (err as Error).message });
     } finally {
       setRestoringId(null);
     }
@@ -171,6 +177,20 @@ export function TrashTab({ user }: { user: CurrentUser | null | undefined }) {
           />
         </>
       )}
+      <ConfirmDialog
+        open={duplicate !== null}
+        onOpenChange={(open) => {
+          if (!open) setDuplicate(null);
+        }}
+        title="¿Restaurar de todos modos?"
+        description={`${duplicate?.message ?? ""} Si lo restauras, habrá dos documentos con ese nombre.`}
+        confirmLabel="Restaurar igual"
+        confirmVariant="default"
+        pending={restore.isPending}
+        onConfirm={() => {
+          if (duplicate) void restaurar(duplicate.id, true);
+        }}
+      />
     </section>
   );
 }

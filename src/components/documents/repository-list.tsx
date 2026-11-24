@@ -367,7 +367,10 @@ export function RepositoryList() {
     // no cambia nada (ni PATCH ni toast «Documento movido.»). En la raíz, soltar
     // sobre «Todas» tampoco cambia nada.
     if (carpetaId === (applied.carpeta || null)) return;
-    moveDocument.mutate({ id: activeId.slice(DOC_DRAG_PREFIX.length), carpeta_id: carpetaId });
+    const docId = activeId.slice(DOC_DRAG_PREFIX.length);
+    const doc = items.find((d) => d.id === docId);
+    if (doc && !canWrite(doc)) return;
+    moveDocument.mutate({ id: docId, carpeta_id: carpetaId });
   }
 
   /* ── Acciones por documento (S4) ─────────────────────────────────────── */
@@ -601,6 +604,7 @@ export function RepositoryList() {
                 items={items}
                 folders={subfolders}
                 folderHandlers={folderHandlers}
+                canWrite={canWrite}
                 onOpenFicha={setFichaId}
                 onOpenUpload={() => setUploadOpen(true)}
                 footer={footer}
