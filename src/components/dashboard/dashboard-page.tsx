@@ -179,7 +179,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
                 Desde
                 <Input
                   type="date"
-                  className="h-8 w-[9.5rem]"
+                  className="w-[9.5rem]"
                   value={personalizado.desde}
                   max={personalizado.hasta || undefined}
                   aria-invalid={rangoInvalido || undefined}
@@ -190,7 +190,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
                 Hasta
                 <Input
                   type="date"
-                  className="h-8 w-[9.5rem]"
+                  className="w-[9.5rem]"
                   value={personalizado.hasta}
                   min={personalizado.desde || undefined}
                   aria-invalid={rangoInvalido || undefined}
