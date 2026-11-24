@@ -6,32 +6,35 @@ permisos vigente, 4136 pruebas unitarias y 29 e2e en verde.
 IDs: **A** operación, **B** producto, **V** v7 CRM, **U** auditoría UX (sus hallazgos conservan `C1–C12`), **E** plataforma. **Estado de ejecución (2026-10-19):** A1 (etiqueta `v2.0.0`), A5 (credenciales), B1/D1 (mensaje de acceso) y **U0
 (re-auditoría UX)** están **hechos**. La re-auditoría encontró 10 de 16 hallazgos ya resueltos y dejó cuatro vigentes,
 todos pequeños: `odd/tasks/ux-audit-2026-10-19.md`. Detalle de la fase en `odd/tasks/fase-0-ejecucion.md`.
-**Último corte: 2026-11-14** — ver la sección 14. **Lo que queda abierto está en la sección 0.**
+**Último corte: 2026-11-24** — la sección 0 está al día. **Lo que queda abierto está en la sección 0.**
 
 Este plan ordena lo que queda en cinco frentes. Cada tarea trae tamaño (**S** ≤ 1 día, **M** 2–4 días, **L** 1–2
 semanas), de qué depende y cómo se sabe que está terminada. Las decisiones que bloquean trabajo están en la sección 5.
 
 ---
 
-## 0. Qué queda abierto (al 2026-11-14)
+## 0. Qué queda abierto (al 2026-11-24)
 
 Este documento es la **fuente única** de lo pendiente. Los requerimientos nuevos de la PO entran aquí, como filas en su
 frente (secciones 1–5) y en esta lista. Las secciones 10–13 son **cortes fechados**: registran lo que pasó ese día y no
-se actualizan.
+se actualizan. El detalle numerado de pendientes vive en `docs/pendientes.md` (entra a `main` con la cadena #220–#223).
 
-- **Pedido de la PO del 2026-11-10** (`docs/Hub-proyectos261110.docx`): Parte 1, ajustes AJ-07 a AJ-10, y Parte 2,
-  presupuesto por actividad EV-01 a EV-08. Plan, specs textuales, decisiones D1–D5 y tareas T0–T15 en
-  `odd/tasks/po-2026-11-10-proyectos.md`. **Al 2026-11-15:** T10, T11 (#183–#187), T12 (#182), T13 (#188–#194), **T14
-  con T7** (#206, `3bbbfbc`) y **S11 (EV-07)** (#207, `7ba0d2f`) en `main`; **T15** pendiente porque necesita volcado de
-  producción. Corte del 2026-11-15 en la sección 15.
-- **Producto (frente C y B):** V2 (ficha de oportunidad; convertir una GANADA crea el proyecto con sus tareas
-  enlazadas), V5 (mapa de aliados; hoy redirige), V8 (faltan las reglas de «2 días antes» y «30 días sin contacto»),
-  V9 (falta «nueva planeación»), B6 (rubros por proyecto; requiere migración) y D4 (semilla con una tarea comercial).
-- **Correo (PR-M1, #137):** migración `20261104181952_email_outbox` aplicada en producción el 2026-11-10 tras ensayo
-  sobre copia; el código entra con el merge de #137. Seguimiento PR-M1b en la descripción de #137.
-- **AJ-02, contracción:** la rama `feat/aj02-drop-peso-columns` no tiene PR y su migración es destructiva: necesita
-  ensayo sobre copia de producción antes de entrar.
-- **Deuda de V1:** `Oportunidad` no tiene índices por `cliente_id` ni por `estado`.
+- **Pedido de la PO del 2026-11-10** (`docs/Hub-proyectos261110.docx`): T10–T14, T7 y S11 (EV-07) en `main` desde el
+  2026-11-15. **T15 / EV-08 hecho el 2026-11-24:** CedeTextil (`PRY-2026-001`) se reestructuró en producción conservando
+  su código, avances, reportes y soportes, con presupuesto por actividad y la transversal G.1
+  (`odd/tasks/cedetextil-reemplazo.md`). Falta que la Gestora vuelva a registrar el gasto de $938.000 con su actividad.
+- **Producción, confirmado el 2026-11-24** con consultas de solo lectura: las 50 migraciones de `main` aplicadas, sin
+  errores; la contracción de AJ-02 (#165) aplicada; ningún gasto «Rechazado» pendiente de pasar a anulado.
+- **Producto (frente C y B):** V2, V5, V8, V9, B6 y D4 construidos y publicados en la cadena #214–#219, abiertos. Al
+  mergear: 5 migraciones con ensayo sobre copia de producción y decidir si la regla 2 de V8 arranca apagada.
+- **Reportes por etiqueta y posición propia:** fase 2 en la cadena #220–#223, abierta; fase 3 (posición propia) en curso
+  en `feat/posicion-propia`.
+- **Correo:** #137 en `main`. El reenvío duplicado al vencer el lease, el timeout y el 429 están en #224, abierto.
+  Siguen abiertos el disparador más frecuente para eventos inmediatos (PR-M3) y el adaptador SMTP (D-M1).
+- **Deuda chica en PRs abiertos:** advertencias de Documentos (#225), L32 (#226), índices de `Oportunidad` y retiro del
+  paquete `shadcn` (#227, trae una migración aditiva).
+- **Proceso:** desde el 2026-11-24 `main` exige PR (además de los checks `unit` y `build`); se borraron 117 ramas
+  remotas obsoletas, con respaldo en bundle fuera del repo.
 - **Bloqueadas por terceros:** A2 (dominio de Resend), A4 (respaldos automáticos; requisito de toda migración futura) y
   E4 (Railway).
 - **Limpieza de código:** L3–L8 en `docs/plan-limpieza-codigo.md` (L3 espera la decisión de formato de la PO).
