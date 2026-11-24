@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Cómo cargar Vía Perimetral | Muttu Hub</title>
+<style>
+  @font-face { font-family: "Bricolage Grotesque"; src: url("../../src/fonts/bricolage-grotesque-latin.woff2") format("woff2"); font-weight: 200 800; }
+  @font-face { font-family: "Instrument Sans"; src: url("../../src/fonts/instrument-sans-latin.woff2") format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "JetBrains Mono"; src: url("../../src/fonts/jetbrains-mono-latin.woff2") format("woff2"); font-weight: 400 700; }
+
+  :root {
+    --ink-950: #191113; --ink-900: #281d20; --ink-700: #5a474c; --ink-500: #725d62;
+    --ink-200: #ece5e7; --ink-100: #f7f3f4; --panel: #ffffff;
+    --rose-500: #cd1560; --rose-700: #940d44; --rose-50: #fcf1f5; --rose-200: #f5bad2;
+    --alerta: #b45309; --alerta-bg: #fef4e6; --exito: #127c4a; --exito-bg: #e7f5ed;
+  }
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--panel); color: var(--ink-900); font-family: "Instrument Sans", system-ui, sans-serif; font-size: 10.5pt; line-height: 1.55; }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", sans-serif; color: var(--ink-950); line-height: 1.2; margin: 0; }
+  h1 { font-size: 22pt; font-weight: 800; letter-spacing: -0.01em; }
+  h2 { font-size: 15pt; font-weight: 700; margin: 0 0 6pt; }
+  h2.sub { font-size: 11.5pt; margin: 12pt 0 4pt; }
+  h3 { font-size: 11.5pt; font-weight: 700; margin: 12pt 0 4pt; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 16pt; }
+  li { margin-bottom: 3pt; }
+  b, strong { color: var(--ink-950); }
+  .mono { font-family: "JetBrains Mono", monospace; font-size: 9pt; }
+  .btn { display: inline-block; padding: 0 6pt; border: 1px solid var(--ink-200); border-radius: 6pt; background: var(--ink-100); font-weight: 600; font-size: 9.5pt; color: var(--ink-950); white-space: nowrap; }
+
+  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ink-200); padding-bottom: 8pt; margin-bottom: 16pt; }
+  .head .brand { display: flex; align-items: center; gap: 7pt; }
+  .head .brand img { width: 54pt; height: auto; }
+  .head .brand span { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; color: var(--ink-700); font-size: 12pt; }
+  .chip { display: inline-flex; align-items: center; height: 17pt; padding: 0 8pt; border-radius: 99pt; border: 1px solid var(--rose-200); background: var(--rose-50); color: var(--rose-700); font-weight: 700; font-size: 8.5pt; }
+
+  .eyebrow { font-size: 8.5pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rose-700); margin-bottom: 6pt; }
+  .lead { font-size: 11.5pt; color: var(--ink-700); margin: 8pt 0 12pt; max-width: 46em; }
+
+  .card { border: 1px solid var(--ink-200); border-radius: 10pt; padding: 11pt 13pt; margin: 0 0 11pt; break-inside: avoid; }
+  .card.rosa { background: var(--rose-50); border-color: var(--rose-200); }
+  .card.alerta { background: var(--alerta-bg); border-color: #f3d3a6; }
+  .card.exito { background: var(--exito-bg); border-color: #b9e1cb; }
+  .card .titulo { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 11pt; color: var(--ink-950); margin-bottom: 4pt; }
+  .card p:last-child, .card ul:last-child, .card ol:last-child { margin-bottom: 0; }
+
+  .ruta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 6pt 0 14pt; }
+  .ruta div { border: 1px solid var(--ink-200); border-radius: 8pt; padding: 7pt 8pt; font-size: 9pt; line-height: 1.35; }
+  .ruta b { display: block; font-family: "Bricolage Grotesque", sans-serif; color: var(--rose-700); font-size: 13pt; }
+
+  .paso { display: grid; grid-template-columns: 30pt 1fr; gap: 10pt; margin: 0 0 16pt; }
+  .paso .num { width: 26pt; height: 26pt; border-radius: 99pt; background: var(--rose-500); color: #fff; display: flex; align-items: center; justify-content: center; font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 12pt; }
+  .paso h2 { margin-top: 3pt; }
+  h2, h3 { break-after: avoid; }
+  .paso > div > p:first-of-type { break-before: avoid; }
+
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9.2pt; break-inside: avoid; }
+  th { text-align: left; font-size: 7.8pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500); border-bottom: 1px solid var(--ink-200); padding: 5pt 6pt; }
+  td { border-bottom: 1px solid var(--ink-100); padding: 5pt 6pt; vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+
+  .check li { list-style: none; position: relative; padding-left: 4pt; }
+  .check li::before { content: "☐"; position: absolute; left: -14pt; color: var(--rose-700); }
+
+  .pie { margin-top: 20pt; border-top: 1px solid var(--ink-200); padding-top: 7pt; font-size: 8.5pt; color: var(--ink-500); display: flex; justify-content: space-between; }
+  .pie b { color: var(--rose-700); letter-spacing: 0.08em; text-transform: uppercase; }
+  .porque { border-left: 3pt solid var(--rose-500); background: var(--rose-50); border-radius: 0 8pt 8pt 0; padding: 7pt 10pt; margin: 2pt 0 9pt; font-size: 10pt; break-inside: avoid; }
+  .porque b:first-child { color: var(--rose-700); }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="brand"><img src="../../public/brand/logo-color.svg" alt="Muttu Innovación Social" /><span>Hub</span></div>
+  <span class="chip">Guía paso a paso</span>
+</div>
+
+<div class="eyebrow">Proyectos · Vía Perimetral</div>
+<h1>Cómo cargar Vía Perimetral con la nueva estructura</h1>
+<p class="lead">Hola, Jean Carlos y Laurina. El proyecto ya está creado en el Hub, pero todavía está vacío: no tiene objetivos, actividades ni presupuesto. Esta guía los lleva paso a paso para cargarlo con la estructura nueva: actividades, presupuesto por actividad y una actividad transversal para la gestión del proyecto.</p>
+
+<div class="card exito">
+  <div class="titulo">Lo que ya está en el Hub</div>
+  <p>El proyecto es <b>PRY-2026-002 · Piloto de economía circular — Vía Perimetral</b>, y está en <b>Borrador</b>.</p>
+  <table>
+    <tr><th>Qué</th><th>Cómo está</th></tr>
+    <tr><td>Cliente</td><td>BID, vinculado a su oportunidad ganada.</td></tr>
+    <tr><td>Fechas</td><td>Del 28 de octubre de 2026 al 27 de junio de 2027.</td></tr>
+    <tr><td>Línea y municipio</td><td>LE08 (principal); Cartagena de Indias.</td></tr>
+    <tr><td>Meta</td><td>40 beneficiarios.</td></tr>
+    <tr><td>Equipo</td><td>Jean Carlos Vega (responsable) y Laurina Bruges.</td></tr>
+  </table>
+  <p>Falta todo lo demás: objetivos, actividades, entregables, indicadores y presupuesto. Eso es lo que se carga con la plantilla.</p>
+</div>
+
+<h2>El recorrido</h2>
+<div class="ruta">
+  <div><b>1</b>Descargan la plantilla del proyecto</div>
+  <div><b>2</b>La llenan, con la actividad transversal</div>
+  <div><b>3</b>Jean Carlos la importa</div>
+  <div><b>4–5</b>Reparten por mes y aprueban la línea base</div>
+</div>
+
+<div class="card alerta">
+  <div class="titulo">Quién hace qué</div>
+  <p>Cualquiera de los dos puede descargar y llenar la plantilla. <b>Importarla y aprobar la línea base</b> solo lo pueden hacer Gerencia o Administración, así que esos pasos le tocan a <b>Jean Carlos</b>.</p>
+</div>
+
+<div class="paso">
+  <div class="num">1</div>
+  <div>
+    <h2>Descarguen la plantilla del proyecto</h2>
+    <p class="porque"><b>¿Por qué?</b> La plantilla no es un archivo genérico: el Hub la arma para este proyecto, con su código y sus datos ya escritos. Al importarla revisa que el código coincida; si le llega la de otro proyecto, la rechaza con «El código de la plantilla no coincide con el del proyecto».</p>
+    <p>Entren a <b>Proyectos</b>, abran <b>PRY-2026-002</b> y vayan a la pestaña <b>Actividades</b>. Como el proyecto está vacío, verán «Carga la estructura del proyecto». Pulsen <span class="btn">Cargar desde Excel</span> y luego <span class="btn">Descargar plantilla</span>.</p>
+    <p>El archivo ya trae en la hoja <b>2. Proyecto</b> el código, el cliente, las fechas, la línea y el municipio. Esos datos se dejan como vienen.</p>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">2</div>
+  <div>
+    <h2>Llenen la plantilla, hoja por hoja</h2>
+    <p class="porque"><b>¿Por qué?</b> Con esta plantilla se crea toda la estructura de una vez, y el presupuesto queda amarrado a cada actividad. Gracias a eso, al registrar un gasto se elige su actividad, y las finanzas se pueden ver por actividad y por rubro.</p>
+    <p>La primera hoja trae las instrucciones. No cambien los nombres de las hojas ni los títulos de la fila 1.</p>
+    <table>
+      <tr><th>Hoja</th><th>Qué va ahí</th></tr>
+      <tr><td>3. Objetivos</td><td>Un código (O1, O2…) y la descripción de cada objetivo.</td></tr>
+      <tr><td>4. Actividades</td><td>Código (1.1, 1.2…), código del objetivo, nombre, semana de inicio y de fin, correo del responsable y tipo (Normal o Transversal).</td></tr>
+      <tr><td>5. Entregables</td><td>Código, actividad, descripción, cantidad y unidad. Cada actividad Normal necesita al menos uno.</td></tr>
+      <tr><td>6. Indicadores</td><td>Código, objetivo, nombre y meta. La línea base es opcional.</td></tr>
+      <tr><td>7. Presupuesto</td><td>Una fila por cada actividad y rubro, con su valor. Si una actividad usa dos rubros, van dos filas.</td></tr>
+      <tr><td>8. Catálogos</td><td>Las listas de rubros, líneas, municipios y unidades. Solo de consulta.</td></tr>
+    </table>
+    <p>Las semanas se cuentan desde la fecha de inicio: la <b>semana 1</b> es la que arranca el 28 de octubre de 2026, la 2 empieza siete días después, y así sucesivamente.</p>
+
+    <div class="card rosa">
+      <div class="titulo">La actividad transversal: créenla a mano</div>
+      <p class="porque"><b>¿Por qué?</b> El personal, la coordinación y los gastos generales no pertenecen a una actividad puntual. Si se reparten entre las actividades, el presupuesto de cada una queda inflado. La transversal los agrupa en «Gestión del proyecto», no lleva entregables y no cuenta en el avance técnico.</p>
+      <p>En la hoja <b>4. Actividades</b> agreguen una fila así:</p>
+      <table>
+        <tr><th>Código</th><th>Código objetivo</th><th>Nombre</th><th>Semanas</th><th>Tipo</th></tr>
+        <tr><td>G.1</td><td><i>vacío</i></td><td>Gestión del proyecto</td><td><i>vacías</i></td><td>Transversal</td></tr>
+      </table>
+      <ul>
+        <li>Sin código de objetivo y sin entregables: una transversal no los lleva.</li>
+        <li>Si dejan vacías las semanas, dura todo el proyecto.</li>
+        <li>En la hoja <b>7. Presupuesto</b>, pongan en <b>G.1</b> el rubro de personal y los demás gastos generales, cada rubro en su fila.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">3</div>
+  <div>
+    <h2>Jean Carlos importa la plantilla</h2>
+    <p class="porque"><b>¿Por qué?</b> Antes de guardar nada, el Hub revisa todas las reglas: códigos que se conectan entre hojas, entregables, rubros y valores. Si algo falla, no guarda nada, y se puede corregir con calma.</p>
+    <p>En la pestaña <b>Actividades</b>, pulsa <span class="btn">Cargar desde Excel</span>, elige el archivo y pulsa <span class="btn">Validar plantilla</span>. Si sale «La plantilla es válida.», pulsa <span class="btn">Confirmar importación</span>.</p>
+    <p>Los errores más comunes y cómo arreglarlos:</p>
+    <table>
+      <tr><th>Si el Hub dice…</th><th>Hagan esto</th></tr>
+      <tr><td>«El código de la plantilla no coincide…»</td><td>Están usando otra plantilla. Descárguenla de nuevo desde este proyecto.</td></tr>
+      <tr><td>«La versión de la plantilla debe ser 2026.2»</td><td>Es una plantilla vieja. Descárguenla de nuevo.</td></tr>
+      <tr><td>«El objetivo «O1» no existe en la hoja 3. Objetivos»</td><td>Revisen que el código esté escrito igual en las dos hojas.</td></tr>
+      <tr><td>«La actividad «1.1» no tiene entregables.»</td><td>Agréguenle al menos un entregable en la hoja 5.</td></tr>
+      <tr><td>«…ya tiene el rubro … en la fila N»</td><td>Esa actividad y ese rubro están repetidos: súmenlos en una sola fila.</td></tr>
+      <tr><td>«Una actividad transversal no lleva objetivo…»</td><td>Borren el código del objetivo de la G.1.</td></tr>
+      <tr><td>«El rubro … no existe o está suspendido.»</td><td>Elijan el rubro de la lista desplegable; no lo escriban a mano.</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">4</div>
+  <div>
+    <h2>Repartan el presupuesto por mes y confírmenlo</h2>
+    <p class="porque"><b>¿Por qué?</b> Cada mes, el Hub compara lo gastado con lo que estaba programado para ese mes. De ahí salen la curva S financiera y las alertas de gasto. Además, sin la programación confirmada no se puede aprobar la línea base.</p>
+    <p>Vayan a <b>Finanzas › Presupuesto</b>. En <b>Programación mensual</b>, el Hub ya propone cómo repartir cada línea entre los meses de su actividad; para la G.1, el reparto es parejo en todos los meses. Ajusten lo que necesiten y pulsen <span class="btn">Guardar programación</span>.</p>
+    <p>Cuando la columna «Falta por programar» quede en $0 en todas las líneas, pulsen <span class="btn">Confirmar programación</span>.</p>
+  </div>
+</div>
+
+<div class="paso">
+  <div class="num">5</div>
+  <div>
+    <h2>Jean Carlos aprueba la línea base</h2>
+    <p class="porque"><b>¿Por qué?</b> La línea base es la foto oficial de lo acordado con el BID: contra ella se miden el avance y el gasto de todo el proyecto. Además, solo con el proyecto en ejecución se pueden registrar avances y gastos.</p>
+    <p>Revisen que todo esté como esperan y pulsen <span class="btn">Aprobar línea base</span>. El proyecto pasa a <b>En ejecución</b>.</p>
+    <p>Aprobar no se puede deshacer. Mientras el proyecto esté en Borrador, cualquier cambio es fácil; después, los cambios de presupuesto se piden a Gerencia como solicitud.</p>
+  </div>
+</div>
+
+<div class="card rosa">
+  <div class="titulo">Lista para saber que quedó bien</div>
+  <ul class="check">
+    <li>La pestaña Actividades muestra los objetivos, sus actividades y la G.1 en «Gestión del proyecto».</li>
+    <li>El presupuesto se ve por actividad, y el valor total es la suma de la hoja 7.</li>
+    <li>La programación dice «Programación confirmada».</li>
+    <li>PRY-2026-002 está En ejecución.</li>
+    <li>Al registrar un gasto, el Hub deja elegir objetivo, actividad y rubro.</li>
+  </ul>
+</div>
+
+<p>Si algo les sale distinto a lo que dice aquí, mándenme un pantallazo del mensaje y lo resolvemos.</p>
+
+<div class="pie"><span><b>Muttu Hub</b> · Guía de carga de Vía Perimetral</span><span>Noviembre de 2026</span></div>
+
+</body>
+</html>
