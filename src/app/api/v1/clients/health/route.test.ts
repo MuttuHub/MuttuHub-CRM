@@ -214,6 +214,41 @@ describe("GET /api/v1/clients/health", () => {
     });
   });
 
+  it("counts a posición propia project (no client) for each of its allies (S12)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([
+      { id: "cli-1", nombre: "Aliado A" },
+      { id: "cli-2", nombre: "Aliado B" },
+      { id: "cli-3", nombre: "Aliado C" },
+    ] as never);
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([]);
+    vi.mocked(db.proyecto.findMany).mockResolvedValue([
+      {
+        id: "proj-pp",
+        cliente_id: null,
+        aliados: [{ cliente_id: "cli-1" }, { cliente_id: "cli-2" }],
+        estado: "EN_EJECUCION",
+        fecha_inicio: new Date("2026-01-01"),
+        fecha_fin: new Date("2026-06-01"),
+        beneficiarios_meta: null,
+      },
+    ] as never);
+    vi.mocked(loadKpisPortafolio).mockResolvedValue(
+      new Map([["proj-pp", { tecnico: { color: "rojo" } }]]) as never,
+    );
+
+    const res = await GET();
+    const json = await res.json();
+    const proyectosDe = (id: string) =>
+      json.data.clientes.find((c: { cliente_id: string }) => c.cliente_id === id).subscores.proyectos;
+
+    expect(proyectosDe("cli-1")).toBe(20);
+    expect(proyectosDe("cli-2")).toBe(20);
+    expect(proyectosDe("cli-3")).toBeNull();
+    const select = vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.select;
+    expect(select).toMatchObject({ aliados: { select: { cliente_id: true } } });
+  });
+
   it("sorts SIN_DATOS last and counts it apart from RIESGO", async () => {
     authAs(gerencia);
     vi.mocked(db.cliente.findMany).mockResolvedValue([

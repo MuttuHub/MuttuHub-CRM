@@ -100,6 +100,8 @@ export const GET = withApiErrorHandling(
             select: {
               id: true,
               cliente_id: true,
+              // S12: a posición propia project counts for each of its allies.
+              aliados: { select: { cliente_id: true } },
               estado: true,
               fecha_inicio: true,
               fecha_fin: true,
@@ -135,10 +137,12 @@ export const GET = withApiErrorHandling(
     for (const proyecto of proyectos) {
       const color = kpis?.get(proyecto.id)?.tecnico?.color;
       if (!color) continue;
-      coloresPorCliente.set(proyecto.cliente_id, [
-        ...(coloresPorCliente.get(proyecto.cliente_id) ?? []),
-        color,
-      ]);
+      const clienteIds = proyecto.cliente_id
+        ? [proyecto.cliente_id]
+        : proyecto.aliados.map((a) => a.cliente_id);
+      for (const clienteId of clienteIds) {
+        coloresPorCliente.set(clienteId, [...(coloresPorCliente.get(clienteId) ?? []), color]);
+      }
     }
 
     const hoy = todayInBogota();

@@ -18,6 +18,7 @@ import { SIN_FECHAS_MESSAGE, calcularKpisProyecto } from "@/lib/api/kpis-proyect
 import { serializeKpis } from "@/lib/api/kpis-http";
 import { PROJECT_SELECT_V2, canReadProject, loadProjectScoped, toProjectItemV2 } from "@/lib/api/projects";
 import { xlsxFichaFinanciera, xlsxFichaProyecto, type FichaProyectoXlsx } from "@/lib/proyectos/export-xlsx";
+import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export const GET = withApiErrorHandling(
       const payload: FichaProyectoXlsx = {
         codigo: item.codigo,
         nombre: item.nombre,
-        cliente: item.cliente.nombre,
+        cliente: nombreClienteProyecto(item.cliente),
         estado: item.estado,
         responsable: item.responsable?.nombre ?? null,
         fecha_inicio: item.fecha_inicio,

@@ -45,7 +45,7 @@ export type DemoProjectRow = {
   id: string
   codigo: string
   nombre: string
-  cliente_id: string
+  cliente_id: string | null
   oportunidad_id: string | null
   estado: EstadoProyecto
   origen: OrigenProyecto | null
@@ -109,6 +109,7 @@ export const DEMO_CHILD_TABLES = [
   "actividad",
   "objetivo",
   "proyectoMiembro",
+  "proyectoCliente",
 ] as const
 
 export type DemoChildTable = (typeof DEMO_CHILD_TABLES)[number]

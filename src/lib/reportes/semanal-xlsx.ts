@@ -7,6 +7,7 @@
 import ExcelJS from "exceljs"
 import { assertSinEncabezadosProhibidos, celdaTexto } from "@/lib/proyectos/export-xlsx"
 import type { ReporteSemanal } from "@/lib/reportes/semanal"
+import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia"
 
 type Celda = string | number | null
 
@@ -70,7 +71,7 @@ export async function xlsxReporteSemanal(r: ReporteSemanal): Promise<Buffer> {
     r.portafolio.proyectos.map((p) => [
       p.codigo,
       celdaTexto(p.nombre),
-      celdaTexto(p.cliente.nombre),
+      celdaTexto(nombreClienteProyecto(p.cliente)),
       ETIQUETA_ESTADO[p.estado] ?? p.estado,
       celdaTexto(p.responsable?.nombre),
       color(p.semaforo_tecnico),

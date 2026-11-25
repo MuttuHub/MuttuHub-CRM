@@ -14,6 +14,7 @@
 //
 // Semana: lunes a domingo en Bogotá (`semana.ts`). El corte es el domingo, o hoy si la semana está en curso.
 
+import { POSICION_PROPIA_ETIQUETA } from "@/lib/proyectos/posicion-propia"
 import type { Usuario } from "@prisma/client"
 import { db } from "@/lib/db"
 import { apiError } from "@/lib/api/errors"
@@ -58,7 +59,8 @@ export type ReporteSemanal = {
       codigo: string
       nombre: string
       estado: string
-      cliente: { id: string; nombre: string }
+      /** Null for a posición propia project (S8). */
+      cliente: { id: string; nombre: string } | null
       responsable: { id: string; nombre: string } | null
       semaforo_tecnico: ProyectoPortafolio["semaforo_tecnico"]
       semaforo_financiero: ProyectoPortafolio["semaforo_financiero"]
@@ -71,7 +73,8 @@ export type ReporteSemanal = {
       atrasadas: number | null
     }[]
     total: ResumenKpis
-    por_cliente: (ResumenKpis & { cliente: { id: string; nombre: string }; proyectos: number })[]
+    /** S12: posición propia projects form one group, `cliente.id` null and named «Posición propia». */
+    por_cliente: (ResumenKpis & { cliente: { id: string | null; nombre: string }; proyectos: number })[]
   }
   actividades_atrasadas: { proyecto: ProyectoRef; actividad_id: string | null; detalle: string }[]
   tareas: { semana: ConteoTareas; semana_anterior: ConteoTareas }
@@ -179,11 +182,13 @@ function kpisDesdeJson(kpis: ProyectoPortafolio["kpis"]): KpisProyecto {
 }
 
 function porCliente(proyectos: readonly ProyectoPortafolio[], corte: IsoDate): ReporteSemanal["portafolio"]["por_cliente"] {
-  const grupos = new Map<string, { cliente: { id: string; nombre: string }; kpis: KpisProyecto[] }>()
+  // Key null groups every posición propia project together (S12).
+  const grupos = new Map<string | null, { cliente: { id: string | null; nombre: string }; kpis: KpisProyecto[] }>()
   for (const p of proyectos) {
-    const grupo = grupos.get(p.cliente.id) ?? { cliente: p.cliente, kpis: [] }
+    const clave = p.cliente?.id ?? null
+    const grupo = grupos.get(clave) ?? { cliente: p.cliente ?? { id: null, nombre: POSICION_PROPIA_ETIQUETA }, kpis: [] }
     grupo.kpis.push(kpisDesdeJson(p.kpis))
-    grupos.set(p.cliente.id, grupo)
+    grupos.set(clave, grupo)
   }
   return [...grupos.values()]
     .sort((a, b) => a.cliente.nombre.localeCompare(b.cliente.nombre, "es"))
