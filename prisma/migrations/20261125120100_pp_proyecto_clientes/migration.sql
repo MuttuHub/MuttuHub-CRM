@@ -3,10 +3,12 @@
 -- Existing rows are untouched: every current project has a client, so the CHECK holds for all of them.
 -- The FK `proyectos_cliente_id_fkey` keeps ON DELETE RESTRICT.
 
--- S8: the client is optional only for a posición propia project.
+-- S8: the client is optional only for a posición propia project. `origen` is nullable, so a plain
+-- `=` would yield NULL (and pass) for a row with no origin and no client: IS NOT DISTINCT FROM is
+-- false there instead.
 ALTER TABLE "proyectos" ALTER COLUMN "cliente_id" DROP NOT NULL;
 ALTER TABLE "proyectos" ADD CONSTRAINT "proyectos_cliente_por_origen_check"
-  CHECK ("origen" = 'POSICION_PROPIA' OR "cliente_id" IS NOT NULL);
+  CHECK ("origen" IS NOT DISTINCT FROM 'POSICION_PROPIA' OR "cliente_id" IS NOT NULL);
 
 -- S9: allies.
 CREATE TYPE "RolAliado" AS ENUM ('FINANCIADOR', 'ALIADO', 'PROSPECTO');

@@ -214,7 +214,7 @@ describe("GET /api/v1/clients/health", () => {
     });
   });
 
-  it("counts a posición propia project (no client) for each of its allies (S12)", async () => {
+  it("counts a posición propia project (no client) for each of its live allies (S12)", async () => {
     authAs(gerencia);
     vi.mocked(db.cliente.findMany).mockResolvedValue([
       { id: "cli-1", nombre: "Aliado A" },
@@ -246,7 +246,10 @@ describe("GET /api/v1/clients/health", () => {
     expect(proyectosDe("cli-2")).toBe(20);
     expect(proyectosDe("cli-3")).toBeNull();
     const select = vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.select;
-    expect(select).toMatchObject({ aliados: { select: { cliente_id: true } } });
+    // A DESCARTADO ally is left out by the query itself.
+    expect(select).toMatchObject({
+      aliados: { where: { estado: { not: "DESCARTADO" } }, select: { cliente_id: true } },
+    });
   });
 
   it("sorts SIN_DATOS last and counts it apart from RIESGO", async () => {
