@@ -29,7 +29,7 @@ const user = (rol: string) => ({ id: `${rol}-1`, rol, puede_ver_tablero_gerencia
 const auth = (usuario: Usuario) => vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario, supabaseUser: {} as never })
 const get = (qs = "?semana=2026-10-21") => new Request(`http://localhost/api/v1/reports/weekly${qs}`)
 
-const fila = (id: string, cliente: { id: string; nombre: string }) => ({
+const fila = (id: string, cliente: { id: string; nombre: string } | null) => ({
   id,
   codigo: `PRY-${id}`,
   nombre: `Proyecto ${id}`,
@@ -162,6 +162,19 @@ describe("GET /api/v1/reports/weekly", () => {
     expect(body.portafolio.por_cliente).toEqual([
       expect.objectContaining({ cliente: ACME, proyectos: 2, financiero: expect.objectContaining({ asignado: "4000.00", programado: "1500.00", ejecutado: "1000.00" }) }),
       expect.objectContaining({ cliente: BETA, proyectos: 1, financiero: expect.objectContaining({ asignado: "200.00", ejecutado: "50.00" }) }),
+    ])
+  })
+
+  it("groups posición propia projects (no client) under «Posición propia» (S12)", async () => {
+    vi.mocked(db.proyecto.findMany).mockImplementation((async (args: { select: Record<string, unknown> }) => {
+      if ("lineas" in args.select) return [fila("p1", ACME), fila("p2", null), fila("p3", null)]
+      return ["p1", "p2", "p3"].map((id) => ({ id, estado: "EN_EJECUCION", fecha_inicio: new Date(), fecha_fin: new Date(), beneficiarios_meta: 10 }))
+    }) as never)
+    const body = await (await GET(get())).json()
+    expect(body.portafolio.proyectos.map((p: { cliente: unknown }) => p.cliente)).toEqual([ACME, null, null])
+    expect(body.portafolio.por_cliente).toEqual([
+      expect.objectContaining({ cliente: ACME, proyectos: 1 }),
+      expect.objectContaining({ cliente: { id: null, nombre: "Posición propia" }, proyectos: 2 }),
     ])
   })
 

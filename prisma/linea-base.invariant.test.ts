@@ -104,7 +104,7 @@ async function fixture(tx: Tx, over: { sinObjetivos?: boolean; sinConfirmar?: bo
       data: { proyecto_id: proyecto.id, objetivo_id: objetivo.id, codigo: "IND-01", nombre: "I", meta: 10, unidad: "u" },
     })
   }
-  return { usuario, proyecto, rubro, linea }
+  return { usuario, cliente, proyecto, rubro, linea }
 }
 
 async function aborto(promesa: Promise<unknown>): Promise<Response> {
@@ -240,7 +240,7 @@ async function carrera(sostener: (tx: Tx, ids: { proyectoId: string; usuarioId: 
       proyectoId: f.proyecto.id,
       usuarioId: f.usuario.id,
       rubroId: f.rubro.id,
-      clienteId: f.proyecto.cliente_id,
+      clienteId: f.cliente.id,
     }
   }, TX_OPTIONS)
 

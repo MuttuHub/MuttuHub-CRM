@@ -38,6 +38,7 @@ import type { PlanImportacion } from "@/lib/proyectos/plantilla/mapear";
 import type { ContextoValidacion } from "@/lib/proyectos/plantilla/validate";
 import { lineasTienenGastos } from "./lineas-con-gastos";
 import { rechazoPorRubroDeshabilitado } from "./rubros-proyecto";
+import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 /** Zip guard limits (a template is a few dozen KB; the 4 MB upload cap binds first). */
 export const ZIP_MAX_ENTRADAS = 200;
@@ -288,7 +289,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
   return {
     proyecto: {
       codigo: proyecto.codigo,
-      cliente: proyecto.cliente.nombre,
+      cliente: nombreClienteProyecto(proyecto.cliente),
       fechaInicio: isoDate(proyecto.fecha_inicio),
       fechaFin: isoDate(proyecto.fecha_fin),
       valorTotal: proyecto.valor_total === null ? null : proyecto.valor_total.toString(),
