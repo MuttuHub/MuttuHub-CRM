@@ -9,16 +9,25 @@ import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, expect, it, vi } from "vitest"
 import type { Oportunidad } from "@/hooks/crm"
+import type { ProjectListRow } from "@/hooks/projects"
 import { InteraccionFormDialog } from "./interaccion-form-dialog"
 
 // The dialog drives ~8 userEvent interactions; under a loaded full-suite run the
 // 5 s default is not enough, so give the file a generous budget.
 vi.setConfig({ testTimeout: 20000 })
 
-const { addLogMutation, useOpportunitiesMock } = vi.hoisted(() => ({
+const { addLogMutation, useOpportunitiesMock, useProjectsMock } = vi.hoisted(() => ({
   addLogMutation: { isPending: false, mutateAsync: vi.fn() },
   useOpportunitiesMock: vi.fn<() => { data: Oportunidad[] }>(() => ({ data: [] })),
+  useProjectsMock: vi.fn<
+    (filters: unknown, options?: unknown) => { data: { proyectos: Partial<ProjectListRow>[] } }
+  >(() => ({ data: { proyectos: [] } })),
 }))
+
+vi.mock("@/hooks/projects", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/projects")>()
+  return { ...actual, useProjects: useProjectsMock }
+})
 
 vi.mock("@/hooks/crm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/crm")>()
@@ -119,6 +128,53 @@ describe("InteraccionFormDialog", () => {
       tipo: "REUNION",
       proximo_paso: null,
     })
+  })
+
+  // T8 (odd/tasks/reportes-etiqueta-y-posicion-propia.md, S16): the interaction can name the posición
+  // propia project it was about; only projects where the chosen client is an ally are offered.
+  it("offers the client's posición propia projects and sends the chosen one", async () => {
+    const user = userEvent.setup()
+    addLogMutation.mutateAsync.mockReset()
+    addLogMutation.mutateAsync.mockResolvedValue({})
+    useOpportunitiesMock.mockReturnValue({ data: [] })
+    useProjectsMock.mockReturnValue({
+      data: {
+        proyectos: [
+          { id: "pry-1", codigo: "PRY-2026-001", nombre: "Ruta textil", origen: "POSICION_PROPIA" },
+          { id: "pry-2", codigo: "PRY-2026-002", nombre: "Consultoría directa", origen: "INDEPENDIENTE" },
+        ],
+      },
+    })
+
+    renderDialog()
+
+    await user.click(triggerWith("Elige un aliado"))
+    await user.click(await screen.findByRole("option", { name: "Alcaldía de Barranquilla" }))
+    expect(useProjectsMock).toHaveBeenLastCalledWith({ cliente_id: "c-1" }, { enabled: true })
+
+    await user.click(triggerWith("Sin proyecto"))
+    expect(screen.queryByRole("option", { name: /Consultoría directa/ })).toBeNull()
+    await user.click(await screen.findByRole("option", { name: "PRY-2026-001 · Ruta textil" }))
+    await user.type(screen.getByLabelText(/Resumen/), "Reunión de seguimiento del aporte")
+
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+    expect(addLogMutation.mutateAsync).toHaveBeenCalledWith({
+      texto: "Reunión de seguimiento del aporte",
+      oportunidad_id: null,
+      tipo: "REUNION",
+      proximo_paso: null,
+      proyecto_id: "pry-1",
+    })
+  })
+
+  it("does not load projects before a client is chosen", () => {
+    useProjectsMock.mockClear()
+
+    renderDialog()
+
+    expect(useProjectsMock).toHaveBeenCalledWith({ cliente_id: undefined }, { enabled: false })
+    expect(useProjectsMock).not.toHaveBeenCalledWith(expect.anything(), { enabled: true })
   })
 
   it("blocks the submit and asks for an aliado when none is chosen", async () => {

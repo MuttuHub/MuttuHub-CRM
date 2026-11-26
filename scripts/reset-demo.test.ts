@@ -214,6 +214,12 @@ describe("applyDemoReset", () => {
           return { count: 1 }
         },
       },
+      bitacoraEntrada: {
+        updateMany: async (args: unknown) => {
+          calls.push({ op: "bitacora.unlink", args })
+          return { count: 1 }
+        },
+      },
       proyecto: {
         deleteMany: async (args: unknown) => {
           calls.push({ op: "proyectos", args })
@@ -254,6 +260,7 @@ describe("applyDemoReset", () => {
       "municipios",
       "lineas",
       "tareas.unlink",
+      "bitacora.unlink",
       "proyectos",
       "oportunidad.update",
       "secuencias",
@@ -269,7 +276,12 @@ describe("applyDemoReset", () => {
       where: { proyecto_id: { in: ["p1", "p2"] } },
       data: { proyecto_id: null },
     })
-    const tail = DEMO_CHILD_TABLES.length + 3
+    // T8: a bitácora entry can name a demo project (bitacora_entradas.proyecto_id, FK NO ACTION); the entry stays.
+    expect(calls[DEMO_CHILD_TABLES.length + 3].args).toEqual({
+      where: { proyecto_id: { in: ["p1", "p2"] } },
+      data: { proyecto_id: null },
+    })
+    const tail = DEMO_CHILD_TABLES.length + 4
     expect(calls[tail].args).toEqual({ where: { id: { in: ["p1", "p2"] } } })
     expect(calls[tail + 1].args).toEqual({
       where: { id: "o1" },
@@ -302,6 +314,7 @@ describe("applyDemoReset", () => {
       proyectoMunicipio: { deleteMany: async () => ({ count: 0 }) },
       proyectoLinea: { deleteMany: async () => ({ count: 0 }) },
       tarea: { updateMany: async () => ({ count: 0 }) },
+      bitacoraEntrada: { updateMany: async () => ({ count: 0 }) },
       proyecto: { deleteMany: async () => ({ count: 0 }) },
       oportunidad: {
         update: async (args: unknown) => {
@@ -415,6 +428,7 @@ describe("DEMO_CHILD_TABLES covers every blocking FK to proyectos", () => {
     proyectoLinea: "deleted explicitly before the projects",
     proyectoMunicipio: "deleted explicitly before the projects",
     tarea: "its proyecto_id is cleared before the projects (the task stays)",
+    bitacoraEntrada: "its proyecto_id is cleared before the projects (the entry stays)",
     versionProyecto: "append-only and only exists after BORRADOR",
     solicitudModificacion: "only exists after the baseline (never on a BORRADOR project)",
     reporteActividad: "progress reports are only written on EN_EJECUCION projects",

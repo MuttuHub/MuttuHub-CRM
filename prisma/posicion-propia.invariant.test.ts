@@ -9,10 +9,12 @@ import "./require-local-db"
 
 import { randomUUID } from "node:crypto"
 
-import type { OrigenProyecto } from "@prisma/client"
+import type { OrigenProyecto, Usuario } from "@prisma/client"
 import { describe, expect, it } from "vitest"
 
+import { projectListWhere } from "@/lib/api/projects"
 import { db } from "@/lib/db"
+import { ALIADOS_ACTIVOS_COUNT } from "@/lib/proyectos/posicion-propia"
 
 class IntentionalRollback extends Error {}
 
@@ -96,5 +98,38 @@ describe("T4a posición propia (live DB)", () => {
     })
     expect(refused).toBe("")
     expect(fila).toEqual({ estado: "EN_GESTION", aporte_cop: null })
+  })
+
+  // T6 verifier advisory A3: the ally rule the list filter and the «N aliados» count share
+  // (not DESCARTADO, client not soft-deleted) checked against Postgres, not only against mocks.
+  it("counts and matches only allies that are not discarded and whose client is not deleted", async () => {
+    let resultado: unknown = null
+    const refused = await inRollback(async (tx, activoId) => {
+      const { responsable_id } = await tx.cliente.findUniqueOrThrow({ where: { id: activoId } })
+      const nuevoCliente = (nombre: string, deleted_at: Date | null = null) =>
+        tx.cliente.create({ data: { nombre, tipo_cliente: "OTRO", responsable_id, deleted_at } })
+      const descartado = await nuevoCliente("PP descartado")
+      const borrado = await nuevoCliente("PP borrado", new Date())
+      const p = await tx.proyecto.create({ data: proyecto("POSICION_PROPIA", null) })
+      await tx.proyectoCliente.createMany({
+        data: [
+          { proyecto_id: p.id, cliente_id: activoId, rol: "FINANCIADOR", estado: "COMPROMETIDO" },
+          { proyecto_id: p.id, cliente_id: descartado.id, rol: "ALIADO", estado: "DESCARTADO" },
+          { proyecto_id: p.id, cliente_id: borrado.id, rol: "ALIADO" },
+        ],
+      })
+      const gerencia = { id: responsable_id, rol: "GERENCIA" } as Usuario
+      const coincide = async (cliente_id: string) =>
+        (await tx.proyecto.count({ where: { AND: [{ id: p.id }, projectListWhere(gerencia, { cliente_id })] } })) === 1
+      const fila = await tx.proyecto.findUniqueOrThrow({ where: { id: p.id }, select: ALIADOS_ACTIVOS_COUNT })
+      resultado = {
+        aliados: fila._count.aliados,
+        activo: await coincide(activoId),
+        descartado: await coincide(descartado.id),
+        borrado: await coincide(borrado.id),
+      }
+    })
+    expect(refused).toBe("")
+    expect(resultado).toEqual({ aliados: 1, activo: true, descartado: false, borrado: false })
   })
 })

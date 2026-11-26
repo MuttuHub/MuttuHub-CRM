@@ -7,6 +7,10 @@
 // selector only offers clients the server says the user can write
 // (`puede_editar`), i.e. the exact bitácora write gate (canEditClient); the
 // server stays the authority (403 otherwise).
+// T8 (S16): the optional "Proyecto" names the posición propia project the
+// interaction was about. It offers the projects the list returns for the chosen
+// client (posición propia ones match through their active allies, within the
+// user's project read scope); the server checks the ally again (400 otherwise).
 
 import { useState, type FormEvent } from "react";
 import type { TipoInteraccion } from "@prisma/client";
@@ -30,10 +34,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAddLogEntry, useClients, useOpportunities } from "@/hooks/crm";
+import { useProjects } from "@/hooks/projects";
 import { TIPO_INTERACCION_LABELS, TIPO_INTERACCION_ORDER } from "./interacciones-feed";
 
 /** "none" is the sentinel for "sin oportunidad" inside the Select (base-ui needs a value). */
 const SIN_OPORTUNIDAD = "none";
+/** Same sentinel for "sin proyecto". */
+const SIN_PROYECTO = "none";
 
 type ClienteOption = { id: string; nombre: string };
 
@@ -54,12 +61,20 @@ export function InteraccionFormDialog({
   const [tipo, setTipo] = useState<TipoInteraccion>("REUNION");
   const [clienteId, setClienteId] = useState("");
   const [oportunidadId, setOportunidadId] = useState(SIN_OPORTUNIDAD);
+  const [proyectoId, setProyectoId] = useState(SIN_PROYECTO);
   const [texto, setTexto] = useState("");
   const [proximoPaso, setProximoPaso] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const oportunidadesQuery = useOpportunities(clienteId || null);
   const oportunidades = oportunidadesQuery.data ?? [];
+  const proyectosQuery = useProjects(
+    { cliente_id: clienteId || undefined },
+    { enabled: Boolean(clienteId) },
+  );
+  const proyectos = (proyectosQuery.data?.proyectos ?? []).filter(
+    (p) => p.origen === "POSICION_PROPIA",
+  );
   const addMutation = useAddLogEntry(clienteId);
 
   const formKey = open ? "open" : "closed";
@@ -71,6 +86,7 @@ export function InteraccionFormDialog({
       setTipo("REUNION");
       setClienteId("");
       setOportunidadId(SIN_OPORTUNIDAD);
+      setProyectoId(SIN_PROYECTO);
       setTexto("");
       setProximoPaso("");
     }
@@ -88,6 +104,7 @@ export function InteraccionFormDialog({
         oportunidad_id: oportunidadId === SIN_OPORTUNIDAD ? null : oportunidadId,
         tipo,
         proximo_paso: proximoPaso.trim() || null,
+        ...(proyectoId !== SIN_PROYECTO ? { proyecto_id: proyectoId } : {}),
       });
       onOpenChange(false);
     } catch {
@@ -149,6 +166,7 @@ export function InteraccionFormDialog({
                 onValueChange={(v) => {
                   setClienteId(v ?? "");
                   setOportunidadId(SIN_OPORTUNIDAD);
+                  setProyectoId(SIN_PROYECTO);
                 }}
               >
                 <SelectTrigger className="w-full px-3">
@@ -178,6 +196,25 @@ export function InteraccionFormDialog({
                   {oportunidades.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label>Proyecto (opcional)</Label>
+              <Select
+                value={proyectoId}
+                onValueChange={(v) => setProyectoId(v ?? SIN_PROYECTO)}
+              >
+                <SelectTrigger className="w-full px-3" disabled={!clienteId}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_PROYECTO}>Sin proyecto</SelectItem>
+                  {proyectos.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.codigo} · {p.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>

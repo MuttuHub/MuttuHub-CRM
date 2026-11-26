@@ -377,6 +377,10 @@ model BitacoraEntrada {
   tipo           TipoInteraccion @default(OTRO)
   // v7 C3a: optional next step agreed in the interaction (free text).
   proximo_paso   String?
+  // T8 (S16): optional project the interaction was about, for the project report's bitácora. The API
+  // only accepts a project where this client is an ally; the FK keeps the project from being
+  // hard-deleted while an entry names it (projects are soft-deleted anyway).
+  proyecto_id    String?
   created_at     DateTime @default(now())
 
   cliente     Cliente      @relation(fields: [cliente_id], references: [id])
@@ -386,8 +390,10 @@ model BitacoraEntrada {
   // de MATCH SIMPLE no existe aquí; el CHECK de la migración es solo para
   // `tareas`.
   oportunidad Oportunidad? @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
+  proyecto    Proyecto?    @relation(fields: [proyecto_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([cliente_id])
+  @@index([proyecto_id])
   @@map("bitacora_entradas")
 }
 
@@ -853,6 +859,8 @@ model Proyecto {
   rubros_deshabilitados ProyectoRubroDeshabilitado[]
   // S9: allies of a posición propia project.
   aliados               ProyectoCliente[]
+  // T8 (S16): bitácora entries about this project.
+  bitacora              BitacoraEntrada[]
 
   @@unique([oportunidad_id, cliente_id])
   // V2: target of `Tarea.proyecto_oportunidad`. `id` alone is already unique; this key exists only so
