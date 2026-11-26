@@ -10,6 +10,7 @@ import { ESTADO_OPORTUNIDAD_LABELS, ESTADO_TAREA_LABELS } from "@/lib/catalogs"
 import { assertSinEncabezadosProhibidos, celdaTexto } from "@/lib/proyectos/export-xlsx"
 import { fromCents, sumCents, toCents } from "@/lib/proyectos/money"
 import type { ReporteProyecto } from "@/lib/reportes/proyecto"
+import { NOTA_COMPROMETIDO, NOTA_META, NOTA_OPORTUNIDADES, NOTA_SIN_CUBRIR } from "@/lib/reportes/proyecto-notas"
 
 type Celda = string | number | Date | null
 
@@ -18,13 +19,6 @@ const FORMATO_PCT = "0.0"
 const FORMATO_FECHA = "yyyy-mm-dd"
 
 /** The L26/L27 assumptions behind the figures, printed in Resumen. */
-export const NOTAS_REPORTE_PROYECTO = {
-  meta: "La meta es el valor total del proyecto.",
-  financiacion:
-    "Comprometido y en gestión suman los aportes de los aliados en ese estado. Lo que falta por cubrir nunca es menor que cero.",
-  oportunidades:
-    "Las oportunidades son la del proyecto y las abiertas de sus aliados, hasta que se defina cómo se vincula una oportunidad a un proyecto.",
-} as const
 
 const ETIQUETA_ESTADO_PROYECTO: Record<string, string> = {
   PLANIFICACION: "Planificación",
@@ -139,11 +133,12 @@ export async function xlsxReporteProyecto(r: ReporteProyecto): Promise<Buffer> {
     ["Tareas vencidas", t.vencidas.length],
     ...(s.financiacion
       ? ([
-          ["Nota", NOTAS_REPORTE_PROYECTO.meta],
-          ["Nota", NOTAS_REPORTE_PROYECTO.financiacion],
+          ["Nota", NOTA_META],
+          ["Nota", NOTA_COMPROMETIDO],
+          ["Nota", NOTA_SIN_CUBRIR],
         ] as [string, Celda][])
       : []),
-    ...(r.oportunidades !== null ? ([["Nota", NOTAS_REPORTE_PROYECTO.oportunidades]] as [string, Celda][]) : []),
+    ...(r.oportunidades !== null ? ([["Nota", NOTA_OPORTUNIDADES]] as [string, Celda][]) : []),
   ]
   const wsResumen = hoja(wb, "Resumen", ["Concepto", "Valor"], resumen.map(([concepto, valor]) => [concepto, valor]))
   resumen.forEach(([, , formato], i) => {

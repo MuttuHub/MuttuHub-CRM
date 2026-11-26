@@ -218,6 +218,16 @@ describe("FichaHeader", () => {
   })
 
   // T10 C3/C5: «Registrar gasto», then «Registrar avance» (primary), then «⋯».
+  it("links «Reporte» to the project report in Reportes (S17)", () => {
+    mockApi()
+
+    renderHeader({ proyecto: { ...PROYECTO, id: "p 1" } })
+
+    const reporte = within(screen.getByTestId("ficha-header")).getByRole("link", { name: "Reporte" })
+    expect(reporte).toHaveAttribute("href", "/reportes?tab=proyecto&proyecto=p%201")
+    expect(reporte).not.toHaveAttribute("target")
+  })
+
   it("orders the desktop actions as gasto, avance, more actions, with no visible «Cambiar estado»", async () => {
     mockApi()
     const user = userEvent.setup()
