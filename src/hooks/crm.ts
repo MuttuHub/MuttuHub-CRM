@@ -220,6 +220,8 @@ export type BitacoraEntrada = {
   tipo?: TipoInteraccion;
   /** v7 C3a: optional next step agreed in the interaction. */
   proximo_paso?: string | null;
+  /** T8 (S16): optional project the interaction was about (a project where the client is an ally). */
+  proyecto_id?: string | null;
   created_at: string;
 };
 
@@ -1052,11 +1054,17 @@ export function useDeleteTarea(clientId: string, taskId: string): UseMutationRes
 export function useAddLogEntry(clientId: string): UseMutationResult<
   { entrada: BitacoraEntrada },
   string,
-  { texto: string; oportunidad_id?: string | null; tipo?: TipoInteraccion; proximo_paso?: string | null }
+  {
+    texto: string;
+    oportunidad_id?: string | null;
+    tipo?: TipoInteraccion;
+    proximo_paso?: string | null;
+    proyecto_id?: string | null;
+  }
 > {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ texto, oportunidad_id, tipo, proximo_paso }) => {
+    mutationFn: async ({ texto, oportunidad_id, tipo, proximo_paso, proyecto_id }) => {
       try {
         return await apiPost<{ entrada: BitacoraEntrada }>(
           `/api/v1/clients/${clientId}/log`,
@@ -1065,6 +1073,7 @@ export function useAddLogEntry(clientId: string): UseMutationResult<
             ...(oportunidad_id !== undefined ? { oportunidad_id } : {}),
             ...(tipo !== undefined ? { tipo } : {}),
             ...(proximo_paso !== undefined ? { proximo_paso } : {}),
+            ...(proyecto_id !== undefined ? { proyecto_id } : {}),
           },
         );
       } catch (err) {

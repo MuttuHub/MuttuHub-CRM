@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
     oportunidad: {
       findFirst: vi.fn(),
     },
+    proyectoCliente: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -80,6 +83,18 @@ describe("GET /api/v1/clients/:id/log", () => {
         created_at: new Date("2026-01-01").toISOString(),
       },
     ]);
+  });
+
+  it("returns each entry's project link (T8, S16)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.bitacoraEntrada.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/clients/cli-1/log"), routeContext);
+
+    expect(db.bitacoraEntrada.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ select: expect.objectContaining({ proyecto_id: true }) }),
+    );
   });
 
   it("returns 404 when the client does not exist", async () => {
@@ -261,6 +276,75 @@ describe("POST /api/v1/clients/:id/log", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
     expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
+  });
+
+  // T8 (odd/tasks/reportes-etiqueta-y-posicion-propia.md, S16): an entry can name the project the
+  // interaction was about, but only a project where this client is an ally.
+  it("creates a bitácora entry linked to a project where the client is an ally", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.proyectoCliente.findFirst).mockResolvedValue({ id: "pc-1" } as never);
+    vi.mocked(db.bitacoraEntrada.create).mockResolvedValue({
+      id: "bit-1",
+      autor_id: "gerencia-1",
+      autor: { nombre: "Gerencia Uno" },
+      texto: "Reunión con el aliado",
+      proyecto_id: "pry-1",
+      created_at: new Date("2026-01-01"),
+    } as never);
+
+    const res = await POST(postRequest({ texto: "Reunión con el aliado", proyecto_id: "pry-1" }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect(db.proyectoCliente.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { proyecto_id: "pry-1", cliente_id: "cli-1", proyecto: { deleted_at: null } },
+      }),
+    );
+    expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ proyecto_id: "pry-1" }),
+        select: expect.objectContaining({ proyecto_id: true }),
+      }),
+    );
+    expect((await res.json()).entrada).toMatchObject({ proyecto_id: "pry-1" });
+  });
+
+  it("returns 400 when the client is not an ally of the project", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.proyectoCliente.findFirst).mockResolvedValue(null);
+
+    const res = await POST(postRequest({ texto: "Nota", proyecto_id: "pry-1" }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Este cliente no es aliado del proyecto.",
+    });
+    expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
+  });
+
+  it("does not look up allies and stores no project when proyecto_id is omitted or null", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.bitacoraEntrada.create).mockResolvedValue({
+      id: "bit-1",
+      autor_id: "gerencia-1",
+      autor: { nombre: "Gerencia Uno" },
+      texto: "Nota",
+      created_at: new Date("2026-01-01"),
+    } as never);
+
+    for (const body of [{ texto: "Nota" }, { texto: "Nota", proyecto_id: null }]) {
+      const res = await POST(postRequest(body), routeContext);
+      expect(res.status).toBe(201);
+    }
+
+    expect(db.proyectoCliente.findFirst).not.toHaveBeenCalled();
+    for (const [args] of vi.mocked(db.bitacoraEntrada.create).mock.calls) {
+      expect((args as { data: { proyecto_id?: string } }).data.proyecto_id).toBeUndefined();
+    }
   });
 
   it("returns 400 when texto is missing", async () => {

@@ -311,6 +311,9 @@ const BitacoraEntradaSchema = registry.register(
     proximo_paso: z.string().nullable().openapi({
       description: "v7 C3a: próximo paso acordado en la interacción (texto libre, opcional).",
     }),
+    proyecto_id: z.string().uuid().nullable().openapi({
+      description: "T8: proyecto sobre el que fue la interacción (opcional); solo un proyecto donde el cliente es aliado.",
+    }),
     created_at: z.string().datetime(),
   }),
 );
@@ -670,7 +673,8 @@ registry.registerPath({
   summary: "Agrega una entrada a la bitácora de gestión de un cliente",
   description:
     `${SCOPE_NOTE} Escritura además requiere ser el responsable si el rol no es de acceso total; un cliente visible pero no editable responde 403; un cliente inexistente responde 404. ` +
-    "autor_id siempre es el usuario de la sesión — nunca un campo enviado por el cliente.",
+    "autor_id siempre es el usuario de la sesión — nunca un campo enviado por el cliente. " +
+    "proyecto_id es opcional: un proyecto inexistente, borrado o donde el cliente no es aliado responde 400 «Este cliente no es aliado del proyecto.».",
   security: [{ sessionCookie: [] }],
   request: {
     params: z.object({ id: z.string().uuid() }),
