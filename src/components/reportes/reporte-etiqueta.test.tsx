@@ -125,6 +125,15 @@ describe("ReporteEtiquetaContenido", () => {
     expect(within(fila).getByText("Rojo")).toBeInTheDocument()
   })
 
+  it("labels a posición propia project «Posición propia · N aliados» and keeps a client's name (S12, T6b)", () => {
+    const conCliente = REPORTE_ETIQUETA.proyectos[0]
+    const propia = { ...conCliente, id: "p2", codigo: "PRY-0002", cliente: null, aliados_count: 2 }
+    render(<ReporteEtiquetaContenido data={{ ...REPORTE_ETIQUETA, proyectos: [conCliente, propia] }} />)
+    const proyectos = screen.getByRole("region", { name: "Proyectos" })
+    expect(within(within(proyectos).getByRole("row", { name: /PRY-0002/ })).getByText("Posición propia · 2 aliados")).toBeInTheDocument()
+    expect(within(within(proyectos).getByRole("row", { name: /PRY-0001/ })).getByText("Acme")).toBeInTheDocument()
+  })
+
   it("lists clients and labels those without a recent interaction in text, not only color (S4.3)", () => {
     render(<ReporteEtiquetaContenido data={REPORTE_ETIQUETA} />)
     const clientes = screen.getByRole("region", { name: "Clientes" })

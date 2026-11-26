@@ -4,7 +4,7 @@
 // export; aggregates only (P04: no gasto, tercero or soporte columns for any role). `formato=pdf` is a 400
 // until N-23 is decided. Every download writes an `EXPORTAR` audit row, best-effort.
 
-import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 import { db } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
@@ -45,7 +45,7 @@ export const GET = withApiErrorHandling(
       proyectos: proyectos.map((p) => ({
         codigo: p.codigo,
         nombre: p.nombre,
-        cliente: nombreClienteProyecto(p.cliente),
+        cliente: etiquetaClienteProyecto(p),
         estado: p.estado,
         responsable: p.responsable?.nombre ?? null,
         linea_principal: p.linea_principal ? `${p.linea_principal.codigo} ${p.linea_principal.nombre}` : null,

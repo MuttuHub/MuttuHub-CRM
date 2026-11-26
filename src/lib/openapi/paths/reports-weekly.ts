@@ -45,7 +45,13 @@ const ReporteSemanalSchema = registry.register(
           codigo: z.string(),
           nombre: z.string(),
           estado: z.string(),
-          cliente: z.object({ id: z.string(), nombre: z.string() }),
+          cliente: z
+            .object({ id: z.string(), nombre: z.string() })
+            .nullable()
+            .openapi({ description: "null solo en proyectos `POSICION_PROPIA` (S8)." }),
+          aliados_count: z.number().int().openapi({
+            description: "Aliados del proyecto que no están DESCARTADO (S12). Sin cliente, la etiqueta es «Posición propia · N aliados».",
+          }),
           responsable: z.object({ id: z.string(), nombre: z.string() }).nullable(),
           semaforo_tecnico: SEMAFORO,
           semaforo_financiero: SEMAFORO,
@@ -60,7 +66,13 @@ const ReporteSemanalSchema = registry.register(
       ),
       total: z.object(RESUMEN),
       por_cliente: z.array(
-        z.object({ cliente: z.object({ id: z.string(), nombre: z.string() }), proyectos: z.number().int(), ...RESUMEN }),
+        z.object({
+          cliente: z.object({ id: z.string().nullable(), nombre: z.string() }).openapi({
+            description: "Los proyectos de posición propia forman un solo grupo, con `id` null y nombre «Posición propia» (S12).",
+          }),
+          proyectos: z.number().int(),
+          ...RESUMEN,
+        }),
       ),
     }),
     actividades_atrasadas: z.array(z.object({ proyecto: PROYECTO_REF, actividad_id: z.string().nullable(), detalle: z.string() })),

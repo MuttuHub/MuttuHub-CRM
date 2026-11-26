@@ -18,7 +18,7 @@ import { SIN_FECHAS_MESSAGE, calcularKpisProyecto } from "@/lib/api/kpis-proyect
 import { serializeKpis } from "@/lib/api/kpis-http";
 import { PROJECT_SELECT_V2, canReadProject, loadProjectScoped, toProjectItemV2 } from "@/lib/api/projects";
 import { xlsxFichaFinanciera, xlsxFichaProyecto, type FichaProyectoXlsx } from "@/lib/proyectos/export-xlsx";
-import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
+import { ALIADOS_ACTIVOS_COUNT, etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,16 @@ type Ficha = (typeof FICHAS)[number];
 const vivos = { where: { deleted_at: null } } as const;
 const EXPORT_SELECT = {
   ...PROJECT_SELECT_V2,
-  _count: { select: { objetivos: vivos, actividades: vivos, entregables: vivos, indicadores: vivos } },
+  // The section counts replace the select's `_count`, so the active ally count (S12) is merged back in.
+  _count: {
+    select: {
+      ...ALIADOS_ACTIVOS_COUNT._count.select,
+      objetivos: vivos,
+      actividades: vivos,
+      entregables: vivos,
+      indicadores: vivos,
+    },
+  },
 } as const;
 
 export const GET = withApiErrorHandling(
@@ -84,7 +93,7 @@ export const GET = withApiErrorHandling(
       const payload: FichaProyectoXlsx = {
         codigo: item.codigo,
         nombre: item.nombre,
-        cliente: nombreClienteProyecto(item.cliente),
+        cliente: etiquetaClienteProyecto(item),
         estado: item.estado,
         responsable: item.responsable?.nombre ?? null,
         fecha_inicio: item.fecha_inicio,

@@ -37,6 +37,7 @@ const reporte = (): ReporteSemanal => ({
         nombre: "=SUMA(1;1)",
         estado: "EN_EJECUCION",
         cliente: { id: "c1", nombre: "Acme" },
+        aliados_count: 0,
         responsable: { id: "r1", nombre: "Ana" },
         semaforo_tecnico: "verde",
         semaforo_financiero: "rojo",
@@ -128,6 +129,21 @@ describe("GET /api/v1/reports/weekly/export", () => {
       expect.anything(),
       expect.objectContaining({ accion: "EXPORTAR", entidad_id: "reporte-semanal" }),
     )
+  })
+
+  it("S12 (T6b): the Cliente column reads «Posición propia · N aliados» without a client, the client's name with one", async () => {
+    const base = reporte()
+    const conCliente = base.portafolio.proyectos[0]
+    // `aliados_count` comes from the portfolio rows, which already leave DESCARTADO allies out.
+    const propia = { ...conCliente, id: "p2", codigo: "PRY-2", cliente: null, aliados_count: 2 }
+    vi.mocked(cargarReporteSemanal).mockResolvedValue({
+      ok: true,
+      value: { ...base, portafolio: { ...base.portafolio, proyectos: [conCliente, propia] } },
+    })
+    const proyectos = (await abrir(await GET(get()))).getWorksheet("Proyectos")!
+    expect(proyectos.getRow(1).getCell(3).value).toBe("Cliente")
+    expect(proyectos.getRow(2).getCell(3).value).toBe("Acme")
+    expect(proyectos.getRow(3).getCell(3).value).toBe("Posición propia · 2 aliados")
   })
 
   it("never writes a tercero or soporte header (AJ-08: the queue sheet is gone for every role)", async () => {

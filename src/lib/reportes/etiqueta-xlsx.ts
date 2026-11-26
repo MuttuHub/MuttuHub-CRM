@@ -5,7 +5,7 @@
 // The Oportunidades sheet, the pipeline rows and the opportunities column exist only with commercial access
 // (`oportunidades !== null`, S5: a hidden section is left out, not shown empty).
 
-import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia"
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia"
 import ExcelJS from "exceljs"
 import { ESTADO_OPORTUNIDAD_LABELS, ESTADO_TAREA_LABELS } from "@/lib/catalogs"
 import { CONTACTO_DIAS_OPTIMO } from "@/lib/clientes/salud"
@@ -142,7 +142,7 @@ export async function xlsxReporteEtiqueta(r: ReporteEtiqueta): Promise<Buffer> {
     proyectos.map(({ p, programado, ejecutado }) => [
       celdaTexto(p.codigo),
       celdaTexto(p.nombre),
-      celdaTexto(nombreClienteProyecto(p.cliente)),
+      celdaTexto(etiquetaClienteProyecto(p)),
       ETIQUETA_ESTADO_PROYECTO[p.estado] ?? p.estado,
       numero(p.kpis.tecnico?.avance_real),
       numero(p.kpis.tecnico?.avance_programado),

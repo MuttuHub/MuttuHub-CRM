@@ -462,4 +462,26 @@ describe("buildOpenApiDocument", () => {
       expect(schema, campo).toContain(campo)
     }
   })
+
+  it("S12 (T6b): the project client is nullable where it is printed, and the rows carry aliados_count", () => {
+    const doc = buildOpenApiDocument()
+    type Obj = { properties?: Record<string, Obj>; items?: Obj; type?: unknown; anyOf?: Obj[]; oneOf?: Obj[] }
+    const schemas = (doc.components?.schemas ?? {}) as Record<string, Obj>
+    const admiteNull = (s: Obj | undefined) => JSON.stringify(s?.type ?? s?.anyOf ?? s?.oneOf ?? null).includes("null")
+
+    expect(schemas.ProjectItemV2.properties?.aliados_count).toBeDefined()
+
+    const portafolio = schemas.PortafolioProyectos.properties?.proyectos.items?.properties
+    expect(admiteNull(portafolio?.cliente)).toBe(true)
+    expect(portafolio?.aliados_count).toBeDefined()
+
+    const semanal = schemas.ReporteSemanal.properties?.portafolio.properties
+    expect(admiteNull(semanal?.proyectos.items?.properties?.cliente)).toBe(true)
+    expect(semanal?.proyectos.items?.properties?.aliados_count).toBeDefined()
+    expect(admiteNull(semanal?.por_cliente.items?.properties?.cliente.properties?.id)).toBe(true)
+
+    const enEjecucion = schemas.DashboardMySummaryResponse.properties?.proyectos_en_ejecucion.properties?.items.items?.properties
+    expect(admiteNull(enEjecucion?.cliente_id)).toBe(true)
+    expect(enEjecucion?.aliados_count).toBeDefined()
+  })
 })
