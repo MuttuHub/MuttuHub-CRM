@@ -67,7 +67,13 @@ const PortafolioSchema = registry.register(
         codigo: z.string(),
         nombre: z.string(),
         estado: z.string(),
-        cliente: z.object({ id: z.string(), nombre: z.string() }),
+        cliente: z
+          .object({ id: z.string(), nombre: z.string() })
+          .nullable()
+          .openapi({ description: "null solo en proyectos `POSICION_PROPIA` (S8)." }),
+        aliados_count: z.number().int().openapi({
+          description: "Aliados del proyecto que no están DESCARTADO (S12). Sin cliente, la etiqueta es «Posición propia · N aliados».",
+        }),
         responsable: z.object({ id: z.string(), nombre: z.string() }).nullable(),
         linea_principal: z.object({ id: z.string(), codigo: z.string(), nombre: z.string() }).nullable(),
         fecha_inicio: z.string().nullable(),

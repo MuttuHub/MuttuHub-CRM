@@ -61,6 +61,8 @@ export type ReporteSemanal = {
       estado: string
       /** Null for a posición propia project (S8). */
       cliente: { id: string; nombre: string } | null
+      /** S12 (L20): allies that are not DESCARTADO; the label reads «Posición propia · N aliados» without a client. */
+      aliados_count: number
       responsable: { id: string; nombre: string } | null
       semaforo_tecnico: ProyectoPortafolio["semaforo_tecnico"]
       semaforo_financiero: ProyectoPortafolio["semaforo_financiero"]
@@ -137,6 +139,7 @@ export async function cargarReporteSemanal(
           nombre: p.nombre,
           estado: p.estado,
           cliente: p.cliente,
+          aliados_count: p.aliados_count,
           responsable: p.responsable,
           semaforo_tecnico: p.semaforo_tecnico,
           semaforo_financiero: p.semaforo_financiero,

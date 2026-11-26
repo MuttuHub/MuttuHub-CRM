@@ -6,7 +6,7 @@
 // arrives as null and is hidden, not shown empty (S5). «Generar reporte» opens the print view in the same tab and
 // «Exportar Excel» downloads the same report as a workbook (S6).
 
-import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { NOTA_DIAS_SIN_INTERACCION, NOTA_ETIQUETAS, NOTA_TAREAS_PERIODO } from "@/lib/reportes/etiqueta-notas";
@@ -204,7 +204,7 @@ export function ReporteEtiquetaContenido({ data }: { data: ReporteEtiqueta }) {
                   <TableCell className="font-mono text-[12px] font-semibold tabular-nums">{p.codigo}</TableCell>
                   <TableCell className="max-w-[220px]">
                     <p className="truncate font-semibold text-ink-950" title={p.nombre}>{p.nombre}</p>
-                    <p className="truncate text-[11.5px] text-ink-600">{nombreClienteProyecto(p.cliente)}</p>
+                    <p className="truncate text-[11.5px] text-ink-600">{etiquetaClienteProyecto(p)}</p>
                   </TableCell>
                   <TableCell className="text-[12.5px]">{ESTADO_PROYECTO_META[p.estado].label}</TableCell>
                   <Numero>{formatPct(p.kpis.tecnico?.avance_real ?? null)}</Numero>

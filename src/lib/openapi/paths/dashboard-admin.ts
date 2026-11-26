@@ -322,8 +322,17 @@ registry.registerPath({
                     id: z.string().uuid(),
                     codigo: z.string(),
                     nombre: z.string(),
-                    cliente_id: z.string().uuid(),
-                    cliente_nombre: z.string(),
+                    cliente_id: z
+                      .string()
+                      .uuid()
+                      .nullable()
+                      .openapi({ description: "null solo en proyectos `POSICION_PROPIA` (S8)." }),
+                    cliente_nombre: z.string().openapi({
+                      description: "Nombre del cliente; sin cliente, «Posición propia · N aliados» (o «Posición propia» sin aliados).",
+                    }),
+                    aliados_count: z.number().int().openapi({
+                      description: "Aliados del proyecto que no están DESCARTADO (S12).",
+                    }),
                   }),
                 ),
               }),

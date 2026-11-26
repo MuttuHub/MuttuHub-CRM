@@ -151,6 +151,8 @@ export type ProyectoEnEjecucion = {
   /** `null` en un proyecto de posición propia (S8); `cliente_nombre` ya trae la etiqueta. */
   cliente_id: string | null;
   cliente_nombre: string;
+  /** S12: aliados no DESCARTADO; ya incluido en `cliente_nombre` («Posición propia · N aliados»). */
+  aliados_count?: number;
 };
 
 /** S2.7: oportunidad abierta en fase PROSPECCION de mis clientes. */

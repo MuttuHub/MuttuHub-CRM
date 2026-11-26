@@ -167,11 +167,13 @@ describe("GET /api/v1/reports/weekly", () => {
 
   it("groups posición propia projects (no client) under «Posición propia» (S12)", async () => {
     vi.mocked(db.proyecto.findMany).mockImplementation((async (args: { select: Record<string, unknown> }) => {
-      if ("lineas" in args.select) return [fila("p1", ACME), fila("p2", null), fila("p3", null)]
+      if ("lineas" in args.select) return [fila("p1", ACME), { ...fila("p2", null), _count: { aliados: 2 } }, fila("p3", null)]
       return ["p1", "p2", "p3"].map((id) => ({ id, estado: "EN_EJECUCION", fecha_inicio: new Date(), fecha_fin: new Date(), beneficiarios_meta: 10 }))
     }) as never)
     const body = await (await GET(get())).json()
     expect(body.portafolio.proyectos.map((p: { cliente: unknown }) => p.cliente)).toEqual([ACME, null, null])
+    // T6b: each project row carries its active ally count (DESCARTADO left out by the portfolio's `_count`).
+    expect(body.portafolio.proyectos.map((p: { aliados_count: unknown }) => p.aliados_count)).toEqual([0, 2, 0])
     expect(body.portafolio.por_cliente).toEqual([
       expect.objectContaining({ cliente: ACME, proyectos: 1 }),
       expect.objectContaining({ cliente: { id: null, nombre: "Posición propia" }, proyectos: 2 }),

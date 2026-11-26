@@ -29,7 +29,7 @@ import {
   lockProyectoBorrador,
   PROYECTO_NO_EXISTE,
 } from "@/lib/api/presupuesto";
-import { diffLineas, diffMunicipios } from "@/lib/api/projects";
+import { aliadosActivos, diffLineas, diffMunicipios } from "@/lib/api/projects";
 import { diferenciaValor, isoDate } from "@/lib/proyectos/proyecto-general";
 import { fromCents, sumCents, toCents } from "@/lib/proyectos/money";
 import { programacionDelPlan } from "@/lib/proyectos/programacion-propuesta";
@@ -38,7 +38,7 @@ import type { PlanImportacion } from "@/lib/proyectos/plantilla/mapear";
 import type { ContextoValidacion } from "@/lib/proyectos/plantilla/validate";
 import { lineasTienenGastos } from "./lineas-con-gastos";
 import { rechazoPorRubroDeshabilitado } from "./rubros-proyecto";
-import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
+import { ALIADOS_ACTIVOS_COUNT, etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 /** Zip guard limits (a template is a few dozen KB; the 4 MB upload cap binds first). */
 export const ZIP_MAX_ENTRADAS = 200;
@@ -187,6 +187,8 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
       valor_total: true,
       beneficiarios_meta: true,
       cliente: { select: { nombre: true } },
+      // S12: «Posición propia · N aliados» on the informative Cliente cell.
+      ...ALIADOS_ACTIVOS_COUNT,
       lineas: { select: { principal: true, linea: { select: { codigo: true, nombre: true } } } },
       municipios: { select: { municipio: { select: { nombre: true, departamento: true } } } },
     },
@@ -289,7 +291,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
   return {
     proyecto: {
       codigo: proyecto.codigo,
-      cliente: nombreClienteProyecto(proyecto.cliente),
+      cliente: etiquetaClienteProyecto({ cliente: proyecto.cliente, aliados_count: aliadosActivos(proyecto) }),
       fechaInicio: isoDate(proyecto.fecha_inicio),
       fechaFin: isoDate(proyecto.fecha_fin),
       valorTotal: proyecto.valor_total === null ? null : proyecto.valor_total.toString(),

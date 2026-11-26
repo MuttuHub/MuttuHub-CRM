@@ -16,6 +16,7 @@ export const REPORTE_SEMANAL: ReporteSemanal = {
         nombre: "Ruta del emprendimiento",
         estado: "EN_EJECUCION",
         cliente: { id: "c1", nombre: "Acme" },
+        aliados_count: 0,
         responsable: { id: "r1", nombre: "Ana" },
         semaforo_tecnico: "verde",
         semaforo_financiero: "rojo",

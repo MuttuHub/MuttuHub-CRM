@@ -189,9 +189,32 @@ describe("GET /api/v1/dashboard/my-summary", () => {
             nombre: "CedeTextil",
             cliente_id: "c1",
             cliente_nombre: "CedeTextil S.A.",
+            aliados_count: 0,
           },
         ],
       });
+    });
+
+    it("labels a posición propia project «Posición propia · N aliados», counting only active allies (S12, T6b)", async () => {
+      withEmptyBase(administrador);
+      vi.mocked(db.proyecto.findMany).mockResolvedValue([
+        { id: "p2", codigo: "PRY-2026-002", nombre: "Propia", cliente: null, _count: { aliados: 2 } },
+      ] as never);
+
+      const json = await (await GET(get())).json();
+
+      const select = vi.mocked(db.proyecto.findMany).mock.calls[0]![0]!.select as Record<string, unknown>;
+      expect(select._count).toEqual({ select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } });
+      expect(json.proyectos_en_ejecucion.items).toEqual([
+        {
+          id: "p2",
+          codigo: "PRY-2026-002",
+          nombre: "Propia",
+          cliente_id: null,
+          cliente_nombre: "Posición propia · 2 aliados",
+          aliados_count: 2,
+        },
+      ]);
     });
 
     it("a COORDINADOR only sees their member projects in the group", async () => {
