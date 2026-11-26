@@ -116,3 +116,34 @@ registry.registerPath({
     ...standardErrorResponses([400, 401, 403, 404, 500]),
   },
 });
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/reports/project/export",
+  tags: ["Projects"],
+  summary: "Exporta a Excel el reporte del proyecto",
+  description:
+    "Mismo acceso y números que `GET /api/v1/reports/project`: 400 sin proyecto, 404 si no existe, 403 si no lo puedes " +
+    "ver; el 403 y el 404 van antes que el 400 de `formato`. Hojas: Resumen, Aliados, Oportunidades (solo con acceso " +
+    "comercial), Bitácora y Tareas; montos como números, fechas como fechas y filas de totales en Aliados (aporte) y " +
+    "Oportunidades (valor estimado). Archivo `reporte-proyecto-<codigo>-<corte>.xlsx`. Cada descarga escribe una fila " +
+    "de auditoría `EXPORTAR` en el proyecto (si la auditoría falla, la descarga no falla).",
+  security: [{ sessionCookie: [] }],
+  request: {
+    query: z.object({
+      proyecto_id: z.string().openapi({ description: "Id del proyecto." }),
+      formato: z.enum(["xlsx"]).optional().openapi({ description: "Solo `xlsx`; `pdf` (u otro) responde 400." }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Libro de Excel (.xlsx).",
+      content: {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+          schema: { type: "string" as const, format: "binary" as const },
+        },
+      },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});
