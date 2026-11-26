@@ -163,11 +163,11 @@ function exigirRangoFechas(
  * project has no client and may bring its initial allies (more can be added from the ficha).
  */
 function exigirClienteSegunOrigen(
-  data: { origen?: string; cliente_id?: string; aliados?: unknown[] },
+  data: { origen?: string; cliente_id?: string | null; aliados?: unknown[] },
   ctx: z.RefinementCtx,
 ) {
   if (data.origen === POSICION_PROPIA) {
-    if (data.cliente_id !== undefined) {
+    if (data.cliente_id != null) {
       ctx.addIssue({
         code: "custom",
         message:
@@ -177,7 +177,7 @@ function exigirClienteSegunOrigen(
     }
     return;
   }
-  if (data.cliente_id === undefined) {
+  if (data.cliente_id == null) {
     ctx.addIssue({
       code: "custom",
       message: "Selecciona el cliente del proyecto.",
@@ -204,7 +204,9 @@ export const PROJECT_CREATE_SCHEMA = z
     origen: z
       .enum(["INDEPENDIENTE", POSICION_PROPIA], { error: "Origen de proyecto no válido." })
       .optional(),
-    cliente_id: z.string().min(1, "El cliente no es válido.").optional(),
+    // null is accepted so a posición propia body may send it explicitly; the refinement below
+    // still requires a client for INDEPENDIENTE.
+    cliente_id: z.string().min(1, "El cliente no es válido.").nullable().optional(),
     aliados: ALIADOS_INICIALES_SCHEMA.optional(),
     ...PROJECT_CREATE_BASE,
   })

@@ -170,8 +170,21 @@ describe("DELETE /api/v1/projects/:id/allies/:allyId", () => {
     });
   });
 
-  it("answers 404 for a missing ally", async () => {
+  it("answers 404 for an ally of another project or a missing one", async () => {
     vi.mocked(db.proyectoCliente.findFirst).mockResolvedValue(null);
+
+    const res = await DELETE(request("DELETE"), routeContext);
+
+    expect(res.status).toBe(404);
+    expect(mocks.txDelete).not.toHaveBeenCalled();
+    expect(vi.mocked(db.proyectoCliente.findFirst).mock.calls[0]![0]).toMatchObject({
+      where: { id: "ali-1", proyecto_id: "pry-1" },
+    });
+  });
+
+  it("answers 404 for a missing project before the permission check", async () => {
+    authAs(colaborador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
 
     const res = await DELETE(request("DELETE"), routeContext);
 

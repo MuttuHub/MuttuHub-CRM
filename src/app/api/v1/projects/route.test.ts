@@ -900,6 +900,24 @@ describe("POST /api/v1/projects — posición propia (T4b, S8/S9/S13)", () => {
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
+  it("accepts an explicit cliente_id: null on a POSICION_PROPIA project", async () => {
+    const res = await POST(postRequest({ ...ppBody, cliente_id: null }));
+
+    expect(res.status).toBe(201);
+    const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> },
+    ];
+    expect(createArgs.data).toMatchObject({ cliente_id: null });
+  });
+
+  it("refuses cliente_id: null on an INDEPENDIENTE project", async () => {
+    const res = await POST(postRequest({ ...createBody, cliente_id: null }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("Selecciona el cliente del proyecto.");
+  });
+
   it("still requires cliente_id for an INDEPENDIENTE project", async () => {
     const res = await POST(
       postRequest({ ...createBody, cliente_id: undefined }),

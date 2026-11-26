@@ -39,6 +39,12 @@ import { GET, POST } from "./route";
 
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
 const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
+// Reads every project through the gerencial flag, but is never a project editor.
+const visualizadorGerencial = {
+  id: "vis-1",
+  rol: "VISUALIZADOR",
+  puede_ver_tablero_gerencial: true,
+} as unknown as Usuario;
 
 const proyectoPP = { id: "pry-1", origen: "POSICION_PROPIA", estado: "BORRADOR", miembros: [] };
 
@@ -107,6 +113,14 @@ describe("GET /api/v1/projects/:id/allies", () => {
     const res = await GET(getRequest(), routeContext);
 
     expect(res.status).toBe(404);
+  });
+
+  it("lets a gerencial VISUALIZADOR read the allies", async () => {
+    authAs(visualizadorGerencial);
+
+    const res = await GET(getRequest(), routeContext);
+
+    expect(res.status).toBe(200);
   });
 
   it("answers 403 to a non-member COLABORADOR", async () => {
@@ -186,6 +200,25 @@ describe("POST /api/v1/projects/:id/allies", () => {
     const res = await POST(postRequest(body), routeContext);
 
     expect(res.status).toBe(403);
+    expect(mocks.txCreate).not.toHaveBeenCalled();
+  });
+
+  it("answers 403 to a gerencial VISUALIZADOR: reading is not editing", async () => {
+    authAs(visualizadorGerencial);
+
+    const res = await POST(postRequest(body), routeContext);
+
+    expect(res.status).toBe(403);
+    expect(mocks.txCreate).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 before 403 for a missing project", async () => {
+    authAs(colaborador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+
+    const res = await POST(postRequest(body), routeContext);
+
+    expect(res.status).toBe(404);
     expect(mocks.txCreate).not.toHaveBeenCalled();
   });
 
