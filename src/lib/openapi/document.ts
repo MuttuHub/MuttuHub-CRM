@@ -39,6 +39,7 @@ import "@/lib/openapi/paths/settings-semaforo-v2";
 import "@/lib/openapi/paths/settings-automatizaciones";
 import "@/lib/openapi/paths/reports-weekly";
 import "@/lib/openapi/paths/reports-tag";
+import "@/lib/openapi/paths/reports-project";
 
 export function buildOpenApiDocument() {
   const generator = new OpenApiGeneratorV31(registry.definitions);
