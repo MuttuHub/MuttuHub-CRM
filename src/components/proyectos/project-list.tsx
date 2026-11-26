@@ -62,6 +62,7 @@ import {
 } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 const SIN_DATO = "—";
 
@@ -232,7 +233,7 @@ function ProjectTable({ filas, cargando }: { filas: Fila[]; cargando: boolean })
               <TableCell className="max-w-[340px] whitespace-normal">
                 <p className="text-[11.5px] text-ink-600">
                   <span className="font-mono font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
-                  <span> · {proyecto.cliente.nombre}</span>
+                  <span> · {etiquetaClienteProyecto(proyecto)}</span>
                 </p>
                 <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
               </TableCell>
@@ -342,7 +343,7 @@ function ProjectCards({ filas, cargando }: { filas: Fila[]; cargando: boolean })
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
-            <p className="text-[12px] text-ink-600">{proyecto.cliente.nombre}</p>
+            <p className="text-[12px] text-ink-600">{etiquetaClienteProyecto(proyecto)}</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <div>

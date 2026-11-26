@@ -48,7 +48,8 @@ export function nombresDelProyecto(
   proyecto: Pick<ProjectListRow, "cliente" | "responsable" | "lineas" | "municipios">,
 ): Map<string, string> {
   const nombres = new Map<string, string>();
-  nombres.set(proyecto.cliente.id, proyecto.cliente.nombre);
+  // A posición propia project has no client (S8): nothing to index.
+  if (proyecto.cliente) nombres.set(proyecto.cliente.id, proyecto.cliente.nombre);
   if (proyecto.responsable) nombres.set(proyecto.responsable.id, proyecto.responsable.nombre);
   for (const linea of proyecto.lineas) nombres.set(linea.id, linea.nombre);
   for (const municipio of proyecto.municipios) nombres.set(municipio.id, municipio.nombre);

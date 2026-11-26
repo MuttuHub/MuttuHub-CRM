@@ -184,6 +184,7 @@ describe("GET /api/v1/projects/:id", () => {
       estado: "BORRADOR",
       origen: "OPORTUNIDAD",
       cliente: { id: "cli-1", nombre: "CedeTextil S.A." },
+      aliados_count: 0,
       responsable: { id: "user-2", nombre: "Ana Gómez" },
       fecha_inicio: "2026-10-05",
       fecha_fin: "2027-01-29",

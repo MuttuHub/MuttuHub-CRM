@@ -31,6 +31,7 @@ import { estaCongelado } from "@/lib/proyectos/transiciones-estado";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 /** Pestañas a las que el Resumen puede llevar. */
 export type ResumenDestino = "actividades" | "finanzas" | "historial";
@@ -273,7 +274,7 @@ function DatosGenerales({
         </p>
       ) : null}
       <dl className="flex flex-col gap-3">
-        <Dato label="Cliente">{proyecto.cliente.nombre}</Dato>
+        <Dato label="Cliente">{etiquetaClienteProyecto(proyecto)}</Dato>
         <Dato label="Origen">{proyecto.origen ? ORIGEN_PROYECTO_META[proyecto.origen] : SIN_DATO}</Dato>
         {conFechas && (
           <Dato label="Fechas" mono>

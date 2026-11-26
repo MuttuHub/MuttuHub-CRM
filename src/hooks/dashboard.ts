@@ -148,7 +148,8 @@ export type ProyectoEnEjecucion = {
   id: string;
   codigo: string;
   nombre: string;
-  cliente_id: string;
+  /** `null` en un proyecto de posición propia (S8); `cliente_nombre` ya trae la etiqueta. */
+  cliente_id: string | null;
   cliente_nombre: string;
 };
 

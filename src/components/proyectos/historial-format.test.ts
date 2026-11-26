@@ -152,6 +152,16 @@ describe("nombresDelProyecto", () => {
       ["m1", "Barranquilla"],
     ])
   })
+
+  it("skips the client of a posición propia project, which has none (S12, L20)", () => {
+    const nombres = nombresDelProyecto({
+      cliente: null,
+      responsable: { id: "u1", nombre: "Ana" },
+      lineas: [],
+      municipios: [],
+    })
+    expect([...nombres.entries()]).toEqual([["u1", "Ana"]])
+  })
 })
 
 describe("pasosLegibles", () => {

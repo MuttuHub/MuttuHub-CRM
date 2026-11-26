@@ -23,6 +23,7 @@ export const REPORTE_ETIQUETA: ReporteEtiqueta = {
       nombre: "Ruta del emprendimiento",
       estado: "EN_EJECUCION",
       cliente: { id: "c1", nombre: "Acme" },
+      aliados_count: 0,
       responsable: { id: "r1", nombre: "Ana" },
       linea_principal: null,
       fecha_inicio: "2026-01-01",

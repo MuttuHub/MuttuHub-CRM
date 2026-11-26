@@ -40,6 +40,7 @@ import {
   usePuedeCambiarEstado,
 } from "@/components/proyectos/estado-proyecto-acciones";
 import { cn } from "@/lib/utils";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 /** Pestañas a las que el encabezado puede llevar. */
 export type FichaDestino = "actividades" | "finanzas";
@@ -134,7 +135,7 @@ export function FichaHeader({
           <span>{proyecto.nombre}</span> · <span>{estado.label}</span>
         </h1>
         <p data-testid="ficha-header-cliente" className="mt-0.5 hidden text-[13px] text-ink-600 sm:block">
-          {`${proyecto.cliente.nombre} · Responsable: ${proyecto.responsable?.nombre ?? "Sin asignar"}`}
+          {`${etiquetaClienteProyecto(proyecto)} · Responsable: ${proyecto.responsable?.nombre ?? "Sin asignar"}`}
         </p>
         <AvisoCongelado estado={proyecto.estado} />
       </div>
