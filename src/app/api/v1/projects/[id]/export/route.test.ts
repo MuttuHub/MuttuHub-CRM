@@ -162,7 +162,7 @@ describe("GET projects/:id/export: workbooks", () => {
     )
     expect(await cliente()).toBe("Posición propia · 2 aliados")
     const select = vi.mocked(db.proyecto.findFirst).mock.calls[0][0]?.select as { _count: { select: Record<string, unknown> } }
-    expect(select._count.select.aliados).toEqual({ where: { estado: { not: "DESCARTADO" } } })
+    expect(select._count.select.aliados).toEqual({ where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } })
     expect(select._count.select.actividades).toEqual({ where: { deleted_at: null } })
 
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto())

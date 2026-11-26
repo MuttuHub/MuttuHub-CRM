@@ -440,7 +440,7 @@ export function projectListWhere(
   if (filters.cliente_id) {
     where.OR = [
       { cliente_id: filters.cliente_id },
-      { aliados: { some: { cliente_id: filters.cliente_id, estado: { not: "DESCARTADO" } } } },
+      { aliados: { some: { cliente_id: filters.cliente_id, estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } },
     ];
   }
   if (filters.responsable_id) where.responsable_id = filters.responsable_id;

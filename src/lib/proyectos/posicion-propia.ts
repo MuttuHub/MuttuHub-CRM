@@ -26,9 +26,9 @@ export function nombreClienteProyecto(cliente: { nombre: string } | null): strin
 }
 
 /**
- * The `_count` select of the allies that count (L20): DESCARTADO allies count neither in «N aliados» nor
+ * The `_count` select of the allies that count (L20): DESCARTADO allies count neither (nor allies whose client was soft-deleted, L23) in «N aliados» nor
  * in the client filter, the same rule as client health (L17 R3-003).
  */
 export const ALIADOS_ACTIVOS_COUNT = {
-  _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } },
+  _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } },
 } as const

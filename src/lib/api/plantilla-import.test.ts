@@ -375,7 +375,7 @@ describe("cargarPlantillaInput client label (S12, T6b)", () => {
     const selects: unknown[] = [];
     const input = await cargarPlantillaInput(lector({ cliente: null, _count: { aliados: 2 } }, selects) as never, "p1");
     expect(input.proyecto.cliente).toBe("Posición propia · 2 aliados");
-    expect(selects[0]).toMatchObject({ _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } } });
+    expect(selects[0]).toMatchObject({ _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } } });
   });
 
   it("a project with a client still reads the client's name", async () => {
