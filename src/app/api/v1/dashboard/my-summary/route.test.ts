@@ -204,7 +204,7 @@ describe("GET /api/v1/dashboard/my-summary", () => {
       const json = await (await GET(get())).json();
 
       const select = vi.mocked(db.proyecto.findMany).mock.calls[0]![0]!.select as Record<string, unknown>;
-      expect(select._count).toEqual({ select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } });
+      expect(select._count).toEqual({ select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } });
       expect(json.proyectos_en_ejecucion.items).toEqual([
         {
           id: "p2",

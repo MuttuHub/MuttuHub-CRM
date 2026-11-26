@@ -265,7 +265,7 @@ describe("GET /api/v1/projects", () => {
     expect(mocks.proyectoFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } },
+          _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } },
         }),
       }),
     );
@@ -318,7 +318,7 @@ describe("GET /api/v1/projects", () => {
           // S11/S12 (L20): the client filter also matches a posición propia project through its allies.
           OR: [
             { cliente_id: "cli-9" },
-            { aliados: { some: { cliente_id: "cli-9", estado: { not: "DESCARTADO" } } } },
+            { aliados: { some: { cliente_id: "cli-9", estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } },
           ],
           responsable_id: "user-5",
           lineas: { some: { linea_id: "linea-7" } },

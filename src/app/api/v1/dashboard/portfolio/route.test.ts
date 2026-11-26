@@ -181,7 +181,7 @@ describe("GET dashboard/portfolio: payload", () => {
     const body = await (await GET(get())).json()
     expect(body.proyectos[0]).toMatchObject({ cliente: null, aliados_count: 2 })
     expect(vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.select).toMatchObject({
-      _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } },
+      _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } },
     })
   })
 
@@ -243,7 +243,7 @@ describe("GET dashboard/portfolio: payload", () => {
     expect(vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.where).toMatchObject({
       estado: "EN_EJECUCION",
       // S11 (L20): the client matches its own projects and the posición propia projects it is an ally of.
-      OR: [{ cliente_id: "c1" }, { aliados: { some: { cliente_id: "c1", estado: { not: "DESCARTADO" } } } }],
+      OR: [{ cliente_id: "c1" }, { aliados: { some: { cliente_id: "c1", estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } }],
       responsable_id: "r1",
       lineas: { some: { linea_id: "l1" } },
       municipios: { some: { municipio_id: "m1" } },

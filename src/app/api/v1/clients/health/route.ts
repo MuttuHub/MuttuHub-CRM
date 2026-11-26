@@ -102,7 +102,7 @@ export const GET = withApiErrorHandling(
               cliente_id: true,
               // S12: a posición propia project counts for each of its live allies; a DESCARTADO
               // ally no longer has a stake in it (decision 2026-11-25).
-              aliados: { where: { estado: { not: "DESCARTADO" } }, select: { cliente_id: true } },
+              aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } }, select: { cliente_id: true } },
               estado: true,
               fecha_inicio: true,
               fecha_fin: true,
