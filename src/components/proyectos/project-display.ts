@@ -53,6 +53,7 @@ const ENTIDAD_AUDITORIA_META: Record<string, string> = {
   oportunidad: "Oportunidad",
   proyecto: "Proyecto",
   proyecto_miembro: "Integrante del equipo",
+  proyecto_cliente: "Aliado",
   parametro: "Parámetro del semáforo",
   presupuesto: "Presupuesto",
   programacion: "Programación",
