@@ -10,11 +10,19 @@
 // alert (S2.4).
 
 import { z } from "zod";
-import { AccionAuditoria, EstadoProyecto, OrigenProyecto, RolUsuario } from "@prisma/client";
+import {
+  AccionAuditoria,
+  EstadoAliado,
+  EstadoProyecto,
+  OrigenProyecto,
+  RolAliado,
+  RolUsuario,
+} from "@prisma/client";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { PROJECT_CREATE_SCHEMA } from "@/app/api/v1/projects/route";
 import { PROJECT_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/route";
 import { MIEMBRO_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/members/route";
+import { ALIADO_CREATE_SCHEMA, ALIADO_PATCH_SCHEMA } from "@/lib/proyectos/aliados-proyecto";
 import { RUBRO_PROYECTO_PUT_SCHEMA } from "@/app/api/v1/projects/[id]/rubros/[rubroId]/route";
 
 const ProjectLineaSchema = z.object({
@@ -41,7 +49,10 @@ export const ProjectItemV2Schema = registry.register(
     descripcion: z.string().nullable().openapi({ description: "Texto libre opcional (máx. 2000); null si no se capturó." }),
     estado: z.enum(EstadoProyecto),
     origen: z.enum(OrigenProyecto).nullable(),
-    cliente: z.object({ id: z.string().uuid(), nombre: z.string() }),
+    cliente: z.object({ id: z.string().uuid(), nombre: z.string() }).nullable().openapi({
+      description:
+        "null solo en proyectos `POSICION_PROPIA` (S8): sus clientes son aliados (`GET /projects/{id}/allies`).",
+    }),
     responsable: z.object({ id: z.string().uuid(), nombre: z.string() }).nullable(),
     fecha_inicio: z
       .string()
@@ -158,7 +169,12 @@ registry.registerPath({
     "`diferencia_valor_oportunidad` (S2.4) y `alertas` se rechazan con 400. `valor_total` es la suma de las líneas del " +
     "presupuesto (T11 S2): el proyecto nace con `valor_total = 0` y lo actualiza `PUT /projects/{id}/budget`. Las líneas estratégicas y los " +
     "municipios deben existir y estar activos (V-04); uno suspendido responde 400. 404 si el cliente no existe. " +
-    "`etiquetas` (T1) es opcional: recorta, quita duplicados, 1–50 caracteres y máximo 20; se guarda [] si no llega.",
+    "`etiquetas` (T1) es opcional: recorta, quita duplicados, 1–50 caracteres y máximo 20; se guarda [] si no llega. " +
+    "`origen` (S8, S13) es opcional: `INDEPENDIENTE` (por defecto) exige `cliente_id` y no acepta `aliados`; " +
+    "`POSICION_PROPIA` rechaza `cliente_id` (el proyecto se guarda sin cliente) y acepta `aliados` iniciales " +
+    "(`cliente_id`, `rol`, `estado` opcional = EN_GESTION, `aporte_cop` opcional), sin repetir cliente. Cada aliado " +
+    "se audita como `CREAR proyecto_cliente` en su propio lote dentro de la misma transacción. 404 si un cliente " +
+    "aliado no existe o tiene borrado lógico. Cualquier otro `origen` responde 400.",
   security: [{ sessionCookie: [] }],
   request: { body: { content: { "application/json": { schema: PROJECT_CREATE_SCHEMA } } } },
   responses: {
@@ -317,7 +333,8 @@ registry.registerPath({
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +
     "(S2.6), `diferencia_valor_oportunidad` (S2.4) y `valor_total` se rechazan con 400, también en `EN_EJECUCION`. " +
     "`valor_total` es la suma de las líneas del presupuesto (T11 S2): solo lo escribe `PUT /projects/{id}/budget`, " +
-    "que también recalcula `diferencia_valor_oportunidad`.",
+    "que también recalcula `diferencia_valor_oportunidad`. `origen` no puede pasar a `POSICION_PROPIA` ni dejar de " +
+    "serlo (S13): responde 400 VALIDATION_ERROR, porque ese origen decide si el proyecto tiene cliente o aliados.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectIdParams,
@@ -432,6 +449,113 @@ registry.registerPath({
       content: { "application/json": { schema: z.object({ miembro: ProyectoMiembroSchema }) } },
     },
     ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// GET/POST /api/v1/projects/{id}/allies, PATCH/DELETE .../allies/{allyId} (T4b, S9)
+// ---------------------------------------------------------------------------
+
+const AliadoProyectoSchema = registry.register(
+  "AliadoProyecto",
+  z.object({
+    id: z.string().uuid(),
+    cliente: z.object({ id: z.string().uuid(), nombre: z.string() }),
+    rol: z.enum(RolAliado),
+    estado: z.enum(EstadoAliado),
+    aporte_cop: z.number().nullable().openapi({ description: "Aporte comprometido en COP; null si no se registró." }),
+    created_at: z.string().openapi({ description: "Instante en ISO-8601." }),
+    updated_at: z.string().openapi({ description: "Instante en ISO-8601." }),
+  }),
+);
+
+const ALIADOS_WRITE_NOTE =
+  "Permiso: `canEditProjectData` (ADMINISTRADOR/GERENCIA, o integrante activo), por defecto hasta la decisión D3. " +
+  "Un proyecto desconocido o con borrado lógico responde 404 antes del 403. Un proyecto que no es `POSICION_PROPIA`, " +
+  "o que está `SUSPENDIDO`, `CERRADO` o `CANCELADO`, responde 409 INVALID_STATE.";
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/allies",
+  tags: ["Projects"],
+  summary: "Aliados de un proyecto de posición propia (S9)",
+  description:
+    "Lista los clientes vinculados como aliados, del más antiguo al más reciente. Puede leerla quien puede leer la ficha; " +
+    `un proyecto de otro origen devuelve una lista vacía. ${SCOPE_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectIdParams },
+  responses: {
+    200: {
+      description: "Aliados del proyecto.",
+      content: { "application/json": { schema: z.object({ aliados: z.array(AliadoProyectoSchema) }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/allies",
+  tags: ["Projects"],
+  summary: "Vincula un cliente como aliado (S9)",
+  description:
+    "`estado` por defecto `EN_GESTION`; `aporte_cop` opcional, no negativo. 404 si el cliente no existe o tiene borrado " +
+    "lógico. Un cliente que ya es aliado del proyecto responde 409 CONFLICT desde el índice único " +
+    "`(proyecto_id, cliente_id)`. La escritura y su auditoría `CREAR proyecto_cliente` comparten una transacción. " +
+    ALIADOS_WRITE_NOTE,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectIdParams,
+    body: { content: { "application/json": { schema: ALIADO_CREATE_SCHEMA } } },
+  },
+  responses: {
+    201: {
+      description: "Aliado vinculado.",
+      content: { "application/json": { schema: z.object({ aliado: AliadoProyectoSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+const AllyParams = z.object({ id: z.string().uuid(), allyId: z.string().uuid() });
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/v1/projects/{id}/allies/{allyId}",
+  tags: ["Projects"],
+  summary: "Cambia el rol, el estado o el aporte de un aliado (S9)",
+  description:
+    "Solo acepta `rol`, `estado` y `aporte_cop` (null lo borra); cualquier otro campo, incluido `cliente_id`, responde 400. " +
+    "Un aliado de otro proyecto responde 404. Audita una fila `EDITAR proyecto_cliente` por campo cambiado. " +
+    ALIADOS_WRITE_NOTE,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: AllyParams,
+    body: { content: { "application/json": { schema: ALIADO_PATCH_SCHEMA } } },
+  },
+  responses: {
+    200: {
+      description: "Aliado actualizado.",
+      content: { "application/json": { schema: z.object({ aliado: AliadoProyectoSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/v1/projects/{id}/allies/{allyId}",
+  tags: ["Projects"],
+  summary: "Desvincula un aliado (S9)",
+  description:
+    "Elimina la fila. Como `AccionAuditoria` no tiene acción de borrado, se audita como `EDITAR proyecto_cliente` de los " +
+    "valores del aliado a null, en la misma transacción. Un aliado de otro proyecto responde 404. " +
+    ALIADOS_WRITE_NOTE,
+  security: [{ sessionCookie: [] }],
+  request: { params: AllyParams },
+  responses: {
+    204: { description: "Aliado desvinculado." },
+    ...standardErrorResponses([401, 403, 404, 409, 500]),
   },
 });
 

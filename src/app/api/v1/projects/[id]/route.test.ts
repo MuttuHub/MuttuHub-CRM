@@ -836,3 +836,53 @@ describe("PATCH /api/v1/projects/:id etiquetas (S1)", () => {
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe("PATCH /api/v1/projects/:id origen and posición propia (T4b, S13)", () => {
+  const MENSAJE =
+    "Un proyecto no puede pasar a posición propia ni dejar de serlo después de creado.";
+  const posicionPropia = { ...existente, origen: "POSICION_PROPIA", cliente: null };
+
+  it("refuses moving a project into POSICION_PROPIA and writes nothing", async () => {
+    const res = await PATCH(patchRequest({ origen: "POSICION_PROPIA" }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: MENSAJE });
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([["INDEPENDIENTE"], [null]])(
+    "refuses moving a POSICION_PROPIA project to origen %s",
+    async (origen) => {
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(posicionPropia as never);
+
+      const res = await PATCH(patchRequest({ origen }), routeContext);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: MENSAJE });
+      expect(mocks.txUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts POSICION_PROPIA sent unchanged on a POSICION_PROPIA project", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(posicionPropia as never);
+    mocks.txFindUniqueOrThrow.mockResolvedValue(posicionPropia as never);
+
+    const res = await PATCH(
+      patchRequest({ origen: "POSICION_PROPIA", nombre: "Fondo Distrito Creativo" }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(200);
+  });
+
+  it("still lets a project move between OPORTUNIDAD and INDEPENDIENTE", async () => {
+    const res = await PATCH(patchRequest({ origen: "INDEPENDIENTE" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(mocks.txUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ origen: "INDEPENDIENTE" }) }),
+    );
+  });
+});
