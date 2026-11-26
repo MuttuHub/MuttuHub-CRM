@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   proyectoFindMany: vi.fn(),
   proyectoFindFirst: vi.fn(),
   clienteFindFirst: vi.fn(),
+  clienteFindMany: vi.fn(),
   usuarioFindFirst: vi.fn(),
   usuarioFindMany: vi.fn(),
   oportunidadFindFirst: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   txProyectoCreate: vi.fn(),
   txOportunidadUpdate: vi.fn(),
   txMiembroCreate: vi.fn(),
+  txProyectoClienteCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -54,7 +56,7 @@ vi.mock("@/lib/db", () => {
   return {
     db: {
       proyecto: { findMany: mocks.proyectoFindMany, findFirst: mocks.proyectoFindFirst },
-      cliente: { findFirst: mocks.clienteFindFirst },
+      cliente: { findFirst: mocks.clienteFindFirst, findMany: mocks.clienteFindMany },
       usuario: { findFirst: mocks.usuarioFindFirst, findMany: mocks.usuarioFindMany },
       oportunidad: { findFirst: mocks.oportunidadFindFirst },
       lineaEstrategicaCatalogo: {
@@ -80,6 +82,7 @@ vi.mock("@/lib/db", () => {
           proyecto: { create: mocks.txProyectoCreate },
           oportunidad: { update: mocks.txOportunidadUpdate },
           proyectoMiembro: { create: mocks.txMiembroCreate },
+          proyectoCliente: { create: mocks.txProyectoClienteCreate },
         }),
       ),
     },
@@ -772,6 +775,203 @@ describe("project tags (S1)", () => {
 
     expect(res.status).toBe(400);
     expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: mensaje });
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/v1/projects — posición propia (T4b, S8/S9/S13)", () => {
+  const ppBody = {
+    ...createBody,
+    cliente_id: undefined,
+    origen: "POSICION_PROPIA",
+    aliados: [
+      {
+        cliente_id: "cli-1",
+        rol: "FINANCIADOR",
+        estado: "COMPROMETIDO",
+        aporte_cop: 50000000.456,
+      },
+      { cliente_id: "cli-2", rol: "PROSPECTO" },
+    ],
+  };
+
+  beforeEach(() => {
+    // The fake answers the `id: { in }` + `deleted_at: null` lookup with the live clients only.
+    mocks.clienteFindMany.mockImplementation(
+      (args: { where: { id: { in: string[] } } }) =>
+        Promise.resolve(
+          args.where.id.in
+            .filter((id) => ["cli-1", "cli-2"].includes(id))
+            .map((id) => ({ id })),
+        ),
+    );
+    mocks.txProyectoClienteCreate.mockImplementation(
+      (args: { data: { cliente_id: string } }) =>
+        Promise.resolve({ id: `ali-${args.data.cliente_id}`, ...args.data }),
+    );
+    mocks.txProyectoCreate.mockResolvedValue({
+      ...proyectoRow,
+      origen: "POSICION_PROPIA",
+      cliente: null,
+    });
+  });
+
+  it("creates a clientless POSICION_PROPIA project with its allies and audits each ally", async () => {
+    const res = await POST(postRequest(ppBody));
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(json.proyecto.origen).toBe("POSICION_PROPIA");
+    expect(json.proyecto.cliente).toBeNull();
+
+    const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> },
+    ];
+    expect(createArgs.data).toMatchObject({
+      cliente_id: null,
+      origen: "POSICION_PROPIA",
+    });
+
+    const aliados = mocks.txProyectoClienteCreate.mock.calls.map(
+      ([args]) => (args as { data: Record<string, unknown> }).data,
+    );
+    expect(aliados).toHaveLength(2);
+    expect(aliados[0]).toMatchObject({
+      proyecto_id: "pry-1",
+      cliente_id: "cli-1",
+      rol: "FINANCIADOR",
+      estado: "COMPROMETIDO",
+    });
+    expect(String(aliados[0]!.aporte_cop)).toBe("50000000.46");
+    expect(aliados[1]).toMatchObject({
+      cliente_id: "cli-2",
+      rol: "PROSPECTO",
+      estado: "EN_GESTION",
+      aporte_cop: null,
+    });
+
+    const rows = vi.mocked(logChanges).mock.calls.flatMap(([, r]) => r);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          accion: "CREAR",
+          entidad: "proyecto",
+          valor_nuevo: expect.objectContaining({
+            cliente_id: null,
+            origen: "POSICION_PROPIA",
+          }),
+        }),
+        expect.objectContaining({
+          accion: "CREAR",
+          entidad: "proyecto_cliente",
+          entidad_id: "ali-cli-1",
+          proyecto_id: "pry-1",
+          valor_nuevo: {
+            cliente_id: "cli-1",
+            rol: "FINANCIADOR",
+            estado: "COMPROMETIDO",
+            aporte_cop: "50000000.46",
+          },
+        }),
+        expect.objectContaining({
+          entidad: "proyecto_cliente",
+          entidad_id: "ali-cli-2",
+        }),
+      ]),
+    );
+  });
+
+  it("creates a POSICION_PROPIA project with no allies yet", async () => {
+    const res = await POST(postRequest({ ...ppBody, aliados: undefined }));
+
+    expect(res.status).toBe(201);
+    expect(mocks.txProyectoClienteCreate).not.toHaveBeenCalled();
+    expect(mocks.clienteFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cliente_id on a POSICION_PROPIA project", async () => {
+    const res = await POST(postRequest({ ...ppBody, cliente_id: "cli-1" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe(
+      "Un proyecto de posición propia no tiene cliente: vincula los clientes como aliados.",
+    );
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
+  it("still requires cliente_id for an INDEPENDIENTE project", async () => {
+    const res = await POST(
+      postRequest({ ...createBody, cliente_id: undefined }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("Selecciona el cliente del proyecto.");
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects allies on an INDEPENDIENTE project", async () => {
+    const res = await POST(
+      postRequest({ ...createBody, aliados: ppBody.aliados }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe(
+      "Solo los proyectos de posición propia tienen aliados.",
+    );
+  });
+
+  it("rejects an origin other than INDEPENDIENTE or POSICION_PROPIA", async () => {
+    const res = await POST(
+      postRequest({ ...createBody, origen: "OPORTUNIDAD" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects the same client twice as an ally", async () => {
+    const res = await POST(
+      postRequest({
+        ...ppBody,
+        aliados: [
+          { cliente_id: "cli-1", rol: "ALIADO" },
+          { cliente_id: "cli-1", rol: "FINANCIADOR" },
+        ],
+      }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("No repitas el mismo cliente como aliado.");
+  });
+
+  it("rejects an ally with an unknown role", async () => {
+    const res = await POST(
+      postRequest({
+        ...ppBody,
+        aliados: [{ cliente_id: "cli-1", rol: "SOCIO" }],
+      }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("El rol del aliado no es válido.");
+  });
+
+  it("answers 404 when an ally client does not exist or was deleted", async () => {
+    const res = await POST(
+      postRequest({
+        ...ppBody,
+        aliados: [{ cliente_id: "cli-borrado", rol: "ALIADO" }],
+      }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(json.error).toBe("El cliente aliado no existe.");
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 });
