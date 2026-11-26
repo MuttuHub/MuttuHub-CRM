@@ -44,6 +44,7 @@ import {
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 import type { EstadoProyecto } from "@prisma/client";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 const ESTADOS: EstadoProyecto[] = ["PLANIFICACION", "BORRADOR", "EN_EJECUCION", "SUSPENDIDO", "CERRADO", "CANCELADO"];
 const CURVA_ERROR = "No pudimos cargar la curva S. Inténtalo de nuevo.";
@@ -250,7 +251,7 @@ function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
               <TableCell className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</TableCell>
               <TableCell className="max-w-[200px]">
                 <p className="truncate font-semibold text-ink-950" title={proyecto.nombre}>{proyecto.nombre}</p>
-                <p className="truncate text-[11.5px] text-ink-600">{proyecto.cliente.nombre}</p>
+                <p className="truncate text-[11.5px] text-ink-600">{etiquetaClienteProyecto(proyecto)}</p>
               </TableCell>
               <TableCell>
                 <ToneBadge tone={ESTADO_PROYECTO_META[proyecto.estado].tone} label={ESTADO_PROYECTO_META[proyecto.estado].label} />
@@ -305,7 +306,7 @@ function TarjetasProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
-            <p className="text-[12px] text-ink-600">{proyecto.cliente.nombre}</p>
+            <p className="text-[12px] text-ink-600">{etiquetaClienteProyecto(proyecto)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <Semaforo testId="chip-tecnico" color={proyecto.semaforo_tecnico} />

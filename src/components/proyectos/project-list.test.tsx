@@ -596,6 +596,23 @@ describe("ProjectList", () => {
     expect(screen.getByText("Sin asignar")).toBeInTheDocument()
   })
 
+  it("shows «Posición propia · N aliados» instead of a client on the table and the cards (S12, L20)", () => {
+    const propio: ProjectListRow = { ...PROYECTO, id: "p3", origen: "POSICION_PROPIA", cliente: null, aliados_count: 2 }
+    projectsQuery.data = { proyectos: [propio] }
+
+    const { unmount } = render(<ProjectList />)
+    expect(screen.getByTestId("proyecto-fila-p3")).toHaveTextContent("PRY-2026-001 · Posición propia · 2 aliados")
+    unmount()
+
+    mockViewport(true)
+    try {
+      render(<ProjectList />)
+      expect(screen.getByTestId("proyecto-card-p3")).toHaveTextContent("Posición propia · 2 aliados")
+    } finally {
+      mockViewport(false)
+    }
+  })
+
   it("shows the empty state for a portfolio reader with no projects", () => {
     render(<ProjectList />)
 

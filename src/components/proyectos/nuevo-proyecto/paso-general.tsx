@@ -15,6 +15,7 @@ import { EmptyBlock } from "@/components/proyectos/ui";
 import { StatusChip } from "@/components/ui/status-chip";
 import type { ProjectListRow } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 const SIN_DATO = "—";
 
@@ -49,7 +50,7 @@ export function PasoGeneralCreado({ proyecto }: { proyecto: ProjectListRow }) {
       <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
         <FieldValue label="Nombre" value={proyecto.nombre} />
         <FieldValue label="Origen" value={proyecto.origen ? ORIGEN_PROYECTO_META[proyecto.origen] : SIN_DATO} />
-        <FieldValue label="Cliente" value={proyecto.cliente.nombre} />
+        <FieldValue label="Cliente" value={etiquetaClienteProyecto(proyecto)} />
         <FieldValue label="Responsable" value={proyecto.responsable?.nombre ?? "Sin asignar"} />
         <FieldValue label="Fecha de inicio" value={formatFechaCalendario(proyecto.fecha_inicio)} mono />
         <FieldValue label="Fecha de fin" value={formatFechaCalendario(proyecto.fecha_fin)} mono />

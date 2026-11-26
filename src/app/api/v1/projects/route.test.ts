@@ -119,6 +119,7 @@ const proyectoRow = {
     { principal: false, linea: { id: "linea-2", codigo: "LE02", nombre: "Emprendimiento" } },
   ],
   municipios: [{ municipio: { id: "mun-1", nombre: "Medellín", departamento: "Antioquia" } }],
+  _count: { aliados: 0 },
 };
 
 /** A draft without dates or responsable, which must not break the projection. */
@@ -250,8 +251,24 @@ describe("GET /api/v1/projects", () => {
           { id: "linea-2", codigo: "LE02", nombre: "Emprendimiento", principal: false },
         ],
         municipios: [{ id: "mun-1", nombre: "Medellín", departamento: "Antioquia" }],
+        aliados_count: 0,
       },
     ]);
+  });
+
+  it("answers aliados_count from the count of non-discarded allies (S12, L20)", async () => {
+    dbReturns([{ ...proyectoRow, origen: "POSICION_PROPIA", cliente: null, _count: { aliados: 3 } }]);
+
+    const json = await (await GET(listRequest())).json();
+
+    expect(json.proyectos[0]).toMatchObject({ cliente: null, aliados_count: 3 });
+    expect(mocks.proyectoFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" } } } } },
+        }),
+      }),
+    );
   });
 
   it("keeps duracion_semanas null and name fields empty on an incomplete draft", async () => {
@@ -298,7 +315,11 @@ describe("GET /api/v1/projects", () => {
         where: {
           deleted_at: null,
           estado: "BORRADOR",
-          cliente_id: "cli-9",
+          // S11/S12 (L20): the client filter also matches a posición propia project through its allies.
+          OR: [
+            { cliente_id: "cli-9" },
+            { aliados: { some: { cliente_id: "cli-9", estado: { not: "DESCARTADO" } } } },
+          ],
           responsable_id: "user-5",
           lineas: { some: { linea_id: "linea-7" } },
           municipios: { some: { municipio_id: "mun-3" } },
