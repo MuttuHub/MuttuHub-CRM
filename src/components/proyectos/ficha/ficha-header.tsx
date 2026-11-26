@@ -1,7 +1,8 @@
 // Encabezado de la ficha (U2; rediseño S2/S6; T10 igual al prototipo clicable): «← Proyectos», código y el título
 // «nombre · estado» (enfocable para devolverle el foco); debajo, cliente y responsable. A la derecha «Registrar
 // gasto», «Registrar avance» (según la pestaña: Actividades y Finanzas solo dejan el gasto) y el menú "⋯" con
-// «Cambiar estado», la exportación a Excel y la ficha imprimible. «Aprobar línea base» es la acción principal en
+// «Cambiar estado», la exportación a Excel y la ficha imprimible; antes del menú, «Reporte» lleva al reporte del
+// proyecto en Reportes (T9c, S17). «Aprobar línea base» es la acción principal en
 // BORRADOR, así que queda como botón visible. Los semáforos son opcionales: el Resumen ya los explica en sus
 // cifras, así que quien monta la ficha decide en qué pestañas se muestran (`mostrarSemaforos`). En el teléfono
 // las acciones de ejecución pasan a una barra inferior fija (Documentos usa la suya); se decide con `matchMedia`
@@ -11,8 +12,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRightLeft, Download, Ellipsis, Printer } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRightLeft, Download, Ellipsis, FileText, Printer } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ import { ESTADO_PROYECTO_META } from "@/components/proyectos/project-display";
 import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { useProjectKpis, type ProjectListRow } from "@/hooks/projects";
+import { reporteProyectoHref } from "@/hooks/reportes";
 import {
   AvisoCongelado,
   EstadoProyectoAcciones,
@@ -162,6 +164,11 @@ export function FichaHeader({
               </Button>
             ),
           )}
+        {/* Same tab: the report lives in Reportes › Proyecto, already on this project (S17). */}
+        <Link href={reporteProyectoHref(proyecto.id)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <FileText className="size-4" strokeWidth={1.8} />
+          Reporte
+        </Link>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
