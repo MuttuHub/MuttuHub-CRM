@@ -91,4 +91,19 @@ describe("T8 bitácora entry linked to a project (live DB)", () => {
     })
     expect(refused).toMatch(/bitacora_entradas_proyecto_id_fkey|Foreign key constraint|P2003/)
   })
+
+  // T8 verifier probe: the route's ally lookup must not find an ally row of a soft-deleted project.
+  it("does not match an ally of a soft-deleted project with the route's ally lookup", async () => {
+    let encontrado: unknown = "unset"
+    const refused = await inRollback(async ({ tx, clienteId, proyectoId }) => {
+      await tx.proyectoCliente.create({ data: { proyecto_id: proyectoId, cliente_id: clienteId, rol: "ALIADO" } })
+      await tx.proyecto.update({ where: { id: proyectoId }, data: { deleted_at: new Date() } })
+      encontrado = await tx.proyectoCliente.findFirst({
+        where: { proyecto_id: proyectoId, cliente_id: clienteId, proyecto: { deleted_at: null } },
+        select: { id: true },
+      })
+    })
+    expect(refused).toBe("")
+    expect(encontrado).toBeNull()
+  })
 })

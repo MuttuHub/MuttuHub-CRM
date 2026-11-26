@@ -325,6 +325,29 @@ describe("POST /api/v1/clients/:id/log", () => {
     expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
   });
 
+  it("returns 400 for an empty proyecto_id without looking up allies", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+
+    const res = await POST(postRequest({ texto: "Nota", proyecto_id: "" }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(await res.json())).toContain("El proyecto no es válido.");
+    expect(db.proyectoCliente.findFirst).not.toHaveBeenCalled();
+    expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
+  });
+
+  it("answers 403 before checking the ally when the user cannot write the client", async () => {
+    authAs(colaborador);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "someone-else" } as never);
+
+    const res = await POST(postRequest({ texto: "Nota", proyecto_id: "pry-1" }), routeContext);
+
+    expect(res.status).toBe(403);
+    expect(db.proyectoCliente.findFirst).not.toHaveBeenCalled();
+    expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
+  });
+
   it("does not look up allies and stores no project when proyecto_id is omitted or null", async () => {
     authAs(gerencia);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
