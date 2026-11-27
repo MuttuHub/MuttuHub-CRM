@@ -498,4 +498,15 @@ describe("buildOpenApiDocument", () => {
     const schema = doc.components?.schemas?.ReporteProyecto as { properties?: Record<string, unknown> } | undefined
     expect(Object.keys(schema?.properties ?? {})).toEqual(["corte", "resumen", "aliados", "oportunidades", "bitacora", "tareas"])
   })
+
+  it("registers the T9b project report Excel export with its query and status codes (S17)", () => {
+    const op = buildOpenApiDocument().paths?.["/api/v1/reports/project/export"]?.get
+    expect(op).toBeDefined()
+    expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404"]))
+    expect(Object.keys(op?.responses?.["200"]?.content ?? {})).toEqual([
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ])
+    const query = (op?.parameters ?? []).map((p) => ("name" in p ? p.name : ""))
+    expect(query).toEqual(expect.arrayContaining(["proyecto_id", "formato"]))
+  })
 })
