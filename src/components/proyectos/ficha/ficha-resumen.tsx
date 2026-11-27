@@ -1,7 +1,7 @@
 // Resumen de la ficha (U3; rediseño S2/S6). Arriba las tres cifras (Avance técnico,
 // Gasto y Tiempo) con su color y su porqué; debajo «Qué falta», con la acción exacta de cada fila, y al lado los
-// datos del proyecto y el equipo. En BORRADOR no hay nada que medir: en lugar de cifras y «Qué falta» guía la
-// puesta a punto con «Próximos pasos». El color de cada semáforo lo calcula el servidor; aquí solo se pinta.
+// datos del proyecto, el equipo y, en un proyecto de posición propia, sus aliados (S9). En BORRADOR no hay nada
+// que medir: en lugar de cifras y «Qué falta» guía la puesta a punto con «Próximos pasos». El color de cada semáforo lo calcula el servidor; aquí solo se pinta.
 // En el teléfono todo va en una columna.
 
 "use client";
@@ -13,6 +13,7 @@ import { formatPct } from "@/components/proyectos/project-kpis-panel";
 import { ORIGEN_PROYECTO_META } from "@/components/proyectos/project-display";
 import { EditarDatosGenerales, modoDeEdicion } from "@/components/proyectos/ficha/editar-datos-generales";
 import { CifrasResumen } from "@/components/proyectos/ficha/resumen/cifras-resumen";
+import { ProjectAllies } from "@/components/proyectos/project-allies";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { RequiereAtencion, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
 import { SectionHeader } from "@/components/proyectos/ui";
@@ -353,6 +354,11 @@ export function FichaResumen({
               responsableId={proyecto.responsable?.id ?? null}
             />
           </div>
+          {proyecto.origen === "POSICION_PROPIA" && (
+            <div className="surface-tile p-4">
+              <ProjectAllies proyectoId={proyecto.id} congelado={estaCongelado(proyecto.estado)} />
+            </div>
+          )}
         </div>
       </div>
     </div>

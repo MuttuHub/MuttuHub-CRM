@@ -306,6 +306,8 @@ export const projectQueryKeys = {
   detail: (id: string) => ["projects", "detail", id] as const,
   audit: (id: string) => ["projects", "audit", id] as const,
   members: (id: string) => ["projects", "members", id] as const,
+  /** S9: allies of a posición propia project. */
+  allies: (id: string) => ["projects", "allies", id] as const,
   objectives: (id: string) => ["projects", "objectives", id] as const,
   activities: (id: string) => ["projects", "activities", id] as const,
   deliverables: (id: string) => ["projects", "deliverables", id] as const,
@@ -509,11 +511,27 @@ type ProjectCreateBaseInput = {
   beneficiarios_meta?: number;
 };
 
-/** E-03: proyecto INDEPENDIENTE con `cliente_id` en el cuerpo. */
-export type ProjectCreateInput = ProjectCreateBaseInput & {
-  nombre: string;
+/** S9: an ally's role and state in a posición propia project (`RolAliado`, `EstadoAliado`). */
+export type AllyRol = "FINANCIADOR" | "ALIADO" | "PROSPECTO";
+export type AllyEstado = "EN_GESTION" | "COMPROMETIDO" | "DESCARTADO";
+
+/** Body of POST /api/v1/projects/:id/allies, also used for the initial allies of a new project. */
+export type ProjectAllyInput = {
   cliente_id: string;
+  rol: AllyRol;
+  /** Defaults to EN_GESTION on the server. */
+  estado?: AllyEstado;
+  aporte_cop?: number | null;
 };
+
+/**
+ * E-03: proyecto INDEPENDIENTE con `cliente_id` en el cuerpo, o (S8, S13) de POSICION_PROPIA sin cliente
+ * y con sus aliados iniciales.
+ */
+export type ProjectCreateInput = ProjectCreateBaseInput & { nombre: string } & (
+    | { origen?: "INDEPENDIENTE"; cliente_id: string }
+    | { origen: "POSICION_PROPIA"; aliados?: ProjectAllyInput[] }
+  );
 
 /**
  * E-05: el `cliente_id` viaja en la URL y `nombre` es opcional (el servidor
@@ -646,6 +664,72 @@ export function useRemoveProjectMember(
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectQueryKeys.members(projectId) });
     },
+  });
+}
+
+/* ── Aliados de posición propia (S9) ───────────────────────────────────── */
+//
+// Same contract as the team: the query hangs from the `projects` prefix, and the mutations invalidate the
+// allies list plus the project detail (the header shows «Posición propia · N aliados»). Errors are re-thrown
+// as `ApiError` without a toast so the caller shows the server's 400/404/409 message inline.
+
+/** Shape of `AliadoItem` (`src/lib/proyectos/aliados-proyecto.ts`); `aporte_cop` travels as a number. */
+export type ProjectAlly = {
+  id: string;
+  cliente: { id: string; nombre: string };
+  rol: AllyRol;
+  estado: AllyEstado;
+  aporte_cop: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjectAllyPatch = { rol?: AllyRol; estado?: AllyEstado; aporte_cop?: number | null };
+
+export function useProjectAllies(id: string): UseQueryResult<ProjectAlly[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.allies(id),
+    enabled: id !== "",
+    queryFn: async () => (await apiGet<{ aliados: ProjectAlly[] }>(`/api/v1/projects/${id}/allies`)).aliados,
+  });
+}
+
+function useInvalidateAllies(projectId: string): () => void {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: projectQueryKeys.allies(projectId) });
+    void qc.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+    void qc.invalidateQueries({ queryKey: ["projects", "list"] });
+  };
+}
+
+export function useAddProjectAlly(
+  projectId: string,
+): UseMutationResult<{ aliado: ProjectAlly }, Error, ProjectAllyInput> {
+  const invalidate = useInvalidateAllies(projectId);
+  return useMutation({
+    mutationFn: (input) => apiPost<{ aliado: ProjectAlly }>(`/api/v1/projects/${projectId}/allies`, input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateProjectAlly(
+  projectId: string,
+): UseMutationResult<{ aliado: ProjectAlly }, Error, { allyId: string; patch: ProjectAllyPatch }> {
+  const invalidate = useInvalidateAllies(projectId);
+  return useMutation({
+    mutationFn: ({ allyId, patch }) =>
+      apiPatch<{ aliado: ProjectAlly }>(`/api/v1/projects/${projectId}/allies/${allyId}`, patch),
+    onSuccess: invalidate,
+  });
+}
+
+/** The server answers 204. */
+export function useRemoveProjectAlly(projectId: string): UseMutationResult<void, Error, string> {
+  const invalidate = useInvalidateAllies(projectId);
+  return useMutation({
+    mutationFn: (allyId) => apiDelete<void>(`/api/v1/projects/${projectId}/allies/${allyId}`),
+    onSuccess: invalidate,
   });
 }
 

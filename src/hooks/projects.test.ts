@@ -14,13 +14,18 @@ import {
   useMunicipalities,
   useProject,
   useAddProjectMember,
+  useAddProjectAlly,
+  useProjectAllies,
   useProjectAudit,
   useProjectMembers,
   useRemoveProjectMember,
+  useRemoveProjectAlly,
+  useUpdateProjectAlly,
   useProjects,
   useStrategicLines,
   useMoveProgramming,
   type EligibleOpportunity,
+  type ProjectAlly,
   type Municipality,
   type ProjectCreateInput,
   type ProjectListResponse,
@@ -498,6 +503,103 @@ describe("project team hooks", () => {
     expect(url).toBe("/api/v1/projects/p1/members/u9")
     expect(init.method).toBe("DELETE")
     expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.members("p1") })
+  })
+})
+
+// S9: allies of a posición propia project. Every mutation refreshes the allies list.
+describe("project allies hooks", () => {
+  const fetchMock = vi.fn()
+  const ALIADO: ProjectAlly = {
+    id: "a1",
+    cliente: { id: "c7", nombre: "Gobernación" },
+    rol: "FINANCIADOR",
+    estado: "EN_GESTION",
+    aporte_cop: 1500000,
+    created_at: "2026-11-27T10:00:00.000Z",
+    updated_at: "2026-11-27T10:00:00.000Z",
+  }
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("useProjectAllies requests the allies endpoint and returns the aliados array", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ aliados: [ALIADO] })))
+
+    const { result } = renderHook(() => useProjectAllies("p1"), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual([ALIADO]))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/allies", expect.any(Object))
+  })
+
+  it("useAddProjectAlly posts the ally and refreshes the allies list", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ aliado: ALIADO }, 201)))
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+
+    const { result } = renderHook(() => useAddProjectAlly("p1"), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync({ cliente_id: "c7", rol: "FINANCIADOR", estado: "EN_GESTION", aporte_cop: 1500000 })
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v1/projects/p1/allies")
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body)).toEqual({ cliente_id: "c7", rol: "FINANCIADOR", estado: "EN_GESTION", aporte_cop: 1500000 })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.allies("p1") })
+  })
+
+  it("useUpdateProjectAlly patches only the given fields and refreshes the allies list", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ aliado: { ...ALIADO, estado: "COMPROMETIDO" } })))
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+
+    const { result } = renderHook(() => useUpdateProjectAlly("p1"), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync({ allyId: "a1", patch: { estado: "COMPROMETIDO" } })
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v1/projects/p1/allies/a1")
+    expect(init.method).toBe("PATCH")
+    expect(JSON.parse(init.body)).toEqual({ estado: "COMPROMETIDO" })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.allies("p1") })
+  })
+
+  it("useRemoveProjectAlly issues DELETE on the ally, accepts the 204 and refreshes the allies list", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })))
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+
+    const { result } = renderHook(() => useRemoveProjectAlly("p1"), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync("a1")
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v1/projects/p1/allies/a1")
+    expect(init.method).toBe("DELETE")
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.allies("p1") })
+  })
+
+  it("useAddProjectAlly surfaces the 409 envelope as an ApiError", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ error: "El cliente ya es aliado del proyecto.", code: "CONFLICT" }, 409)),
+    )
+
+    const { result } = renderHook(() => useAddProjectAlly("p1"), { wrapper: createWrapper() })
+    let caught: unknown
+    await act(async () => {
+      caught = await result.current.mutateAsync({ cliente_id: "c7", rol: "ALIADO" }).catch((e: unknown) => e)
+    })
+
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as ApiError).status).toBe(409)
   })
 })
 
