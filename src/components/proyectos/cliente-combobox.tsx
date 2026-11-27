@@ -16,9 +16,11 @@ type ClienteComboboxProps = {
   /** Selected client id; `""` when none. */
   value: string;
   onChange: (id: string) => void;
+  /** Accessible name of the input; defaults to «Cliente». */
+  ariaLabel?: string;
 };
 
-export function ClienteCombobox({ id, clientes, value, onChange }: ClienteComboboxProps) {
+export function ClienteCombobox({ id, clientes, value, onChange, ariaLabel = "Cliente" }: ClienteComboboxProps) {
   const seleccionado = clientes.find((c) => c.id === value) ?? null;
   return (
     <Combobox.Root
@@ -31,7 +33,7 @@ export function ClienteCombobox({ id, clientes, value, onChange }: ClienteCombob
       <div className="relative">
         <Combobox.Input
           id={id}
-          aria-label="Cliente"
+          aria-label={ariaLabel}
           placeholder="Busca o selecciona el cliente"
           className="h-11 w-full rounded-12 border border-border-strong bg-input-bg py-2 pr-9 pl-3 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
