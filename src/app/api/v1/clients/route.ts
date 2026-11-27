@@ -32,6 +32,11 @@ import {
   zodError,
 } from "@/lib/api/crm";
 import { canEditClient, canManageOpportunity } from "@/lib/permissions";
+import {
+  DEPARTAMENTO_NO_VALIDO,
+  DEPARTAMENTO_SCHEMA,
+  departamentoEnCatalogo,
+} from "@/lib/api/mapa-aliados";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +59,11 @@ export const CLIENT_ETIQUETAS_SCHEMA = z
 /** List row projection: the shared base select plus the client's tags. */
 export const CLIENT_LIST_SELECT = { ...CLIENT_BASE_SELECT, etiquetas: true } as const;
 
-/** Detail/create/update projection: the shared full select plus the tags. */
-export const CLIENT_DETAIL_SELECT = { ...CLIENT_FULL_SELECT, etiquetas: true } as const;
+/**
+ * Detail/create/update projection: the shared full select plus the tags and the V5 departamento.
+ * The list keeps its own projection, so its row shape is unchanged.
+ */
+export const CLIENT_DETAIL_SELECT = { ...CLIENT_FULL_SELECT, etiquetas: true, departamento: true } as const;
 
 export const POST_CLIENT_SCHEMA = z.object({
   nombre: z
@@ -71,6 +79,8 @@ export const POST_CLIENT_SCHEMA = z.object({
   empresa: z.string().optional(),
   tamano_org: z.string().optional(),
   ubicacion: z.string().optional(),
+  // V5: optional, and only a departamento of the municipios catalogue (checked below).
+  departamento: DEPARTAMENTO_SCHEMA.optional(),
   canal_contacto_inicial: z.string().optional(),
   fecha_primer_contacto: z
     .string()
@@ -395,6 +405,9 @@ export const POST = withApiErrorHandling(
     if (!responsable) {
       return apiError("El responsable no existe o está inactivo.", 400, "VALIDATION_ERROR");
     }
+    if (parsed.data.departamento !== undefined && !(await departamentoEnCatalogo(parsed.data.departamento))) {
+      return apiError(DEPARTAMENTO_NO_VALIDO, 400, "VALIDATION_ERROR");
+    }
 
     const cliente = await db.cliente.create({
       data: {
@@ -404,6 +417,7 @@ export const POST = withApiErrorHandling(
         empresa: parsed.data.empresa,
         tamano_org: parsed.data.tamano_org,
         ubicacion: parsed.data.ubicacion,
+        departamento: parsed.data.departamento,
         canal_contacto_inicial: parsed.data.canal_contacto_inicial,
         fecha_primer_contacto: parsed.data.fecha_primer_contacto
           ? parseDate(parsed.data.fecha_primer_contacto)

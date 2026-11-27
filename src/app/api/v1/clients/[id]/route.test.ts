@@ -14,6 +14,10 @@ vi.mock("@/lib/db", () => ({
     usuario: {
       findFirst: vi.fn(),
     },
+    // V5: the departamento is checked against the municipios catalogue.
+    municipio: {
+      findFirst: vi.fn(),
+    },
     oportunidad: {
       groupBy: vi.fn(),
     },
@@ -559,5 +563,57 @@ describe("client tags — etiquetas (2.6)", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ code: "VALIDATION_ERROR", error: "Etiqueta muy larga." });
     expect(db.cliente.update).not.toHaveBeenCalled();
+  });
+});
+
+// V5 (S3, decision L8): PATCH sets, changes or clears the departamento.
+describe("client departamento (V5)", () => {
+  beforeEach(() => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ ...baseClientRow } as never);
+  });
+
+  it("PATCH sets a departamento that is in the catalogue", async () => {
+    vi.mocked(db.municipio.findFirst).mockResolvedValue({ id: "m1" } as never);
+    vi.mocked(db.cliente.update).mockResolvedValue({ ...baseClientRow, departamento: "Caldas" } as never);
+
+    const res = await PATCH(patchRequest({ departamento: "Caldas" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.cliente.update).mock.calls[0][0].data).toEqual({ departamento: "Caldas" });
+    expect((await res.json()).cliente.departamento).toBe("Caldas");
+  });
+
+  it("PATCH rejects a departamento outside the catalogue with 400 VALIDATION_ERROR", async () => {
+    vi.mocked(db.municipio.findFirst).mockResolvedValue(null);
+
+    const res = await PATCH(patchRequest({ departamento: "Narnia" }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      code: "VALIDATION_ERROR",
+      error: "El departamento no está en el catálogo oficial de departamentos.",
+    });
+    expect(db.cliente.update).not.toHaveBeenCalled();
+  });
+
+  it("PATCH with departamento null clears it without reading the catalogue", async () => {
+    vi.mocked(db.cliente.update).mockResolvedValue({ ...baseClientRow, departamento: null } as never);
+
+    const res = await PATCH(patchRequest({ departamento: null }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.municipio.findFirst).not.toHaveBeenCalled();
+    expect(vi.mocked(db.cliente.update).mock.calls[0][0].data).toEqual({ departamento: null });
+  });
+
+  it("PATCH without departamento leaves it untouched (previous behavior)", async () => {
+    vi.mocked(db.cliente.update).mockResolvedValue({ ...baseClientRow, nombre: "Otro" } as never);
+
+    const res = await PATCH(patchRequest({ nombre: "Otro" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.municipio.findFirst).not.toHaveBeenCalled();
+    expect(vi.mocked(db.cliente.update).mock.calls[0][0].data).not.toHaveProperty("departamento");
   });
 });

@@ -19,6 +19,7 @@ import "@/lib/openapi/paths/dashboard-admin";
 import "@/lib/openapi/paths/rubros";
 import "@/lib/openapi/paths/strategic-lines";
 import "@/lib/openapi/paths/municipalities";
+import "@/lib/openapi/paths/departamentos";
 import "@/lib/openapi/paths/projects";
 import "@/lib/openapi/paths/project-structure";
 import "@/lib/openapi/paths/project-execution";

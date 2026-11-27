@@ -26,6 +26,13 @@
  * missing ones, never updating a row: a GANADA opportunity that was converted during a rehearsal
  * keeps its state. A second run changes nothing.
  *
+ * V5 (departamento): each client carries the departamento of its ubicación city, so the Mapa is
+ * not empty. A demo client seeded BEFORE V5 exists without one; the run fills `departamento` only
+ * where it is still NULL (`updateMany where departamento IS NULL`), never touching any other field
+ * nor a departamento someone set by hand. Once filled, a second run finds nothing to do, so the
+ * seed stays idempotent. The departamento must exist in the municipios catalog (prisma/seed.ts
+ * MUNICIPIOS_DEMO, which `db:seed:local` loads first); the DB trigger refuses any other value.
+ *
  *   npm run db:demo:seed-flujo:local                # dry run (default)
  *   npm run db:demo:seed-flujo:local -- --apply
  *
@@ -111,6 +118,8 @@ export type DemoCliente = {
   prioridad: Prioridad
   tamanoOrg: string
   ubicacion: string
+  /** V5: the departamento of the ubicación city, from the demo municipios catalog. */
+  departamento: string
   canalContactoInicial: string
   responsable: ResponsableKey
   diasPrimerContacto: number
@@ -199,6 +208,7 @@ const CLIENTES: ClienteDef[] = [
     prioridad: "ALTA",
     tamanoOrg: "Mediana (30-80 personas)",
     ubicacion: "Barranquilla, Atlántico",
+    departamento: "Atlántico",
     canalContactoInicial: "Encuentro regional de economía solidaria",
     responsable: "gerencia",
     diasPrimerContacto: -210,
@@ -213,6 +223,7 @@ const CLIENTES: ClienteDef[] = [
     prioridad: "MEDIA",
     tamanoOrg: "Mediana (120 asociados)",
     ubicacion: "Cali, Valle del Cauca",
+    departamento: "Valle del Cauca",
     canalContactoInicial: "Referido por una organización aliada",
     responsable: "coordinador",
     diasPrimerContacto: -165,
@@ -227,6 +238,7 @@ const CLIENTES: ClienteDef[] = [
     prioridad: "ALTA",
     tamanoOrg: "Mediana (60 funcionarios)",
     ubicacion: "Manizales, Caldas",
+    departamento: "Caldas",
     canalContactoInicial: "Mesa de empleo y emprendimiento",
     responsable: "coordinador",
     diasPrimerContacto: -95,
@@ -241,6 +253,7 @@ const CLIENTES: ClienteDef[] = [
     prioridad: "MEDIA",
     tamanoOrg: "Grande (200 docentes e investigadores)",
     ubicacion: "Bucaramanga, Santander",
+    departamento: "Santander",
     canalContactoInicial: "Convocatoria conjunta de innovación",
     responsable: "admin",
     diasPrimerContacto: -140,
@@ -255,6 +268,7 @@ const CLIENTES: ClienteDef[] = [
     prioridad: "ALTA",
     tamanoOrg: "Grande",
     ubicacion: "Bogotá D.C.",
+    departamento: "Bogotá D.C.",
     canalContactoInicial: "Invitación a convocatoria cerrada",
     responsable: "gerencia",
     diasPrimerContacto: -75,
@@ -269,6 +283,7 @@ const CLIENTES: ClienteDef[] = [
     prioridad: "MEDIA",
     tamanoOrg: "Pequeña (25 personas)",
     ubicacion: "Medellín, Antioquia",
+    departamento: "Antioquia",
     canalContactoInicial: "Feria textil regional",
     responsable: "coordinador",
     diasPrimerContacto: -40,
@@ -477,6 +492,7 @@ export function checkDemoFlujoData(data: DemoFlujoData): string[] {
   for (const d of duplicados(ids)) problemas.push(`duplicate id ${d}`)
   for (const d of duplicados([...data.clientes, ...data.oportunidades].map((x) => x.nombre))) problemas.push(`duplicate name "${d}"`)
 
+  for (const c of data.clientes) if (!c.departamento.trim()) problemas.push(`client "${c.nombre}" has no departamento`)
   for (const c of data.contactos) if (!clientes.has(c.clienteId)) problemas.push(`contacto "${c.nombre}" points to an unknown client`)
   for (const o of data.oportunidades) if (!clientes.has(o.clienteId)) problemas.push(`oportunidad "${o.nombre}" points to an unknown client`)
 
@@ -520,13 +536,20 @@ export type ExistingIds = {
   oportunidades: Set<string>
   interacciones: Set<string>
   tareas: Set<string>
+  /** V5: existing demo clients whose departamento is still NULL (seeded before V5). */
+  clientesSinDepartamento: Set<string>
 }
 
 export type FlujoDecision = "seed" | "top-up" | "already-seeded"
 
-export type DemoFlujoPlan = DemoFlujoData & { decision: FlujoDecision }
+export type DepartamentoFill = { id: string; departamento: string }
 
-/** Pure: keeps only the rows whose id does not exist yet. Nothing is ever updated. */
+export type DemoFlujoPlan = DemoFlujoData & { decision: FlujoDecision; departamentos: DepartamentoFill[] }
+
+/**
+ * Pure: keeps only the rows whose id does not exist yet. The only update is V5's: an existing
+ * demo client whose departamento is still NULL gets the one declared here.
+ */
 export function planDemoFlujo(data: DemoFlujoData, existing: ExistingIds): DemoFlujoPlan {
   const plan = {
     clientes: data.clientes.filter((x) => !existing.clientes.has(x.id)),
@@ -535,12 +558,20 @@ export function planDemoFlujo(data: DemoFlujoData, existing: ExistingIds): DemoF
     interacciones: data.interacciones.filter((x) => !existing.interacciones.has(x.id)),
     tareas: data.tareas.filter((x) => !existing.tareas.has(x.id)),
   }
+  const departamentos = data.clientes
+    .filter((c) => existing.clientes.has(c.id) && existing.clientesSinDepartamento.has(c.id))
+    .map((c) => ({ id: c.id, departamento: c.departamento }))
   const pendientes =
-    plan.clientes.length + plan.contactos.length + plan.oportunidades.length + plan.interacciones.length + plan.tareas.length
+    plan.clientes.length +
+    plan.contactos.length +
+    plan.oportunidades.length +
+    plan.interacciones.length +
+    plan.tareas.length +
+    departamentos.length
   const total =
     data.clientes.length + data.contactos.length + data.oportunidades.length + data.interacciones.length + data.tareas.length
   const decision: FlujoDecision = pendientes === 0 ? "already-seeded" : pendientes === total ? "seed" : "top-up"
-  return { ...plan, decision }
+  return { ...plan, departamentos, decision }
 }
 
 // ---------------------------------------------------------------------------
@@ -568,6 +599,14 @@ async function leerExistentes(client: DemoFlujoClient, data: DemoFlujoData): Pro
     oportunidades: await idsExistentes(client.oportunidad, data.oportunidades.map((x) => x.id)),
     interacciones: await idsExistentes(client.bitacoraEntrada, data.interacciones.map((x) => x.id)),
     tareas: await idsExistentes(client.tarea, data.tareas.map((x) => x.id)),
+    clientesSinDepartamento: new Set(
+      (
+        await client.cliente.findMany({
+          where: { id: { in: data.clientes.map((x) => x.id) }, departamento: null },
+          select: { id: true },
+        })
+      ).map((r) => r.id),
+    ),
   }
 }
 
@@ -578,6 +617,9 @@ function describirPlan(plan: DemoFlujoPlan, data: DemoFlujoData, print: Printer)
     `Creates: ${plan.clientes.length} clientes, ${plan.contactos.length} contactos, ` +
       `${plan.oportunidades.length} oportunidades, ${plan.interacciones.length} interacciones, ${plan.tareas.length} tareas.`,
   )
+  if (plan.departamentos.length > 0) {
+    print(`Fills the departamento of ${plan.departamentos.length} demo clients seeded before it existed.`)
+  }
   const porEstado = new Map<string, number>()
   for (const o of plan.oportunidades) porEstado.set(o.estado, (porEstado.get(o.estado) ?? 0) + 1)
   print(`Opportunities by state: ${[...porEstado].map(([e, n]) => `${e}=${n}`).join(", ")}`)
@@ -671,6 +713,7 @@ export async function applyDemoFlujo(client: DemoFlujoClient, plan: DemoFlujoPla
             prioridad: c.prioridad,
             tamano_org: c.tamanoOrg,
             ubicacion: c.ubicacion,
+            departamento: c.departamento,
             canal_contacto_inicial: c.canalContactoInicial,
             fecha_primer_contacto: calendarDayFromNow(c.diasPrimerContacto),
             responsable_id: usuarios[c.responsable],
@@ -679,6 +722,10 @@ export async function applyDemoFlujo(client: DemoFlujoClient, plan: DemoFlujoPla
             prioridades_identificadas: c.prioridadesIdentificadas,
           },
         })
+      }
+      // V5: only where it is still NULL, so a departamento set by hand is never overwritten.
+      for (const d of plan.departamentos) {
+        await tx.cliente.updateMany({ where: { id: d.id, departamento: null }, data: { departamento: d.departamento } })
       }
       for (const c of plan.contactos) {
         await tx.contacto.create({
@@ -753,7 +800,8 @@ export async function applyDemoFlujo(client: DemoFlujoClient, plan: DemoFlujoPla
   return {
     lines: [
       `  ${plan.clientes.length} clientes, ${plan.contactos.length} contactos, ${plan.oportunidades.length} oportunidades, ` +
-        `${plan.interacciones.length} interacciones, ${plan.tareas.length} tareas created.`,
+        `${plan.interacciones.length} interacciones, ${plan.tareas.length} tareas created; ` +
+        `${plan.departamentos.length} departamentos filled.`,
       `  ${plan.oportunidades.filter((o) => o.estado === "GANADA").length} GANADA opportunities left free for "Convertir en proyecto".`,
     ],
   }

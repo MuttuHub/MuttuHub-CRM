@@ -54,7 +54,7 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
 | T3 | S5 V9 | delegated (context backstop) | done | RED 6 → GREEN 94/94 (parent rerun 94/94) |
 | T4 | S2 V2 | delegated | done, verifier PASS after 1 correction (01cfa6fc, cf7e5738, fde3361e) | RED → GREEN 392 tests; invariant 6/6; parent rerun 115/115 |
 | T5 | S1 B6 | delegated | done, verifier PASS after 1 correction (2f816d3a + reset fix) | RED → GREEN 719 + 403 tests; invariants 14/14; parent rerun 201/201 |
-| T6 | S3 V5 | delegated | queued: after T5 (shared prisma/schema.prisma) | — |
+| T6 | S3 V5 | delegated | done, verifier PASS (f21a534b) | RED → GREEN 210 + 86 tests; invariant 4/4; parent rerun 40/40 |
 
 ## Log
 
@@ -134,3 +134,23 @@ Delivery: ask-on-risk, one work-unit commit per item. Test runner: Vitest (`npx 
   programming cells (BORRADOR PUT, programming items of modification requests) are not checked against disabled rubros
   (not money; the S8.2 baseline gate still blocks); A4 a template re-import may delete a disabled rubro's hidden $0
   lines (harmless).
+- **L18** (2026-11-19): T6 done by a bounded writer. Migration `20261119150000_v5_cliente_departamento`: nullable
+  `clientes.departamento` plus trigger `clientes_departamento_en_catalogo` refusing a value with no row in `municipios`
+  (no FK possible: `municipios.departamento` is not unique; no second list to drift). API 400 «El departamento no está
+  en el catálogo oficial de departamentos.». `GET /clients/map` reuses the list's filters and visibility; one tile per
+  catalogue departamento, clients without one apart as «sin departamento», `ubicacion` never read. `GET /departamentos`.
+  `/clientes/mapa` tile grid + panel; Mapa back in the subnav; form select; demo seed fills departamento (only where
+  NULL, idempotent). Parent added the map refresh on client create/update/delete. Open: the select is empty while the
+  municipios catalogue is empty (production depends on it being loaded); a catalogue rename does not propagate.
+- **L19** (2026-11-19): independent verifier on f21a534b: PASS, no blockers (384 tests on a scratch worktree; the
+  generated OpenAPI for `GET /clients` is byte-identical to the baseline; schema diff is only the ADD COLUMN).
+  Advisories: A1 the trigger names `municipios` without a schema, so a data-only restore with `search_path=''` and no
+  `--disable-triggers` would fail on clients with a departamento; A2 a municipio deleted between the API check and the
+  write gives 500 instead of 400; A3 the demo seed dry run does not check that municipios are loaded; A4 the map's
+  OpenAPI query omits `etiqueta` (baseline gap on `/clients` too).
+- **L20** (2026-11-19): feature closed. All six tasks done; final branch checks: `tsc` clean, `lint:dead` clean, the
+  four new live-DB invariant files 12/12 on local `muttu-hub`. Five migrations to apply in production, in order, after
+  pendientes item 1 (confirm what production already has) and a rehearsal on a restored dump:
+  `20261119120000_v8_sin_contacto_enum`, `20261119120100_v8_notificacion_cliente`, `20261119130000_v2_tarea_proyecto`,
+  `20261119140000_b6_rubros_deshabilitados`, `20261119150000_v5_cliente_departamento`. Before enabling V8 in production,
+  decide whether rule 2 starts off (L13 d: first-run burst). Not pushed; push and PR are the user's decision.
