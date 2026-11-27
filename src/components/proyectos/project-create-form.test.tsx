@@ -539,4 +539,148 @@ describe("ProjectCreateForm", () => {
     const { container } = renderForm({ variant: "page" })
     expect(container.querySelector('[data-slot="dialog-footer"]')).toBeNull()
   })
+
+  describe("T5a (S8, S9, S13, S14): posición propia", () => {
+    async function elegirPosicionPropia(user: User) {
+      await user.click(screen.getByRole("radio", { name: "Posición propia" }))
+    }
+
+    async function agregarAliado(user: User, nombre: string) {
+      const aliados = screen.getByRole("group", { name: "Aliados" })
+      await user.click(within(aliados).getByRole("combobox", { name: "Cliente aliado" }))
+      await user.click(await screen.findByRole("option", { name: nombre }))
+    }
+
+    async function elegirEnSelect(user: User, nombre: string, opcion: string) {
+      await user.click(screen.getByRole("combobox", { name: nombre }))
+      await user.click(await screen.findByRole("option", { name: opcion }))
+    }
+
+    it("offers the origin choice, defaulting to a client project", () => {
+      renderForm()
+      expect(screen.getByRole("radio", { name: "Para un cliente" })).toBeChecked()
+      expect(screen.getByRole("radio", { name: "Posición propia" })).not.toBeChecked()
+    })
+
+    it("replaces the client picker, its card and the opportunity select with the allies list", async () => {
+      const user = userEvent.setup()
+      renderForm()
+      await elegirCliente(user, "Alcaldía de Barranquilla")
+      await elegirPosicionPropia(user)
+
+      expect(screen.queryByRole("region", { name: "Datos del cliente" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("combobox", { name: "Oportunidad" })).not.toBeInTheDocument()
+      const aliados = screen.getByRole("group", { name: "Aliados" })
+      // The only client field left is the one that adds allies.
+      expect(screen.queryByRole("combobox", { name: "Cliente" })).not.toBeInTheDocument()
+      expect(screen.getAllByRole("combobox", { name: /^Cliente/ })).toEqual([
+        within(aliados).getByRole("combobox", { name: "Cliente aliado" }),
+      ])
+      expect(aliados).toHaveTextContent("Aún no hay aliados.")
+    })
+
+    it("adds two allies with rol, estado and aporte, removes one, and sends origen without cliente_id", async () => {
+      const user = userEvent.setup()
+      createProject.mutateAsync.mockResolvedValueOnce({ proyecto: { id: "p-pp", codigo: "PRY-2026-011", nombre: "Fábrica" } })
+      const { onCreated } = renderForm()
+      await elegirPosicionPropia(user)
+      await user.type(screen.getByLabelText("Nombre"), "Fábrica Milagro")
+
+      await agregarAliado(user, "Cliente Uno")
+      await agregarAliado(user, "Alcaldía de Barranquilla")
+      await agregarAliado(user, "Gobernación del Atlántico")
+      expect(screen.getAllByRole("listitem", { name: /Aliado:/ })).toHaveLength(3)
+
+      await elegirEnSelect(user, "Rol de Cliente Uno", "Financiador")
+      await elegirEnSelect(user, "Estado de Cliente Uno", "Comprometido")
+      await user.type(screen.getByLabelText("Aporte de Cliente Uno"), "50000000")
+      await elegirEnSelect(user, "Rol de Gobernación del Atlántico", "Prospecto")
+      await user.click(screen.getByRole("button", { name: "Quitar Alcaldía de Barranquilla" }))
+      expect(screen.getAllByRole("listitem", { name: /Aliado:/ })).toHaveLength(2)
+
+      await elegirMunicipio(user)
+      await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+      await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalledTimes(1))
+      const body = createProject.mutateAsync.mock.calls[0][0]
+      expect(body).toMatchObject({
+        nombre: "Fábrica Milagro",
+        origen: "POSICION_PROPIA",
+        aliados: [
+          { cliente_id: "c1", rol: "FINANCIADOR", estado: "COMPROMETIDO", aporte_cop: 50000000 },
+          { cliente_id: "cli-2", rol: "PROSPECTO", estado: "EN_GESTION" },
+        ],
+      })
+      expect(body.aliados[1]).not.toHaveProperty("aporte_cop")
+      expect(body).not.toHaveProperty("cliente_id")
+      expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith({ id: "p-pp", codigo: "PRY-2026-011", nombre: "Fábrica" }))
+    })
+
+    it("does not offer a client that is already an ally", async () => {
+      const user = userEvent.setup()
+      renderForm()
+      await elegirPosicionPropia(user)
+      await agregarAliado(user, "Cliente Uno")
+
+      const aliados = screen.getByRole("group", { name: "Aliados" })
+      await user.click(within(aliados).getByRole("combobox", { name: "Cliente aliado" }))
+      const opciones = (await screen.findAllByRole("option")).map((o) => o.textContent)
+      expect(opciones).not.toContain("Cliente Uno")
+      expect(opciones).toContain("Alcaldía de Barranquilla")
+    })
+
+    it("creates a posición propia project with no allies and no client", async () => {
+      const user = userEvent.setup()
+      renderForm()
+      await elegirPosicionPropia(user)
+      await user.type(screen.getByLabelText("Nombre"), "Sin aliados")
+      await elegirMunicipio(user)
+      await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+      await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalledTimes(1))
+      const body = createProject.mutateAsync.mock.calls[0][0]
+      expect(body).toMatchObject({ nombre: "Sin aliados", origen: "POSICION_PROPIA", aliados: [] })
+      expect(body).not.toHaveProperty("cliente_id")
+    })
+
+    it("requires the name and fires nothing without it", async () => {
+      const user = userEvent.setup()
+      renderForm()
+      await elegirPosicionPropia(user)
+      await elegirMunicipio(user)
+      await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("El nombre del proyecto es obligatorio.")
+      expect(createProject.mutateAsync).not.toHaveBeenCalled()
+    })
+
+    it("going back to a client project sends cliente_id without origen nor aliados", async () => {
+      const user = userEvent.setup()
+      renderForm()
+      await elegirPosicionPropia(user)
+      await agregarAliado(user, "Cliente Uno")
+      await user.click(screen.getByRole("radio", { name: "Para un cliente" }))
+      await elegirCliente(user, "Alcaldía de Barranquilla")
+      await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
+      await elegirMunicipio(user)
+      await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+      await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalledTimes(1))
+      const body = createProject.mutateAsync.mock.calls[0][0]
+      expect(body).toMatchObject({ cliente_id: "cli-1", nombre: "Proyecto propio" })
+      expect(body).not.toHaveProperty("origen")
+      expect(body).not.toHaveProperty("aliados")
+    })
+
+    it("does not offer the origin choice when opened from an opportunity or a client", () => {
+      const first = renderForm({ initialOportunidadId: "op-1" })
+      expect(screen.queryByRole("radio", { name: "Posición propia" })).not.toBeInTheDocument()
+      expect(screen.getByRole("combobox", { name: "Oportunidad" })).toBeInTheDocument()
+      first.unmount()
+
+      renderForm({ initialClienteId: "c1" })
+      expect(screen.queryByRole("radio", { name: "Posición propia" })).not.toBeInTheDocument()
+      expect(screen.getByRole("region", { name: "Datos del cliente" })).toBeInTheDocument()
+    })
+  })
 })
