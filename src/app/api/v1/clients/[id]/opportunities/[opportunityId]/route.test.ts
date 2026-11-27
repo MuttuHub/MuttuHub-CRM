@@ -337,3 +337,55 @@ describe("DELETE /api/v1/clients/:id/opportunities/:opportunityId", () => {
     expect(db.oportunidad.update).not.toHaveBeenCalled();
   });
 });
+
+// S18 (T12): tags are optional and replaced as a whole with `{ set }`.
+describe("PATCH /api/v1/clients/:id/opportunities/:opportunityId — etiquetas (S18)", () => {
+  function allowWrite() {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ id: "op-1", cliente_id: "cli-1" } as never);
+    vi.mocked(db.oportunidad.update).mockResolvedValue({ id: "op-1", etiquetas: ["Textil"] } as never);
+  }
+
+  it("replaces the tags with set and echoes them back", async () => {
+    allowWrite();
+
+    const res = await PATCH(patchRequest({ etiquetas: ["Textil"] }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).oportunidad).toMatchObject({ etiquetas: ["Textil"] });
+    expect(db.oportunidad.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ etiquetas: { set: ["Textil"] } }) }),
+    );
+  });
+
+  it("clears the tags with an empty list", async () => {
+    allowWrite();
+
+    const res = await PATCH(patchRequest({ etiquetas: [] }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.oportunidad.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ etiquetas: { set: [] } }) }),
+    );
+  });
+
+  it("leaves the tags untouched when the body omits them", async () => {
+    allowWrite();
+
+    await PATCH(patchRequest({ nombre: "Otro nombre" }), routeContext);
+
+    const [args] = vi.mocked(db.oportunidad.update).mock.calls[0];
+    expect((args as { data: { etiquetas?: unknown } }).data.etiquetas).toBeUndefined();
+  });
+
+  it("returns 400 for an empty tag", async () => {
+    allowWrite();
+
+    const res = await PATCH(patchRequest({ etiquetas: [" "] }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR", error: "Hay una etiqueta vacía." });
+    expect(db.oportunidad.update).not.toHaveBeenCalled();
+  });
+});

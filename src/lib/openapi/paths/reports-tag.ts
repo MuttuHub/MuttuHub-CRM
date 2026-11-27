@@ -43,7 +43,7 @@ const ReporteEtiquetaSchema = registry.register(
     oportunidades: z
       .array(z.object({ id: z.string(), nombre: z.string(), estado: z.string(), valor_estimado_cop: MONTO.nullable(), cliente: REF }))
       .nullable()
-      .openapi({ description: "Oportunidades abiertas de los clientes con la etiqueta; null sin acceso comercial." }),
+      .openapi({ description: "Oportunidades abiertas de los clientes con la etiqueta y las que tienen la etiqueta; null sin acceso comercial." }),
     bitacora: z.array(
       z.object({
         id: z.string(),
@@ -76,7 +76,8 @@ registry.registerPath({
   summary: "Reporte por etiqueta: proyectos, clientes, oportunidades, bitácora y tareas",
   description:
     "Proyectos con la etiqueta (alcance del portafolio), clientes con la etiqueta y sus oportunidades abiertas y " +
-    "bitácora, y tareas con la etiqueta (vencidas primero). Cada sección conserva el acceso de su fuente; " +
+    "bitácora, más las oportunidades y entradas de bitácora que tienen la etiqueta (de clientes visibles), y " +
+    "tareas con la etiqueta (vencidas primero). Cada sección conserva el acceso de su fuente; " +
     "oportunidades y pipeline son null sin acceso comercial. Un cliente con dos etiquetas aparece en ambos " +
     "reportes: los totales de etiquetas distintas no se suman. 400 sin etiqueta o con un período no válido.",
   security: [{ sessionCookie: [] }],

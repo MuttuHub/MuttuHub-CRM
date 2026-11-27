@@ -202,6 +202,11 @@ export type Oportunidad = {
   fecha_envio_propuesta: string | null;
   /** @deprecated D8 — superseded by `fase` + `Tarea.oportunidad_id`. */
   proyectos_relacionados: string | null;
+  /**
+   * S18: optional tags from the `task_tags` catalog. The server always sends
+   * them (`[]` by default); optional here so existing fixtures keep compiling.
+   */
+  etiquetas?: string[];
   created_at: string;
 };
 
@@ -222,6 +227,8 @@ export type BitacoraEntrada = {
   proximo_paso?: string | null;
   /** T8 (S16): optional project the interaction was about (a project where the client is an ally). */
   proyecto_id?: string | null;
+  /** S18: optional tags (`[]` by default); optional here so existing fixtures keep compiling. */
+  etiquetas?: string[];
   created_at: string;
 };
 
@@ -237,6 +244,8 @@ export type InteractionFeedItem = {
   texto: string;
   tipo: TipoInteraccion;
   proximo_paso: string | null;
+  /** S18: the entry's optional tags; rendered only when present and non-empty. */
+  etiquetas?: string[];
   created_at: string;
 };
 
@@ -829,6 +838,8 @@ export type OportunidadInput = {
   estado?: EstadoOportunidad;
   fecha_ultima_gestion?: string | null;
   proyectos_relacionados?: string | null;
+  /** S18: optional tags; `[]` clears them on edit. */
+  etiquetas?: string[];
 };
 
 export function useCreateOportunidad(clientId: string): UseMutationResult<
@@ -1060,11 +1071,13 @@ export function useAddLogEntry(clientId: string): UseMutationResult<
     tipo?: TipoInteraccion;
     proximo_paso?: string | null;
     proyecto_id?: string | null;
+    /** S18: optional tags; omitted from the body when undefined. */
+    etiquetas?: string[];
   }
 > {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ texto, oportunidad_id, tipo, proximo_paso, proyecto_id }) => {
+    mutationFn: async ({ texto, oportunidad_id, tipo, proximo_paso, proyecto_id, etiquetas }) => {
       try {
         return await apiPost<{ entrada: BitacoraEntrada }>(
           `/api/v1/clients/${clientId}/log`,
@@ -1074,6 +1087,7 @@ export function useAddLogEntry(clientId: string): UseMutationResult<
             ...(tipo !== undefined ? { tipo } : {}),
             ...(proximo_paso !== undefined ? { proximo_paso } : {}),
             ...(proyecto_id !== undefined ? { proyecto_id } : {}),
+            ...(etiquetas !== undefined ? { etiquetas } : {}),
           },
         );
       } catch (err) {

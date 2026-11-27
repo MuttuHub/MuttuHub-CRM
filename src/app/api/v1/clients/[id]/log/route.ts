@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 import { checkOportunidadClienteConsistency, getClientForWrite, loadClientScoped, zodError } from "@/lib/api/crm";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,8 @@ export const LOG_ENTRY_SCHEMA = z.object({
     .optional(),
   // T8 (S16): optional project the interaction was about; only a project where this client is an ally.
   proyecto_id: z.string().min(1, "El proyecto no es válido.").nullable().optional(),
+  // S18: optional tags from the `task_tags` catalog; never required.
+  etiquetas: ETIQUETAS_SCHEMA.optional(),
 });
 
 const ENTRADA_SELECT = {
@@ -52,6 +55,7 @@ const ENTRADA_SELECT = {
   proyecto_id: true,
   tipo: true,
   proximo_paso: true,
+  etiquetas: true,
   created_at: true,
 } as const;
 
@@ -130,6 +134,7 @@ export const POST = withApiErrorHandling(
         proyecto_id: parsed.data.proyecto_id ?? undefined,
         tipo: parsed.data.tipo ?? "OTRO",
         proximo_paso: parsed.data.proximo_paso?.trim() || undefined,
+        etiquetas: parsed.data.etiquetas ?? [],
       },
       select: ENTRADA_SELECT,
     });

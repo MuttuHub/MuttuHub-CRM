@@ -20,6 +20,7 @@ const InteraccionFeedItemSchema = z.object({
   texto: z.string(),
   tipo: TipoInteraccionSchema,
   proximo_paso: z.string().nullable(),
+  etiquetas: z.array(z.string()).openapi({ description: "Etiquetas propias de la entrada (S18); vacía si no tiene." }),
   created_at: z.string().datetime(),
 });
 

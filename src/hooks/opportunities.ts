@@ -30,6 +30,8 @@ export type OportunidadFeedItem = {
   nombre: string;
   estado: EstadoOportunidad;
   valor_estimado_cop: number | null;
+  /** S18: the opportunity's optional tags (`[]` when none). */
+  etiquetas?: string[];
   /**
    * Server-authoritative write flag: `canManageOpportunity` for the owning
    * client. The PATCH re-checks it; the board only uses it to avoid offering

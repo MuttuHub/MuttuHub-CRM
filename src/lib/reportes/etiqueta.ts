@@ -6,8 +6,9 @@
 // - Clients: the tagged ones (`clienteScopeWhere("all", ...)` plus `clienteFeedScope`), with their
 //   visible projects, open opportunities and last interaction. More than `CONTACTO_DIAS_OPTIMO` days without
 //   an interaction (or none at all) is highlighted, the same threshold as client health.
-// - Opportunities and bitácora: those of the tagged clients (D4: they have no tags of their own). The
-//   opportunities and the pipeline only with commercial access; otherwise they are `null` (hidden, S5).
+// - Opportunities and bitácora: those of the tagged clients, plus those tagged themselves (S18, L37) whose
+//   client the user may read, even when the client is not tagged. The opportunities and the pipeline only
+//   with commercial access; otherwise they are `null` (hidden, S5).
 // - Tasks: the tagged ones (`tareaScopeWhere("all", ...)`), overdue first.
 //
 // Period (S3, assumption): bitácora by date, tasks by due date (open tasks without a due date always count).
@@ -60,10 +61,11 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
   if (!portafolio.ok) return portafolio
   const data = portafolio.value
 
+  // `clienteFeedScope` is the read scope of the cross-client feeds (opportunities, interactions): the
+  // opportunities and bitácora below hang off the tagged clients or off this scope, so they inherit it.
+  const clienteVisible: Prisma.ClienteWhereInput = { ...clienteScopeWhere("all", usuario, {}), ...clienteFeedScope() }
   const clientesRows = await db.cliente.findMany({
-    // `clienteFeedScope` is the read scope of the cross-client feeds (opportunities, interactions): the
-    // opportunities and bitácora below hang off these ids, so they inherit it.
-    where: { ...clienteScopeWhere("all", usuario, {}), ...clienteFeedScope(), etiquetas: { has: etiqueta } },
+    where: { ...clienteVisible, etiquetas: { has: etiqueta } },
     orderBy: { nombre: "asc" },
     select: {
       id: true,
@@ -77,19 +79,21 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
     },
   })
   const clienteIds = clientesRows.map((c) => c.id)
+  // S18: an item belongs to the report through its client's tag or through its own tag.
+  const deLaEtiqueta = [{ cliente_id: { in: clienteIds } }, { etiquetas: { has: etiqueta }, cliente: clienteVisible }]
 
   const [valores, ultimas, oportunidades, bitacora, tareas] = await Promise.all([
     db.proyecto.findMany({ where: { id: { in: data.proyectos.map((p) => p.id) } }, select: { id: true, valor_total: true } }),
     db.bitacoraEntrada.groupBy({ by: ["cliente_id"], where: { cliente_id: { in: clienteIds } }, _max: { created_at: true } }),
     comercial
       ? db.oportunidad.findMany({
-          where: { ...abiertasAlCorte, cliente_id: { in: clienteIds } },
+          where: { ...abiertasAlCorte, OR: deLaEtiqueta },
           orderBy: [{ valor_estimado_cop: { sort: "desc", nulls: "last" } }, { nombre: "asc" }],
           select: { id: true, nombre: true, estado: true, valor_estimado_cop: true, cliente: { select: { id: true, nombre: true } } },
         })
       : Promise.resolve(null),
     db.bitacoraEntrada.findMany({
-      where: { cliente_id: { in: clienteIds }, ...(rango && { created_at: rango }) },
+      where: { OR: deLaEtiqueta, ...(rango && { created_at: rango }) },
       orderBy: { created_at: "desc" },
       take: BITACORA_MAX,
       select: {

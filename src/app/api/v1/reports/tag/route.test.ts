@@ -170,9 +170,10 @@ describe("GET /api/v1/reports/tag", () => {
       { id: "c3", nombre: "Gamma", proyectos: 0, oportunidades_abiertas: 0, ultima_interaccion: null, dias_sin_interaccion: null, sin_interaccion_reciente: true },
     ])
 
-    // Opportunities: the open ones of the tagged clients.
+    // Opportunities: the open ones of the tagged clients, plus the ones tagged themselves (S18).
     const opWhere = vi.mocked(db.oportunidad.findMany).mock.calls[0][0]?.where
-    expect(opWhere).toMatchObject({ deleted_at: null, cliente_id: { in: ["c1", "c2", "c3"] } })
+    expect(opWhere).toMatchObject({ deleted_at: null })
+    expect(opWhere?.OR?.[0]).toEqual({ cliente_id: { in: ["c1", "c2", "c3"] } })
     expect(opWhere?.estado).toEqual({ in: ["DISENANDO_PROPUESTA", "PRESENTADA", "EN_REVISION", "EN_NEGOCIACION", "STANDBY"] })
     // Snapshot at the cut-off: nothing created after the end of `corte`.
     expect(opWhere?.created_at).toEqual({ lte: new Date("2026-10-29T23:59:59.999Z") })
@@ -181,9 +182,9 @@ describe("GET /api/v1/reports/tag", () => {
       { id: "o2", nombre: "Capacitación", estado: "STANDBY", valor_estimado_cop: null, cliente: { id: "c2", nombre: "Beta" } },
     ])
 
-    // Bitácora: the tagged clients' entries in the period.
+    // Bitácora: the tagged clients' entries in the period, plus the ones tagged themselves (S18).
     const bitWhere = vi.mocked(db.bitacoraEntrada.findMany).mock.calls[0][0]?.where
-    expect(bitWhere).toMatchObject({ cliente_id: { in: ["c1", "c2", "c3"] } })
+    expect(bitWhere?.OR?.[0]).toEqual({ cliente_id: { in: ["c1", "c2", "c3"] } })
     expect(bitWhere?.created_at).toMatchObject({ gte: new Date("2026-10-01") })
     expect(body.bitacora[0]).toMatchObject({ fecha: "2026-10-20", proximo_paso: "Enviar propuesta", cliente: { nombre: "Acme" } })
 
@@ -205,6 +206,20 @@ describe("GET /api/v1/reports/tag", () => {
       pipeline: { oportunidades: 2, valor: "2000000.50" },
       tareas: { total: 4, completadas: 1, vencidas: 1 },
     })
+  })
+
+  it("adds the opportunities and entries tagged with the tag, only of clients the user may read (S18)", async () => {
+    await GET(get(ETIQUETA))
+    const clienteWhere = vi.mocked(db.cliente.findMany).mock.calls[0][0]?.where
+    // The same read scope as the tagged clients, without requiring the client's own tag.
+    const clienteVisible = { ...(clienteWhere as Record<string, unknown>) }
+    delete clienteVisible.etiquetas
+    const opWhere = vi.mocked(db.oportunidad.findMany).mock.calls[0][0]?.where
+    expect(opWhere?.OR?.[1]).toEqual({ etiquetas: { has: "Fábrica Milagro" }, cliente: clienteVisible })
+    // Still only open opportunities at the cut-off.
+    expect(opWhere?.estado).toEqual({ in: ["DISENANDO_PROPUESTA", "PRESENTADA", "EN_REVISION", "EN_NEGOCIACION", "STANDBY"] })
+    const bitWhere = vi.mocked(db.bitacoraEntrada.findMany).mock.calls[0][0]?.where
+    expect(bitWhere?.OR?.[1]).toEqual({ etiquetas: { has: "Fábrica Milagro" }, cliente: clienteVisible })
   })
 
   it("hides the commercial sections without commercial access (S5)", async () => {

@@ -443,3 +443,71 @@ describe("POST /api/v1/clients/:id/log", () => {
     expect(res.status).toBe(201);
   });
 });
+
+// S18 (T13): optional tags on bitácora entries, validated by the shared ETIQUETAS_SCHEMA.
+describe("POST /api/v1/clients/:id/log — etiquetas (S18)", () => {
+  function allowWrite() {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.bitacoraEntrada.create).mockResolvedValue({
+      id: "bit-1",
+      autor_id: "gerencia-1",
+      autor: { nombre: "Gerencia Uno" },
+      texto: "Nota",
+      etiquetas: ["Textil"],
+      created_at: new Date("2026-01-01"),
+    } as never);
+  }
+
+  it("persists the chosen tags and returns them through the shared select", async () => {
+    allowWrite();
+
+    const res = await POST(postRequest({ texto: "Nota", etiquetas: ["Textil", "Textil"] }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).entrada).toMatchObject({ etiquetas: ["Textil"] });
+    expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ etiquetas: ["Textil"] }),
+        select: expect.objectContaining({ etiquetas: true }),
+      }),
+    );
+  });
+
+  it("still logs an entry without tags, storing an empty list", async () => {
+    allowWrite();
+
+    const res = await POST(postRequest({ texto: "Nota" }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ etiquetas: [] }) }),
+    );
+  });
+
+  it("returns 400 for more than 20 tags", async () => {
+    allowWrite();
+
+    const etiquetas = Array.from({ length: 21 }, (_, i) => `t${i}`);
+    const res = await POST(postRequest({ texto: "Nota", etiquetas }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "Demasiadas etiquetas (máximo 20).",
+    });
+    expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
+  });
+
+  it("lists entries with their tags", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.bitacoraEntrada.findMany).mockResolvedValue([]);
+
+    await GET(new Request("http://localhost/api/v1/clients/cli-1/log"), routeContext);
+
+    expect(db.bitacoraEntrada.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ select: expect.objectContaining({ etiquetas: true }) }),
+    );
+  });
+});

@@ -10,6 +10,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import { catalogEnum, getClientForOpportunityWrite, parseDate, zodError } from "@/lib/api/crm";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 import type { EstadoOportunidad } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,8 @@ export const OPORTUNIDAD_PATCH_SCHEMA = z
       .refine((v) => parseDate(v) !== null, "Fecha de envío de propuesta no válida.")
       .optional(),
     proyectos_relacionados: z.string().nullable().optional(),
+    // S18: optional tags, replaced as a whole (`[]` clears them).
+    etiquetas: ETIQUETAS_SCHEMA.optional(),
   })
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Envía al menos un campo para actualizar.");
@@ -109,6 +112,7 @@ export const PATCH = withApiErrorHandling(
             ? new Date()
             : undefined,
         proyectos_relacionados: parsed.data.proyectos_relacionados,
+        etiquetas: parsed.data.etiquetas === undefined ? undefined : { set: parsed.data.etiquetas },
       },
     });
     return NextResponse.json({ oportunidad });

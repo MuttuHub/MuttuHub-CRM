@@ -49,6 +49,7 @@ import {
   type OportunidadInput,
   type TaskItem,
 } from "@/hooks/crm";
+import { EtiquetasField, alternarEtiqueta } from "@/components/crm/etiquetas-field";
 import { ToneBadge } from "@/components/crm/shared";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useEligibleOpportunities } from "@/hooks/projects";
@@ -452,6 +453,8 @@ export type OportunidadFormState = {
   estado: EstadoOportunidad;
   fecha_ultima_gestion: string;
   proyectos_relacionados: string;
+  /** S18: optional tags from the `task_tags` catalog; empty by default. */
+  etiquetas: string[];
 };
 
 function toDateValue(value: string | null | undefined): string {
@@ -485,6 +488,7 @@ export function OportunidadFormDialog({
     estado: "DISENANDO_PROPUESTA",
     fecha_ultima_gestion: "",
     proyectos_relacionados: "",
+    etiquetas: [],
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -507,6 +511,7 @@ export function OportunidadFormDialog({
           estado: oportunidad.estado,
           fecha_ultima_gestion: toDateValue(oportunidad.fecha_ultima_gestion),
           proyectos_relacionados: oportunidad.proyectos_relacionados ?? "",
+          etiquetas: oportunidad.etiquetas ?? [],
         });
       } else {
         setForm({
@@ -518,6 +523,7 @@ export function OportunidadFormDialog({
           estado: "DISENANDO_PROPUESTA",
           fecha_ultima_gestion: "",
           proyectos_relacionados: "",
+          etiquetas: [],
         });
       }
     }
@@ -549,6 +555,8 @@ export function OportunidadFormDialog({
       estado: form.estado,
       fecha_ultima_gestion: form.fecha_ultima_gestion || null,
       proyectos_relacionados: form.proyectos_relacionados.trim() || null,
+      // S18: always the full list — `[]` when nothing is chosen (clears on edit).
+      etiquetas: form.etiquetas,
     };
 
     try {
@@ -680,6 +688,13 @@ export function OportunidadFormDialog({
               />
             </div>
           </div>
+
+          <EtiquetasField
+            labelId="oportunidad-etiquetas"
+            label="Etiquetas (opcional)"
+            selected={form.etiquetas}
+            onToggle={(tag) => set("etiquetas", alternarEtiqueta(form.etiquetas, tag))}
+          />
 
           {/* D8: deprecated — superseded by `fase` + Tarea.oportunidad_id.
               Dropped from the create/edit form; still shown read-only when

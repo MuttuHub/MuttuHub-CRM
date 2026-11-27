@@ -509,4 +509,22 @@ describe("buildOpenApiDocument", () => {
     const query = (op?.parameters ?? []).map((p) => ("name" in p ? p.name : ""))
     expect(query).toEqual(expect.arrayContaining(["proyecto_id", "formato"]))
   })
+  // S18 (T12/T13): optional tags on opportunities and bitácora entries, in the
+  // response components and in the create/update request bodies.
+  it("documents the optional etiquetas of opportunities and bitácora entries", () => {
+    const doc = buildOpenApiDocument()
+    const schemas = doc.components?.schemas ?? {}
+    for (const name of ["Oportunidad", "BitacoraEntrada"]) {
+      const props = (schemas[name] as { properties?: Record<string, unknown> }).properties ?? {}
+      expect(Object.keys(props)).toContain("etiquetas")
+    }
+    const paths = doc.paths ?? {}
+    for (const body of [
+      paths["/api/v1/clients/{id}/opportunities"]?.post?.requestBody,
+      paths["/api/v1/clients/{id}/opportunities/{opportunityId}"]?.patch?.requestBody,
+      paths["/api/v1/clients/{id}/log"]?.post?.requestBody,
+    ]) {
+      expect(JSON.stringify(body)).toContain("etiquetas")
+    }
+  })
 })

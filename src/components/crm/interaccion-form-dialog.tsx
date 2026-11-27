@@ -11,6 +11,8 @@
 // interaction was about. It offers the projects the list returns for the chosen
 // client (posición propia ones match through their active allies, within the
 // user's project read scope); the server checks the ally again (400 otherwise).
+// S18: optional tags (catalog `task_tags`, chip field shared with clients and
+// projects); omitted from the payload when none is pressed.
 
 import { useState, type FormEvent } from "react";
 import type { TipoInteraccion } from "@prisma/client";
@@ -35,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useAddLogEntry, useClients, useOpportunities } from "@/hooks/crm";
 import { useProjects } from "@/hooks/projects";
+import { EtiquetasField, alternarEtiqueta } from "./etiquetas-field";
 import { TIPO_INTERACCION_LABELS, TIPO_INTERACCION_ORDER } from "./interacciones-feed";
 
 /** "none" is the sentinel for "sin oportunidad" inside the Select (base-ui needs a value). */
@@ -64,6 +67,7 @@ export function InteraccionFormDialog({
   const [proyectoId, setProyectoId] = useState(SIN_PROYECTO);
   const [texto, setTexto] = useState("");
   const [proximoPaso, setProximoPaso] = useState("");
+  const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const oportunidadesQuery = useOpportunities(clienteId || null);
@@ -89,6 +93,7 @@ export function InteraccionFormDialog({
       setProyectoId(SIN_PROYECTO);
       setTexto("");
       setProximoPaso("");
+      setEtiquetas([]);
     }
   }
 
@@ -105,6 +110,7 @@ export function InteraccionFormDialog({
         tipo,
         proximo_paso: proximoPaso.trim() || null,
         ...(proyectoId !== SIN_PROYECTO ? { proyecto_id: proyectoId } : {}),
+        ...(etiquetas.length > 0 ? { etiquetas } : {}),
       });
       onOpenChange(false);
     } catch {
@@ -246,6 +252,13 @@ export function InteraccionFormDialog({
               className="px-3"
             />
           </div>
+
+          <EtiquetasField
+            labelId="interaccion-etiquetas"
+            label="Etiquetas (opcional)"
+            selected={etiquetas}
+            onToggle={(tag) => setEtiquetas((actuales) => alternarEtiqueta(actuales, tag))}
+          />
 
           <DialogFooter>
             <Button
