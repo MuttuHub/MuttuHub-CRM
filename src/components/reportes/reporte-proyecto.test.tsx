@@ -194,7 +194,7 @@ describe("ReporteProyectoContenido", () => {
     expect(screen.getByText("La meta es el valor total del proyecto.")).toBeInTheDocument()
     expect(screen.getByText(/Comprometido y en gestión suman los aportes/)).toBeInTheDocument()
     expect(screen.getByText(/nunca es menor que cero/)).toBeInTheDocument()
-    expect(screen.getByText(/la del propio proyecto y las abiertas de sus aliados/)).toBeInTheDocument()
+    expect(screen.getByText(/la que originó el proyecto; los aportes de los aliados/)).toBeInTheDocument()
   })
 
   it("hides the opportunities and the financing without them (S5), not shown empty", () => {
