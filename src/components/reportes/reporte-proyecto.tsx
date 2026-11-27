@@ -8,7 +8,8 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import type { EstadoAliado, FaseOportunidad, RolAliado } from "@prisma/client";
+import type { EstadoAliado, FaseOportunidad } from "@prisma/client";
+import { ESTADO_ALIADO_LABEL, ROL_ALIADO_LABEL } from "@/lib/proyectos/aliados-labels";
 import { Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
@@ -37,15 +38,10 @@ import { cn } from "@/lib/utils";
 const ERROR_REPORTE = "No pudimos generar el reporte del proyecto. Inténtalo de nuevo.";
 export const ELIGE_PROYECTO = "Elige un proyecto para ver su reporte.";
 
-const ROL_ALIADO_LABELS: Record<RolAliado, string> = {
-  FINANCIADOR: "Financiador",
-  ALIADO: "Aliado",
-  PROSPECTO: "Prospecto",
-};
-const ESTADO_ALIADO_META: Record<EstadoAliado, { label: string; tone: UiTone }> = {
-  COMPROMETIDO: { label: "Comprometido", tone: "exito" },
-  EN_GESTION: { label: "En gestión", tone: "alerta" },
-  DESCARTADO: { label: "Descartado", tone: "neutro" },
+const ESTADO_ALIADO_TONE: Record<EstadoAliado, UiTone> = {
+  COMPROMETIDO: "exito",
+  EN_GESTION: "alerta",
+  DESCARTADO: "neutro",
 };
 const FASE_OPORTUNIDAD_LABELS: Record<FaseOportunidad, string> = {
   PROSPECCION: "Prospección",
@@ -173,9 +169,9 @@ export function ReporteProyectoContenido({ data }: { data: ReporteProyecto }) {
               {data.aliados.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-semibold text-ink-950">{a.cliente.nombre}</TableCell>
-                  <TableCell className="text-[12.5px]">{ROL_ALIADO_LABELS[a.rol]}</TableCell>
+                  <TableCell className="text-[12.5px]">{ROL_ALIADO_LABEL[a.rol]}</TableCell>
                   <TableCell>
-                    <ToneBadge tone={ESTADO_ALIADO_META[a.estado].tone} label={ESTADO_ALIADO_META[a.estado].label} />
+                    <ToneBadge tone={ESTADO_ALIADO_TONE[a.estado]} label={ESTADO_ALIADO_LABEL[a.estado]} />
                   </TableCell>
                   <Numero>{a.aporte_cop === null ? "—" : formatCOP(toCents(a.aporte_cop))}</Numero>
                   <TableCell className="text-[12.5px]">

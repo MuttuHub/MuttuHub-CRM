@@ -34,7 +34,7 @@ import {
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 
-import { ESTADO_ALIADO_LABEL, ROL_ALIADO_LABEL } from "@/components/proyectos/aliados-labels";
+import { ESTADO_ALIADO_LABEL, ROL_ALIADO_LABEL } from "@/lib/proyectos/aliados-labels";
 
 const ROLES = Object.keys(ROL_ALIADO_LABEL) as AllyRol[];
 const ESTADOS = Object.keys(ESTADO_ALIADO_LABEL) as AllyEstado[];

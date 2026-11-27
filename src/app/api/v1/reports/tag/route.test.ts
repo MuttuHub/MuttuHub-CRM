@@ -86,9 +86,9 @@ beforeEach(() => {
     ]),
   )
   vi.mocked(db.cliente.findMany).mockResolvedValue([
-    { id: "c1", nombre: "Acme", _count: { proyectos: 2, oportunidades: 1 } },
-    { id: "c2", nombre: "Beta", _count: { proyectos: 0, oportunidades: 1 } },
-    { id: "c3", nombre: "Gamma", _count: { proyectos: 0, oportunidades: 0 } },
+    { id: "c1", nombre: "Acme", _count: { proyectos: 2, aliado_en: 0, oportunidades: 1 } },
+    { id: "c2", nombre: "Beta", _count: { proyectos: 0, aliado_en: 2, oportunidades: 1 } },
+    { id: "c3", nombre: "Gamma", _count: { proyectos: 0, aliado_en: 0, oportunidades: 0 } },
   ] as never)
   vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
     { cliente_id: "c1", _max: { created_at: new Date("2026-10-20T15:00:00.000Z") } },
@@ -166,7 +166,7 @@ describe("GET /api/v1/reports/tag", () => {
     })
     expect(body.clientes).toEqual([
       { id: "c1", nombre: "Acme", proyectos: 2, oportunidades_abiertas: 1, ultima_interaccion: "2026-10-20", dias_sin_interaccion: 9, sin_interaccion_reciente: false },
-      { id: "c2", nombre: "Beta", proyectos: 0, oportunidades_abiertas: 1, ultima_interaccion: "2026-10-10", dias_sin_interaccion: 19, sin_interaccion_reciente: true },
+      { id: "c2", nombre: "Beta", proyectos: 2, oportunidades_abiertas: 1, ultima_interaccion: "2026-10-10", dias_sin_interaccion: 19, sin_interaccion_reciente: true },
       { id: "c3", nombre: "Gamma", proyectos: 0, oportunidades_abiertas: 0, ultima_interaccion: null, dias_sin_interaccion: null, sin_interaccion_reciente: true },
     ])
 
@@ -205,6 +205,17 @@ describe("GET /api/v1/reports/tag", () => {
       financiero: { programado: "1500.00", ejecutado: "1000.00" },
       pipeline: { oportunidades: 2, valor: "2000000.50" },
       tareas: { total: 4, completadas: 1, vencidas: 1 },
+    })
+  })
+
+  it("counts the visible posición propia projects where the client is a non-discarded ally (T6 A1)", async () => {
+    await GET(get(ETIQUETA))
+    const sel = vi.mocked(db.cliente.findMany).mock.calls[0][0]?.select as unknown as {
+      _count: { select: Record<string, { where: Record<string, unknown> }> }
+    }
+    expect(sel._count.select.aliado_en.where).toEqual({
+      estado: { not: "DESCARTADO" },
+      proyecto: sel._count.select.proyectos.where,
     })
   })
 

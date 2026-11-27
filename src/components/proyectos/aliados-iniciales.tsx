@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import type { AllyEstado, AllyRol, ProjectAllyInput } from "@/hooks/projects";
 
-import { ESTADO_ALIADO_LABEL, ROL_ALIADO_LABEL } from "@/components/proyectos/aliados-labels";
+import { ESTADO_ALIADO_LABEL, ROL_ALIADO_LABEL } from "@/lib/proyectos/aliados-labels";
 
 /** One ally while it is edited: the aporte stays as typed until the submit. */
 export type AliadoInicial = {

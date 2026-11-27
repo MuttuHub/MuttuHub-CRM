@@ -5,96 +5,33 @@
 // The Oportunidades sheet exists only with commercial access (`oportunidades !== null`: hidden, not empty).
 
 import ExcelJS from "exceljs"
-import type { EstadoAliado, RolAliado } from "@prisma/client"
 import { ESTADO_OPORTUNIDAD_LABELS, ESTADO_TAREA_LABELS } from "@/lib/catalogs"
-import { assertSinEncabezadosProhibidos, celdaTexto } from "@/lib/proyectos/export-xlsx"
-import { fromCents, sumCents, toCents } from "@/lib/proyectos/money"
+import { celdaTexto } from "@/lib/proyectos/export-xlsx"
 import type { ReporteProyecto } from "@/lib/reportes/proyecto"
+import {
+  ETIQUETA_ESTADO_PROYECTO,
+  ETIQUETA_TIPO_INTERACCION,
+  FORMATO_DINERO,
+  FORMATO_FECHA,
+  FORMATO_PCT,
+  type Celda,
+  dinero,
+  fecha,
+  hoja,
+  numero,
+  siNo,
+  sumaDinero,
+} from "@/lib/reportes/xlsx-comun"
+import { ESTADO_ALIADO_LABEL, ROL_ALIADO_LABEL } from "@/lib/proyectos/aliados-labels"
 import { NOTA_COMPROMETIDO, NOTA_META, NOTA_OPORTUNIDADES, NOTA_SIN_CUBRIR } from "@/lib/reportes/proyecto-notas"
 
-type Celda = string | number | Date | null
-
-const FORMATO_DINERO = "#,##0.00"
-const FORMATO_PCT = "0.0"
-const FORMATO_FECHA = "yyyy-mm-dd"
 
 /** The L26/L27 assumptions behind the figures, printed in Resumen. */
 
-const ETIQUETA_ESTADO_PROYECTO: Record<string, string> = {
-  PLANIFICACION: "Planificación",
-  BORRADOR: "Borrador",
-  EN_EJECUCION: "En ejecución",
-  SUSPENDIDO: "Suspendido",
-  CERRADO: "Cerrado",
-  CANCELADO: "Cancelado",
-}
-const ETIQUETA_ROL_ALIADO: Record<RolAliado, string> = { FINANCIADOR: "Financiador", ALIADO: "Aliado", PROSPECTO: "Prospecto" }
-const ETIQUETA_ESTADO_ALIADO: Record<EstadoAliado, string> = {
-  COMPROMETIDO: "Comprometido",
-  EN_GESTION: "En gestión",
-  DESCARTADO: "Descartado",
-}
 const ETIQUETA_FASE: Record<string, string> = { PROSPECCION: "Prospección", EJECUCION: "Ejecución" }
 const ETIQUETA_VINCULO: Record<string, string> = { PROYECTO: "Del proyecto", ALIADO: "De un aliado" }
-const ETIQUETA_TIPO_INTERACCION: Record<string, string> = {
-  REUNION: "Reunión",
-  CORREO: "Correo",
-  LLAMADA: "Llamada",
-  VISITA: "Visita",
-  OTRO: "Otro",
-}
 
-const numero = (valor: number | null | undefined): Celda => (valor === null || valor === undefined ? "" : valor)
-const dinero = (valor: string | null | undefined): Celda => (valor === null || valor === undefined ? "" : Number(valor))
-/** `AAAA-MM-DD` as a real date cell (UTC midnight, so the calendar day never shifts). */
-const fecha = (valor: string | null | undefined): Celda => (valor ? new Date(`${valor}T00:00:00Z`) : "")
-const siNo = (valor: boolean) => (valor ? "Sí" : "No")
-/** Sums two-decimal amounts in cents, so the total never drifts from the rows. */
-const sumaDinero = (valores: (string | number | null | undefined)[]) =>
-  Number(
-    fromCents(
-      sumCents(
-        valores
-          .filter((v): v is string | number => typeof v === "string" || typeof v === "number")
-          .map((v) => toCents(typeof v === "number" ? v.toFixed(2) : v)),
-      ),
-    ),
-  )
 
-function letraColumna(n: number): string {
-  let letra = ""
-  for (let i = n; i > 0; i = Math.floor((i - 1) / 26)) letra = String.fromCharCode(65 + ((i - 1) % 26)) + letra
-  return letra
-}
-
-/**
- * One table sheet: bold, frozen and filtered header row, then the rows and an optional totals row. The filter
- * covers the header and the data only, so sorting never moves the totals row.
- */
-function hoja(
-  wb: ExcelJS.Workbook,
-  nombre: string,
-  encabezados: readonly string[],
-  filas: readonly Celda[][],
-  opciones: { formatos?: Record<number, string>; total?: Celda[] } = {},
-) {
-  assertSinEncabezadosProhibidos(encabezados)
-  const ws = wb.addWorksheet(nombre)
-  ws.addRow([...encabezados]).font = { bold: true }
-  ws.views = [{ state: "frozen", ySplit: 1 }]
-  for (const fila of filas) ws.addRow(fila)
-  ws.autoFilter = { from: "A1", to: `${letraColumna(encabezados.length)}${filas.length + 1}` }
-  if (opciones.total) ws.addRow(opciones.total).font = { bold: true }
-  for (const [col, formato] of Object.entries(opciones.formatos ?? {})) {
-    ws.getColumn(Number(col)).eachCell((cell, fila) => {
-      if (fila > 1) cell.numFmt = formato
-    })
-  }
-  ws.columns.forEach((c, i) => {
-    c.width = Math.max(12, Math.min(48, String(encabezados[i] ?? "").length + 4))
-  })
-  return ws
-}
 
 export async function xlsxReporteProyecto(r: ReporteProyecto): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
@@ -152,8 +89,8 @@ export async function xlsxReporteProyecto(r: ReporteProyecto): Promise<Buffer> {
     ["Aliado", "Rol", "Estado", "Aporte", "Última interacción"],
     r.aliados.map((a) => [
       celdaTexto(a.cliente.nombre),
-      ETIQUETA_ROL_ALIADO[a.rol] ?? a.rol,
-      ETIQUETA_ESTADO_ALIADO[a.estado] ?? a.estado,
+      ROL_ALIADO_LABEL[a.rol] ?? a.rol,
+      ESTADO_ALIADO_LABEL[a.estado] ?? a.estado,
       numero(a.aporte_cop),
       fecha(a.ultima_interaccion),
     ]),
