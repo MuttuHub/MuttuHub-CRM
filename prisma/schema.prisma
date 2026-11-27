@@ -285,6 +285,8 @@ model Oportunidad {
   /// @deprecated oportunidades-comerciales D8 — superseded by `fase` +
   /// `Tarea.oportunidad_id`. Read-only in the UI; kept additive, not dropped.
   proyectos_relacionados String?
+  // S18: optional tags from the `task_tags` catalogue (same as clients, tasks and projects).
+  etiquetas              String[]          @default([])
   created_at             DateTime          @default(now())
   updated_at             DateTime          @updatedAt
   deleted_at             DateTime?
@@ -381,6 +383,8 @@ model BitacoraEntrada {
   // only accepts a project where this client is an ally; the FK keeps the project from being
   // hard-deleted while an entry names it (projects are soft-deleted anyway).
   proyecto_id    String?
+  // S18: optional tags from the `task_tags` catalogue (same as clients, tasks and projects).
+  etiquetas      String[] @default([])
   created_at     DateTime @default(now())
 
   cliente     Cliente      @relation(fields: [cliente_id], references: [id])
