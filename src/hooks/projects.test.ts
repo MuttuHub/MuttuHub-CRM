@@ -19,6 +19,7 @@ import {
   useRemoveProjectMember,
   useProjects,
   useStrategicLines,
+  useMoveProgramming,
   type EligibleOpportunity,
   type Municipality,
   type ProjectCreateInput,
@@ -497,6 +498,35 @@ describe("project team hooks", () => {
     expect(url).toBe("/api/v1/projects/p1/members/u9")
     expect(init.method).toBe("DELETE")
     expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.members("p1") })
+  })
+})
+
+// V9 (S5): a move changes the live programming, which the S-curve («vigente») plots, so the curve is refreshed too.
+describe("useMoveProgramming", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("posts the move and refreshes the programming and every base of the S-curve", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ estado: "EN_EJECUCION" })))
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+
+    const { result } = renderHook(() => useMoveProgramming("p1"), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync({ linea_id: "lt", origen: "2026-11", destino: "2026-12", valor: "2000000.00" })
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v1/projects/p1/programming/move")
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body)).toEqual({ linea_id: "lt", origen: "2026-11", destino: "2026-12", valor: "2000000.00" })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.programming("p1") })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["projects", "curve", "p1"] })
   })
 })
 
