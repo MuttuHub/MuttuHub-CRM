@@ -198,3 +198,5 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
     },
   }
 }
+
+export type ReporteEtiqueta = Extract<Awaited<ReturnType<typeof cargarReporteEtiqueta>>, { ok: true }>["value"]
