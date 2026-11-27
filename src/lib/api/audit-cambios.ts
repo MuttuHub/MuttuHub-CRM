@@ -34,6 +34,7 @@ export const AUDIT_ENTIDADES_V2 = [
   "version",
   "solicitud",
   "proyecto_miembro",
+  "proyecto_cliente",
   "linea",
   "municipio",
   "rubro",

@@ -5,7 +5,8 @@
 //
 // PATCH accepts nombre, descripcion, origen, fecha_inicio, fecha_fin,
 // beneficiarios_meta, responsable_id, `etiquetas` (full replacement), `lineas` (N..N replacement) and
-// `municipio_ids` (N..N replacement). Every scalar write, both join
+// `municipio_ids` (N..N replacement). `origen` never moves into or out of POSICION_PROPIA (S13):
+// that origin decides whether the project has a client or allies. Every scalar write, both join
 // replacements and all audit rows happen in ONE transaction (ADR-05,
 // REQ-AUD-03); the audit is one row per changed field and per changed line or
 // municipio (REQ-AUD-04). `valor_total` is refused (T11 S2): it is the sum of
@@ -46,6 +47,7 @@ import {
 } from "@/lib/api/projects";
 import { lockProyecto } from "@/lib/api/presupuesto";
 import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
+import { ORIGEN_POSICION_PROPIA_FIJO_MESSAGE, POSICION_PROPIA } from "@/lib/proyectos/aliados-proyecto";
 
 const PROYECTO_GENERAL_STATE_MESSAGE =
   "Los datos generales solo se pueden editar en Borrador o en Ejecución.";
@@ -223,6 +225,15 @@ export const PATCH = withApiErrorHandling(
         400,
         "VALIDATION_ERROR",
       );
+    }
+
+    // S13: a posición propia project has allies instead of a client (DB CHECK on `cliente_id`), so
+    // the origin cannot cross that line in either direction.
+    if (
+      parsed.data.origen !== undefined &&
+      (parsed.data.origen === POSICION_PROPIA) !== (existente.origen === POSICION_PROPIA)
+    ) {
+      return apiError(ORIGEN_POSICION_PROPIA_FIJO_MESSAGE, 400, "VALIDATION_ERROR");
     }
 
     // Same rule as the baseline approval; during execution it can no longer be cleared either.
