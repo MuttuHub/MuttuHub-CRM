@@ -3,8 +3,14 @@
 
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { ReportesPage } from "./reportes-page"
+
+const searchParams = { current: new URLSearchParams("") }
+vi.mock("next/navigation", () => ({ useSearchParams: () => searchParams.current }))
+afterEach(() => {
+  searchParams.current = new URLSearchParams("")
+})
 
 vi.mock("@/hooks/crm", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/crm")>()),
@@ -17,12 +23,21 @@ vi.mock("@/components/dashboard/cara-clients-activity", () => ({ CaraClientesAct
 vi.mock("@/components/dashboard/cara-my-summary", () => ({ CaraMiResumen: () => null }))
 vi.mock("@/hooks/reportes", async (importOriginal) => {
   const { REPORTE_SEMANAL } = await import("./reporte-semanal.fixture")
+  const { REPORTE_PROYECTO } = await import("./reporte-proyecto.fixture")
   return {
     ...(await importOriginal<typeof import("@/hooks/reportes")>()),
     useReporteSemanal: () => ({ data: REPORTE_SEMANAL, isLoading: false, isError: false, error: null }),
     useReporteEtiqueta: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
+    useReporteProyecto: (proyectoId: string) =>
+      proyectoId
+        ? { data: REPORTE_PROYECTO, isLoading: false, isError: false, error: null }
+        : { data: undefined, isLoading: false, isError: false, error: null },
   }
 })
+vi.mock("@/hooks/projects", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/projects")>()),
+  useProjects: () => ({ data: { proyectos: [{ id: "p1", codigo: "PRY-0007", nombre: "Moda circular" }] }, isLoading: false }),
+}))
 vi.mock("@/hooks/admin", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/admin")>()),
   useTaskTags: () => ({ data: ["Comercial"] }),
@@ -61,6 +76,7 @@ describe("ReportesPage", () => {
       "Tareas",
       "Semanal",
       "Etiqueta",
+      "Proyecto",
       "Pipeline comercial",
       "Gestión de tareas",
       "Actividad de clientes",
@@ -70,5 +86,30 @@ describe("ReportesPage", () => {
     await user.click(screen.getByRole("tab", { name: "Etiqueta" }))
     expect(await screen.findByText("Elige una etiqueta para ver su reporte.")).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Etiqueta" })).toBeInTheDocument()
+  })
+
+  it("adds a Proyecto tab next to Etiqueta that asks for a project (S17)", async () => {
+    const user = userEvent.setup()
+    render(<ReportesPage />)
+
+    await user.click(screen.getByRole("tab", { name: "Proyecto" }))
+    expect(await screen.findByText("Elige un proyecto para ver su reporte.")).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Proyecto" })).toBeInTheDocument()
+  })
+
+  it("opens the Proyecto tab on the project of the deep link (S17, the ficha's «Reporte» button)", () => {
+    searchParams.current = new URLSearchParams("tab=proyecto&proyecto=p1")
+    render(<ReportesPage />)
+
+    expect(screen.getByRole("tab", { name: "Proyecto" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("region", { name: "Aliados" })).toHaveTextContent("Fundación Telar")
+    expect(screen.getByRole("link", { name: "Generar reporte" })).toHaveAttribute("href", "/print/reportes/proyecto?proyecto=p1")
+  })
+
+  it("ignores an unknown tab in the URL and opens Tareas", () => {
+    searchParams.current = new URLSearchParams("tab=nada")
+    render(<ReportesPage />)
+
+    expect(screen.getByRole("tab", { name: "Tareas" })).toHaveAttribute("aria-selected", "true")
   })
 })

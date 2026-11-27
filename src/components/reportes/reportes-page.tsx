@@ -5,16 +5,19 @@
 // reporte semanal (S5: portafolio, actividades atrasadas, tareas de la semana
 // contra la anterior, «Requiere atención» y gastos por validar), el reporte
 // por etiqueta (T3: clientes, proyectos, oportunidades, bitácora y tareas de
-// una etiqueta en un período) y las 4
+// una etiqueta en un período), el reporte de proyecto (T9c: resumen,
+// aliados, oportunidades, bitácora y tareas de un proyecto) y las 4
 // caras del dashboard, cada una con su barra de filtros comunes (§7.2) y un
 // bloque "Generar reporte" que abre la vista de impresión por cara. El estado
 // de filtros vive acá (hoisted) para que cambiar de cara no los pierda; el
 // rango de fechas es el mismo store global del header ("Este mes" / 30 / 90 /
-// todo).
+// todo). `?tab=` abre una pestaña y `?proyecto=` elige el proyecto del
+// reporte de proyecto: es el enlace del botón «Reporte» de la ficha (S17).
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarRange, Gauge, ListChecks, Printer, Tag, UserRound, UsersRound } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { CalendarRange, FolderKanban, Gauge, ListChecks, Printer, Tag, UserRound, UsersRound } from "lucide-react";
 import {
   buildDashboardQuery,
   rangoMesActual,
@@ -26,6 +29,7 @@ import { RANGO_OPCIONES, useFiltersStore } from "@/store/filters";
 import { ReportView } from "@/components/kanban/report-view";
 import { ReporteSemanalTab } from "@/components/reportes/reporte-semanal";
 import { ReporteEtiquetaTab } from "@/components/reportes/reporte-etiqueta";
+import { ReporteProyectoTab } from "@/components/reportes/reporte-proyecto";
 import {
   Select,
   SelectContent,
@@ -49,10 +53,16 @@ const CARAS = [
 
 type CaraId = (typeof CARAS)[number]["id"];
 
+/** Tabs a `?tab=` deep link may open; anything else falls back to Tareas. */
+const TABS = new Set<string>(["tareas", "semanal", "etiqueta", "proyecto", ...CARAS.map((c) => c.id)]);
+
 const TAB_TRIGGER_CLASS =
   "flex !h-auto !flex-none items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-card data-active:text-ink-950 data-active:shadow-sm !lg:flex-1";
 
 export function ReportesPage() {
+  const searchParams = useSearchParams();
+  const tabInicial = searchParams.get("tab") ?? "";
+  const proyectoInicial = searchParams.get("proyecto")?.trim() ?? "";
   const [responsable, setResponsable] = useState("");
   const [tipoCliente, setTipoCliente] = useState("");
   const [dias, setDias] = useState(14);
@@ -69,10 +79,10 @@ export function ReportesPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Tabs defaultValue="tareas" className="flex min-w-0 flex-col gap-4">
+      <Tabs defaultValue={TABS.has(tabInicial) ? tabInicial : "tareas"} className="flex min-w-0 flex-col gap-4">
         {/* Patrón A (plan Fase 5): tira con scroll abajo (flex-none +
             overflow-x-auto), ancho igual arriba (lg:flex-wrap + lg:flex-1).
-            7 tabs → el umbral de "ancho igual" sigue siendo lg (a 1024px
+            8 tabs → el umbral de "ancho igual" sigue siendo lg (a 1024px
             caben en una fila; si no, lg:flex-wrap las baja a otra).
             !h-auto/!justify-start: el primitivo base fuerza h-8 (32px) y
             justify-center; con overflow-x-auto eso recorta los triggers y hace
@@ -87,6 +97,10 @@ export function ReportesPage() {
           <TabsTrigger value="etiqueta" className={TAB_TRIGGER_CLASS}>
             <Tag className="size-4" strokeWidth={1.9} />
             Etiqueta
+          </TabsTrigger>
+          <TabsTrigger value="proyecto" className={TAB_TRIGGER_CLASS}>
+            <FolderKanban className="size-4" strokeWidth={1.9} />
+            Proyecto
           </TabsTrigger>
           {CARAS.map((cara) => (
             <TabsTrigger
@@ -110,6 +124,10 @@ export function ReportesPage() {
 
         <TabsContent value="etiqueta" className="mt-0">
           <ReporteEtiquetaTab />
+        </TabsContent>
+
+        <TabsContent value="proyecto" className="mt-0">
+          <ReporteProyectoTab proyectoInicial={proyectoInicial} />
         </TabsContent>
 
         {CARAS.map((cara) => (

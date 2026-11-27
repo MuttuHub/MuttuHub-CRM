@@ -18,7 +18,7 @@ import { apiError } from "@/lib/api/errors"
 import { cargarReporteProyecto, type ReporteProyecto } from "@/lib/reportes/proyecto"
 import { ENCABEZADOS_PROHIBIDOS } from "@/lib/proyectos/export-xlsx"
 import { buildOpenApiDocument } from "@/lib/openapi/document"
-import { NOTAS_REPORTE_PROYECTO } from "@/lib/reportes/proyecto-xlsx"
+import * as NOTAS from "@/lib/reportes/proyecto-notas"
 import { GET } from "./route"
 
 const user = (rol: string) => ({ id: `${rol}-1`, rol, puede_ver_tablero_gerencial: false }) as unknown as Usuario
@@ -233,9 +233,10 @@ describe("GET /api/v1/reports/project/export", () => {
     }
   })
 
+  // The same notes as the «Proyecto» tab and its print view (shared `proyecto-notas.ts`).
   it("prints the assumption notes in Resumen", async () => {
     const textos = filas((await abrir(await GET(get()))).getWorksheet("Resumen")!).flat().map(String)
-    for (const nota of Object.values(NOTAS_REPORTE_PROYECTO)) expect(textos).toContain(nota)
+    for (const nota of Object.values(NOTAS)) expect(textos).toContain(nota)
   })
 
   it("adds totals rows to Aliados (aporte) and Oportunidades (valor)", async () => {
