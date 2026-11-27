@@ -139,6 +139,26 @@ describe("ProjectAllies", () => {
     expect(await screen.findByText("Este proyecto todavía no tiene aliados.")).toBeInTheDocument()
   })
 
+  it("refuses an aporte it cannot read and accepts the Colombian format", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Gobernación")
+    await user.click(await screen.findByRole("combobox", { name: "Cliente aliado" }))
+    await user.click(await screen.findByRole("option", { name: "Fundación Norte" }))
+    const aporte = screen.getByRole("textbox", { name: "Aporte del nuevo aliado (COP)" })
+    await user.type(aporte, "dos millones")
+    await user.click(screen.getByRole("button", { name: "Agregar aliado" }))
+    expect(await screen.findByText("Escribe el aporte en pesos, sin signos (por ejemplo 2500000).")).toBeInTheDocument()
+    expect(callsWith("POST")).toHaveLength(0)
+
+    await user.clear(aporte)
+    await user.type(aporte, "$ 1.500.000,50")
+    await user.click(screen.getByRole("button", { name: "Agregar aliado" }))
+    await waitFor(() => expect(callsWith("POST")).toHaveLength(1))
+    expect(JSON.parse(String((callsWith("POST")[0][1] as RequestInit).body))).toMatchObject({ aporte_cop: 1500000.5 })
+  })
+
   it("adds an ally with the chosen client, rol, estado and aporte, and refreshes the list", async () => {
     const user = userEvent.setup()
     setup()

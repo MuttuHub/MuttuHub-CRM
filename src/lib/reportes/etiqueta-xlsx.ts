@@ -9,79 +9,31 @@ import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia"
 import ExcelJS from "exceljs"
 import { ESTADO_OPORTUNIDAD_LABELS, ESTADO_TAREA_LABELS } from "@/lib/catalogs"
 import { CONTACTO_DIAS_OPTIMO } from "@/lib/clientes/salud"
-import { assertSinEncabezadosProhibidos, celdaTexto } from "@/lib/proyectos/export-xlsx"
-import { fromCents, sumCents, toCents } from "@/lib/proyectos/money"
+import { celdaTexto } from "@/lib/proyectos/export-xlsx"
 import type { ReporteEtiqueta } from "@/lib/reportes/etiqueta"
+import {
+  ETIQUETA_ESTADO_PROYECTO,
+  ETIQUETA_TIPO_INTERACCION,
+  FORMATO_DINERO,
+  FORMATO_FECHA,
+  FORMATO_PCT,
+  type Celda,
+  dinero,
+  fecha,
+  hoja,
+  numero,
+  siNo,
+  sumaDinero,
+} from "@/lib/reportes/xlsx-comun"
 import { NOTA_DIAS_SIN_INTERACCION, NOTA_ETIQUETAS, NOTA_TAREAS_PERIODO } from "@/lib/reportes/etiqueta-notas"
 
-type Celda = string | number | Date | null
-
-const FORMATO_DINERO = "#,##0.00"
-const FORMATO_PCT = "0.0"
-const FORMATO_FECHA = "yyyy-mm-dd"
 
 const NOTA_UMBRALES = "Los umbrales del semáforo son provisionales hasta que se confirmen."
 
 const ETIQUETA_COLOR: Record<string, string> = { verde: "Verde", amarillo: "Amarillo", rojo: "Rojo" }
-const ETIQUETA_ESTADO_PROYECTO: Record<string, string> = {
-  PLANIFICACION: "Planificación",
-  BORRADOR: "Borrador",
-  EN_EJECUCION: "En ejecución",
-  SUSPENDIDO: "Suspendido",
-  CERRADO: "Cerrado",
-  CANCELADO: "Cancelado",
-}
-const ETIQUETA_TIPO_INTERACCION: Record<string, string> = {
-  REUNION: "Reunión",
-  CORREO: "Correo",
-  LLAMADA: "Llamada",
-  VISITA: "Visita",
-  OTRO: "Otro",
-}
 
 const color = (valor: string | null) => (valor ? (ETIQUETA_COLOR[valor] ?? valor) : "Sin medir")
-const numero = (valor: number | null | undefined): Celda => (valor === null || valor === undefined ? "" : valor)
-const dinero = (valor: string | null | undefined): Celda => (valor === null || valor === undefined ? "" : Number(valor))
-/** `AAAA-MM-DD` as a real date cell (UTC midnight, so the calendar day never shifts). */
-const fecha = (valor: string | null | undefined): Celda => (valor ? new Date(`${valor}T00:00:00Z`) : "")
-const siNo = (valor: boolean) => (valor ? "Sí" : "No")
-const sumaDinero = (valores: (string | null | undefined)[]) =>
-  Number(fromCents(sumCents(valores.filter((v): v is string => typeof v === "string").map((v) => toCents(v)))))
 
-function letraColumna(n: number): string {
-  let letra = ""
-  for (let i = n; i > 0; i = Math.floor((i - 1) / 26)) letra = String.fromCharCode(65 + ((i - 1) % 26)) + letra
-  return letra
-}
-
-/**
- * One table sheet: bold, frozen and filtered header row, then the rows and an optional totals row. The filter
- * covers the header and the data only, so sorting never moves the totals row.
- */
-function hoja(
-  wb: ExcelJS.Workbook,
-  nombre: string,
-  encabezados: readonly string[],
-  filas: readonly Celda[][],
-  opciones: { formatos?: Record<number, string>; total?: Celda[] } = {},
-) {
-  assertSinEncabezadosProhibidos(encabezados)
-  const ws = wb.addWorksheet(nombre)
-  ws.addRow([...encabezados]).font = { bold: true }
-  ws.views = [{ state: "frozen", ySplit: 1 }]
-  for (const fila of filas) ws.addRow(fila)
-  ws.autoFilter = { from: "A1", to: `${letraColumna(encabezados.length)}${filas.length + 1}` }
-  if (opciones.total) ws.addRow(opciones.total).font = { bold: true }
-  for (const [col, formato] of Object.entries(opciones.formatos ?? {})) {
-    ws.getColumn(Number(col)).eachCell((cell, fila) => {
-      if (fila > 1) cell.numFmt = formato
-    })
-  }
-  ws.columns.forEach((c, i) => {
-    c.width = Math.max(12, Math.min(48, String(encabezados[i] ?? "").length + 4))
-  })
-  return ws
-}
 
 function periodoTexto({ desde, hasta }: ReporteEtiqueta["periodo"]): string {
   if (desde && hasta) return `${desde} a ${hasta}`

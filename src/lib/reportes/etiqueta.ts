@@ -73,6 +73,8 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
       _count: {
         select: {
           proyectos: { where: projectListWhere(usuario, {}) },
+          // T6 A1: plus the visible posición propia projects where the client is a non-discarded ally.
+          aliado_en: { where: { estado: { not: "DESCARTADO" }, proyecto: projectListWhere(usuario, {}) } },
           ...(comercial && { oportunidades: { where: abiertasAlCorte } }),
         },
       },
@@ -132,11 +134,12 @@ export async function cargarReporteEtiqueta(usuario: Usuario, url: URL) {
   const clientes = clientesRows.map((c) => {
     const ultima = ultimaPorCliente.get(c.id) ?? null
     const dias = ultima === null ? null : Math.max(0, toDayNumber(hoy) - toDayNumber(todayInBogota(ultima)))
-    const conteo = c._count as { proyectos: number; oportunidades?: number }
+    const conteo = c._count as { proyectos: number; aliado_en: number; oportunidades?: number }
     return {
       id: c.id,
       nombre: c.nombre,
-      proyectos: conteo.proyectos,
+      // A project is either owned (it has `cliente_id`) or posición propia (it has allies), never both.
+      proyectos: conteo.proyectos + conteo.aliado_en,
       ...(comercial && { oportunidades_abiertas: conteo.oportunidades ?? 0 }),
       ultima_interaccion: ultima === null ? null : todayInBogota(ultima),
       dias_sin_interaccion: dias,
