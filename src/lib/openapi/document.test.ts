@@ -489,4 +489,13 @@ describe("buildOpenApiDocument", () => {
     expect(admiteNull(enEjecucion?.cliente_id)).toBe(true)
     expect(enEjecucion?.aliados_count).toBeDefined()
   })
+
+  it("registers the T9a project report with its query and response sections (S15–S17)", () => {
+    const doc = buildOpenApiDocument()
+    const op = doc.paths?.["/api/v1/reports/project"]?.get
+    expect(op).toBeDefined()
+    expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404"]))
+    const schema = doc.components?.schemas?.ReporteProyecto as { properties?: Record<string, unknown> } | undefined
+    expect(Object.keys(schema?.properties ?? {})).toEqual(["corte", "resumen", "aliados", "oportunidades", "bitacora", "tareas"])
+  })
 })
