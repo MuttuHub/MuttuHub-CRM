@@ -45,6 +45,7 @@ function parsePortafolioFilters(url: URL): { ok: true; filters: ProjectListFilte
       linea_id: sp.get("linea_id") ?? undefined,
       municipio_id: sp.get("municipio_id") ?? undefined,
       responsable_id: sp.get("responsable_id") ?? undefined,
+      etiqueta: sp.get("etiqueta")?.trim() || undefined,
     },
   };
 }
