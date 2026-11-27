@@ -17,6 +17,7 @@ import {
   parseDate,
   zodError,
 } from "@/lib/api/crm";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 import type { EstadoOportunidad } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,8 @@ export const OPORTUNIDAD_SCHEMA = z.object({
     .refine((v) => parseDate(v) !== null, "Fecha de envío de propuesta no válida.")
     .optional(),
   proyectos_relacionados: z.string().nullable().optional(),
+  // S18: optional tags from the `task_tags` catalog; never required.
+  etiquetas: ETIQUETAS_SCHEMA.optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -125,6 +128,7 @@ export const POST = withApiErrorHandling(
             ? new Date()
             : undefined,
         proyectos_relacionados: parsed.data.proyectos_relacionados,
+        etiquetas: parsed.data.etiquetas ?? [],
       },
     });
     return NextResponse.json({ oportunidad }, { status: 201 });

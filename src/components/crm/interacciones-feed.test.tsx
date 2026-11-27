@@ -131,3 +131,23 @@ describe("InteraccionesFeed", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/No pudimos cargar las interacciones/i)
   })
 })
+
+// S18 (T13): the feed shows an entry's optional tags; an untagged entry shows none.
+describe("InteraccionesFeed — etiquetas (S18)", () => {
+  it("shows the tags of a tagged entry only", () => {
+    useInteractionsMock.mockReturnValue({
+      data: [
+        { ...BASE_ITEM, etiquetas: ["Textil", "Agro"] },
+        { ...BASE_ITEM, id: "i-2", etiquetas: [] },
+      ],
+      isLoading: false,
+      isError: false,
+    })
+
+    renderFeed()
+
+    const tags = screen.getAllByRole("list", { name: "Etiquetas" })
+    expect(tags).toHaveLength(1)
+    expect(within(tags[0]).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Textil", "Agro"])
+  })
+})

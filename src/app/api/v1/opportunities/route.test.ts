@@ -146,6 +146,8 @@ describe("GET /api/v1/opportunities", () => {
         nombre: true,
         estado: true,
         valor_estimado_cop: true,
+        // S18 (T12): the optional tags ride along with each row.
+        etiquetas: true,
         cliente: { select: { nombre: true, responsable_id: true } },
       },
     });

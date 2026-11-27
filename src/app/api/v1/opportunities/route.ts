@@ -76,6 +76,8 @@ export const GET = withApiErrorHandling(
         nombre: true,
         estado: true,
         valor_estimado_cop: true,
+        // S18: optional tags of the opportunity.
+        etiquetas: true,
         // responsable_id feeds the per-row move flag; the client is readable
         // globally (S8), so it is not a read filter.
         cliente: { select: { nombre: true, responsable_id: true } },

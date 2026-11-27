@@ -53,6 +53,12 @@ vi.mock("@/hooks/projects", () => ({
   useEligibleOpportunities: useEligibleOpportunitiesMock,
 }))
 
+// S18: the tag chips read the live `task_tags` catalog; pinned so the chips are deterministic.
+vi.mock("@/hooks/admin", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/admin")>()),
+  useTaskTags: () => ({ data: ["Textil", "Agro"] }),
+}))
+
 vi.mock("@/hooks/kanban", () => ({
   useCurrentUser: useCurrentUserMock,
 }))
@@ -407,5 +413,78 @@ describe("CRM form dialogs lock Cancelar while saving (modal review 2.7)", () =>
   it("keeps Cancelar enabled on the contact dialog when nothing is saving", () => {
     renderContactoDialog(null)
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
+  })
+})
+
+// S18 (T12): optional tags on the opportunity form. The payload always carries
+// `etiquetas` as a list — `[]` when no chip is pressed (valid on create, clears on edit).
+describe("OportunidadFormDialog — etiquetas (S18)", () => {
+  beforeEach(() => {
+    contactoMocks.createOportunidad.mutateAsync.mockClear()
+    contactoMocks.updateOportunidad.mutateAsync.mockClear()
+  })
+
+  function renderForm(oportunidad: Oportunidad | null) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={qc}>
+        <OportunidadFormDialog clientId="cli-1" open onOpenChange={vi.fn()} oportunidad={oportunidad} />
+      </QueryClientProvider>,
+    )
+  }
+
+  it("shows the optional tag chips, none pressed by default", () => {
+    renderForm(null)
+    const group = screen.getByRole("group", { name: "Etiquetas (opcional)" })
+    expect(group).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Textil" })).toHaveAttribute("aria-pressed", "false")
+  })
+
+  it("creates with the chosen tags", async () => {
+    const user = userEvent.setup()
+    renderForm(null)
+    await user.type(screen.getByLabelText(/Nombre/), "Proyecto X")
+    await user.click(screen.getByRole("button", { name: "Textil" }))
+    await user.click(screen.getByRole("button", { name: "Crear oportunidad" }))
+
+    expect(contactoMocks.createOportunidad.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: "Proyecto X", etiquetas: ["Textil"] }),
+    )
+  })
+
+  it("creates without tags, sending an empty list", async () => {
+    const user = userEvent.setup()
+    renderForm(null)
+    await user.type(screen.getByLabelText(/Nombre/), "Proyecto X")
+    await user.click(screen.getByRole("button", { name: "Crear oportunidad" }))
+
+    expect(contactoMocks.createOportunidad.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: "Proyecto X", etiquetas: [] }),
+    )
+  })
+
+  it("loads the saved tags on edit and lets the user clear them", async () => {
+    const user = userEvent.setup()
+    // The dialog loads the opportunity when it opens, as in the client sheet.
+    const oportunidad = { ...BASE_OPORTUNIDAD, etiquetas: ["Agro"] }
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <OportunidadFormDialog clientId="cli-1" open={false} onOpenChange={vi.fn()} oportunidad={oportunidad} />
+      </QueryClientProvider>,
+    )
+    rerender(
+      <QueryClientProvider client={qc}>
+        <OportunidadFormDialog clientId="cli-1" open onOpenChange={vi.fn()} oportunidad={oportunidad} />
+      </QueryClientProvider>,
+    )
+    const agro = screen.getByRole("button", { name: "Agro" })
+    expect(agro).toHaveAttribute("aria-pressed", "true")
+    await user.click(agro)
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    expect(contactoMocks.updateOportunidad.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ etiquetas: [] }),
+    )
   })
 })

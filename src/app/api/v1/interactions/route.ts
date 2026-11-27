@@ -40,6 +40,8 @@ export const INTERACTION_FEED_SELECT = {
   texto: true,
   tipo: true,
   proximo_paso: true,
+  // S18: the entry's own tags.
+  etiquetas: true,
   created_at: true,
 } as const;
 

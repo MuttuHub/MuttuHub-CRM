@@ -24,12 +24,15 @@ export function EtiquetasField({
   selected,
   onToggle,
   className,
+  label = "Etiquetas",
 }: {
   /** Id of the visible label; the chip group is named by it. */
   labelId: string;
   selected: string[];
   onToggle: (tag: string) => void;
   className?: string;
+  /** Visible label; S18 forms pass «Etiquetas (opcional)». */
+  label?: string;
 }) {
   const tagsQuery = useTaskTags();
   const catalogTags = tagsQuery.data ?? [...TASK_TAGS];
@@ -40,7 +43,7 @@ export function EtiquetasField({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <Label id={labelId}>Etiquetas</Label>
+      <Label id={labelId}>{label}</Label>
       <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-2">
         {chipTags.map((tag) => (
           <button

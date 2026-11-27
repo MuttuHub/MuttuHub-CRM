@@ -24,6 +24,12 @@ const { addLogMutation, useOpportunitiesMock, useProjectsMock } = vi.hoisted(() 
   >(() => ({ data: { proyectos: [] } })),
 }))
 
+// S18: the tag chips read the live `task_tags` catalog; pinned so the chips are deterministic.
+vi.mock("@/hooks/admin", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/admin")>()),
+  useTaskTags: () => ({ data: ["Textil", "Agro"] }),
+}))
+
 vi.mock("@/hooks/projects", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/projects")>()
   return { ...actual, useProjects: useProjectsMock }
@@ -132,6 +138,34 @@ describe("InteraccionFormDialog", () => {
 
   // T8 (odd/tasks/reportes-etiqueta-y-posicion-propia.md, S16): the interaction can name the posición
   // propia project it was about; only projects where the chosen client is an ally are offered.
+  // S18 (T13): tags are optional. With chips pressed the payload carries them; with none
+  // pressed `etiquetas` is omitted (the exact payload of the previous test pins that).
+  it("sends the chosen tags with the interaction", async () => {
+    const user = userEvent.setup()
+    addLogMutation.mutateAsync.mockReset()
+    addLogMutation.mutateAsync.mockResolvedValue({})
+    useOpportunitiesMock.mockReturnValue({ data: [] })
+
+    renderDialog()
+
+    expect(screen.getByRole("group", { name: "Etiquetas (opcional)" })).toBeInTheDocument()
+    await user.click(triggerWith("Elige un aliado"))
+    await user.click(await screen.findByRole("option", { name: "Fundación Horizonte" }))
+    await user.type(screen.getByLabelText(/Resumen/), "Visita de diagnóstico")
+    await user.click(screen.getByRole("button", { name: "Agro" }))
+    await user.click(screen.getByRole("button", { name: "Textil" }))
+
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+    expect(addLogMutation.mutateAsync).toHaveBeenCalledWith({
+      texto: "Visita de diagnóstico",
+      oportunidad_id: null,
+      tipo: "REUNION",
+      proximo_paso: null,
+      etiquetas: ["Agro", "Textil"],
+    })
+  })
+
   it("offers the client's posición propia projects and sends the chosen one", async () => {
     const user = userEvent.setup()
     addLogMutation.mutateAsync.mockReset()

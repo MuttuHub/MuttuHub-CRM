@@ -247,6 +247,11 @@ const OportunidadSchema = registry.register(
     proyectos_relacionados: z.string().nullable().openapi({
       description: "@deprecated D8 — superseded by fase + Tarea.oportunidad_id. Solo lectura en la UI.",
     }),
+    etiquetas: z.array(z.string()).openapi({
+      description:
+        "S18: etiquetas opcionales del catálogo de tareas (setting task_tags); [] por defecto. " +
+        "En el PATCH reemplazan la lista completa ([] la vacía).",
+    }),
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),
     deleted_at: z.string().datetime().nullable(),
@@ -313,6 +318,9 @@ const BitacoraEntradaSchema = registry.register(
     }),
     proyecto_id: z.string().uuid().nullable().openapi({
       description: "T8: proyecto sobre el que fue la interacción (opcional); solo un proyecto donde el cliente es aliado.",
+    }),
+    etiquetas: z.array(z.string()).openapi({
+      description: "S18: etiquetas opcionales del catálogo de tareas (setting task_tags); [] por defecto.",
     }),
     created_at: z.string().datetime(),
   }),

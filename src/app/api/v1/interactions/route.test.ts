@@ -67,6 +67,7 @@ describe("GET /api/v1/interactions", () => {
         texto: "Reunión de seguimiento",
         tipo: "REUNION",
         proximo_paso: "Enviar propuesta",
+        etiquetas: ["Fábrica Milagro"],
         created_at: new Date("2026-01-01"),
       },
     ] as never);
@@ -87,9 +88,12 @@ describe("GET /api/v1/interactions", () => {
         texto: "Reunión de seguimiento",
         tipo: "REUNION",
         proximo_paso: "Enviar propuesta",
+        etiquetas: ["Fábrica Milagro"],
         created_at: new Date("2026-01-01").toISOString(),
       },
     ]);
+    // S18: the entry's own tags travel with the feed.
+    expect(vi.mocked(db.bitacoraEntrada.findMany).mock.calls[0][0]?.select).toMatchObject({ etiquetas: true });
     // The feed is a global read, ordered newest-first.
     expect(db.bitacoraEntrada.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: { created_at: "desc" } }),

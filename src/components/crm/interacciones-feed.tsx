@@ -46,6 +46,32 @@ export const TIPO_INTERACCION_ORDER: readonly TipoInteraccion[] = [
 
 type TipoFiltro = TipoInteraccion | "todas";
 
+/**
+ * S18: read-only list of an item's optional tags (opportunities and bitácora
+ * entries). Renders nothing when there are none, so untagged items look as before.
+ */
+export function EtiquetasChips({
+  etiquetas,
+  className,
+}: {
+  etiquetas: readonly string[] | undefined;
+  className?: string;
+}) {
+  if (!etiquetas?.length) return null;
+  return (
+    <ul aria-label="Etiquetas" className={cn("flex flex-wrap gap-1.5", className)}>
+      {etiquetas.map((tag) => (
+        <li
+          key={tag}
+          className="inline-flex h-[20px] items-center rounded-full bg-ink-100 px-2 text-[10.5px] font-semibold text-ink-700"
+        >
+          {tag}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function InteraccionesFeed() {
   const [tipo, setTipo] = useState<TipoFiltro>("todas");
   const query = useInteractions(tipo === "todas" ? {} : { tipo });
@@ -117,6 +143,8 @@ export function InteraccionesFeed() {
               <p className="mt-2.5 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-800">
                 {e.texto}
               </p>
+
+              <EtiquetasChips etiquetas={e.etiquetas} className="mt-2.5" />
 
               {e.proximo_paso && (
                 <div className="surface-inner mt-3 px-3 py-2">

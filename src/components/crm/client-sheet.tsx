@@ -93,6 +93,7 @@ import {
 } from "@/components/crm/entity-dialogs";
 import { TareaFormDialog } from "@/components/crm/task-dialogs";
 import {
+  EtiquetasChips,
   TIPO_INTERACCION_LABELS,
   TIPO_INTERACCION_ORDER,
   TIPO_INTERACCION_TONES,
@@ -1135,6 +1136,7 @@ function OportunidadesTab({
                     </span>
                     <span>Última gestión: {formatFechaDia(o.fecha_ultima_gestion)}</span>
                   </p>
+                  <EtiquetasChips etiquetas={o.etiquetas} className="mt-2" />
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button
@@ -1443,6 +1445,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
               <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-800">
                 {e.texto}
               </p>
+              <EtiquetasChips etiquetas={e.etiquetas} className="mt-2" />
               {e.proximo_paso && (
                 <div className="mt-3 rounded-inner border border-border bg-muted px-3 py-2">
                   <p className="text-[11px] font-bold tracking-[0.06em] text-ink-500 uppercase">

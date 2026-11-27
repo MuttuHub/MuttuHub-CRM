@@ -420,3 +420,68 @@ describe("ClientSheet — dialogs stacked over the client file (2.7)", () => {
     expect(screen.getByRole("dialog", { name: /Ficha de Alcaldía de Barranquilla/ })).toBeInTheDocument()
   })
 })
+
+// S18 (T12/T13): opportunities and bitácora entries show their optional tags;
+// an item without tags renders no tag list at all.
+describe("ClientSheet — tags on opportunities and bitácora entries (S18)", () => {
+  beforeEach(() => {
+    useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol: "ADMINISTRADOR" } })
+    clienteQuery.data = CLIENTE
+    clienteQuery.error = null
+    oportunidadesQuery.data = []
+    bitacoraQuery.data = []
+  })
+
+  const OPORTUNIDAD: Oportunidad = {
+    id: "o1",
+    nombre: "Diagnóstico de participación ciudadana",
+    problema_detectado: null,
+    solucion_propuesta: null,
+    servicios_interes: null,
+    valor_estimado_cop: null,
+    estado: "PRESENTADA",
+    fecha_ultima_gestion: null,
+    fase: "PROSPECCION",
+    fecha_adjudicacion: null,
+    fecha_envio_propuesta: null,
+    proyectos_relacionados: null,
+    etiquetas: ["Textil", "Agro"],
+    created_at: "2026-07-01T00:00:00.000Z",
+  }
+
+  const ENTRADA: BitacoraEntrada = {
+    id: "b1",
+    autor_id: "u1",
+    autor_nombre: "Ana Pérez",
+    texto: "Nota rápida",
+    oportunidad_id: null,
+    tipo: "OTRO",
+    proximo_paso: null,
+    etiquetas: ["Textil"],
+    created_at: "2026-01-06T12:00:00.000Z",
+  }
+
+  it("shows an opportunity's tags in the Oportunidades tab", async () => {
+    const user = userEvent.setup()
+    oportunidadesQuery.data = [OPORTUNIDAD, { ...OPORTUNIDAD, id: "o2", nombre: "Sin etiquetas", etiquetas: [] }]
+    renderSheet()
+
+    await user.click(screen.getByRole("tab", { name: "Oportunidades" }))
+
+    const tags = await screen.findAllByRole("list", { name: "Etiquetas" })
+    expect(tags).toHaveLength(1)
+    expect(within(tags[0]).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Textil", "Agro"])
+  })
+
+  it("shows a bitácora entry's tags and none for an untagged entry", async () => {
+    const user = userEvent.setup()
+    bitacoraQuery.data = [ENTRADA, { ...ENTRADA, id: "b2", etiquetas: [] }]
+    renderSheet()
+
+    await user.click(screen.getByRole("tab", { name: "Bitácora" }))
+
+    const tags = await screen.findAllByRole("list", { name: "Etiquetas" })
+    expect(tags).toHaveLength(1)
+    expect(within(tags[0]).getByText("Textil")).toBeInTheDocument()
+  })
+})

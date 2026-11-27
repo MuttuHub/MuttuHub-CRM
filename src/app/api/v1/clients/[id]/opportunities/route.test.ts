@@ -289,3 +289,63 @@ describe("POST /api/v1/clients/:id/opportunities", () => {
     );
   });
 });
+
+// S18 (T12): optional tags on opportunities, validated by the shared ETIQUETAS_SCHEMA.
+describe("POST /api/v1/clients/:id/opportunities — etiquetas (S18)", () => {
+  function allowWrite() {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.create).mockResolvedValue({
+      id: "op-1",
+      nombre: "Proyecto X",
+      etiquetas: ["Textil"],
+    } as never);
+  }
+
+  it("persists the chosen tags and echoes them back", async () => {
+    allowWrite();
+
+    const res = await POST(postRequest({ nombre: "Proyecto X", etiquetas: [" Textil "] }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).oportunidad).toMatchObject({ etiquetas: ["Textil"] });
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ etiquetas: ["Textil"] }) }),
+    );
+  });
+
+  it("still creates an opportunity without tags, storing an empty list", async () => {
+    allowWrite();
+
+    const res = await POST(postRequest({ nombre: "Proyecto X" }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ etiquetas: [] }) }),
+    );
+  });
+
+  it("drops duplicate tags keeping the first occurrence", async () => {
+    allowWrite();
+
+    await POST(postRequest({ nombre: "Proyecto X", etiquetas: ["Textil", "Agro", "Textil"] }), routeContext);
+
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ etiquetas: ["Textil", "Agro"] }) }),
+    );
+  });
+
+  it.each([
+    [[""], "Hay una etiqueta vacía."],
+    [["a".repeat(51)], "Etiqueta muy larga."],
+    [Array.from({ length: 21 }, (_, i) => `t${i}`), "Demasiadas etiquetas (máximo 20)."],
+  ])("returns 400 for invalid tags %#", async (etiquetas, error) => {
+    allowWrite();
+
+    const res = await POST(postRequest({ nombre: "Proyecto X", etiquetas }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR", error });
+    expect(db.oportunidad.create).not.toHaveBeenCalled();
+  });
+});
