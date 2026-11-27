@@ -28,6 +28,10 @@ const READ_SCOPE_NOTE =
 const WRITE_SCOPE_NOTE =
   "Alcance de escritura: COLABORADOR solo edita tareas donde es responsable (o del cliente vinculado, si aplica); " +
   "el resto de roles edita todas.";
+const PROYECTO_NOTE =
+  "V2: `proyecto_id` opcional vincula la tarea a un proyecto. 400 VALIDATION_ERROR si el proyecto no existe o fue " +
+  "eliminado, o si la tarea también tiene `oportunidad_id` y el proyecto no es el de esa oportunidad; 403 FORBIDDEN " +
+  "si el usuario no puede ver el proyecto.";
 const BLOQUEO_NOTE =
   "Regla BLOQUEADA: si `estado` (o el estado resultante) es 'BLOQUEADA', `motivo_bloqueo` es obligatorio " +
   "(400 VALIDATION_ERROR sin él). Al salir de BLOQUEADA hacia cualquier otro estado, el motivo guardado se " +
@@ -60,8 +64,11 @@ const TaskItemSchema = registry.register(
     oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable().openapi({
       description: "RNF-C01: alimenta el chip ámbar/esmeralda del tablero. Null si no hay oportunidad vinculada.",
     }),
+    proyecto_id: z.string().uuid().nullable().openapi({
+      description: "V2: vínculo directo de la tarea con un proyecto (`tareas.proyecto_id`), tal como está guardado.",
+    }),
     proyecto: z.object({ id: z.string().uuid(), codigo: z.string() }).nullable().openapi({
-      description: "D3: proyecto en que se convirtió la oportunidad de la tarea (relación 1:1). Null si no hay proyecto o fue eliminado. El acceso al proyecto lo decide `GET /projects/{id}` (403/404).",
+      description: "V2 + D3: el proyecto de la tarea — el vínculo directo `proyecto_id` si existe; si no, el proyecto en que se convirtió su oportunidad (relación 1:1). Null si no hay proyecto o fue eliminado. El acceso al proyecto lo decide `GET /projects/{id}` (403/404).",
     }),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
@@ -118,6 +125,7 @@ const TaskDetailSchema = registry.register(
     }),
     oportunidad_nombre: z.string().nullable(),
     oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable(),
+    proyecto_id: z.string().uuid().nullable(),
     proyecto: z.object({ id: z.string().uuid(), codigo: z.string() }).nullable(),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
@@ -324,7 +332,9 @@ registry.registerPath({
   description:
     "COLABORADOR: el `responsable_id` enviado se ignora y se fuerza a la propia sesión (no puede crear tareas " +
     "para otra persona); el resto de roles puede asignar cualquier responsable activo. " +
-    BLOQUEO_NOTE,
+    BLOQUEO_NOTE +
+    " " +
+    PROYECTO_NOTE,
   security: [{ sessionCookie: [] }],
   request: { body: { content: { "application/json": { schema: TASK_SCHEMA } } } },
   responses: {
@@ -332,7 +342,7 @@ registry.registerPath({
       description: "Tarea creada.",
       content: { "application/json": { schema: z.object({ task: TaskItemSchema }) } },
     },
-    ...standardErrorResponses([400, 401, 500]),
+    ...standardErrorResponses([400, 401, 403, 500]),
   },
 });
 
@@ -362,7 +372,7 @@ registry.registerPath({
   path: "/api/v1/tasks/{id}",
   tags: ["Tareas"],
   summary: "Actualiza campos de una tarea (parcial)",
-  description: `${WRITE_SCOPE_NOTE} ${BLOQUEO_NOTE} Envía al menos un campo (400 si el cuerpo llega vacío).`,
+  description: `${WRITE_SCOPE_NOTE} ${BLOQUEO_NOTE} ${PROYECTO_NOTE} Envía al menos un campo (400 si el cuerpo llega vacío).`,
   security: [{ sessionCookie: [] }],
   request: {
     params: TaskIdParams,

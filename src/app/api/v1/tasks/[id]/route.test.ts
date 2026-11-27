@@ -25,6 +25,9 @@ vi.mock("@/lib/db", () => ({
     oportunidad: {
       findFirst: vi.fn(),
     },
+    proyecto: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -73,6 +76,8 @@ function writeTareaRow(overrides: Partial<Record<string, unknown>> = {}) {
     id: "task-1",
     responsable_id: overrides.responsable_id ?? "colab-1",
     cliente_id: overrides.cliente_id ?? null,
+    oportunidad_id: overrides.oportunidad_id ?? null,
+    proyecto_id: overrides.proyecto_id ?? null,
     estado: overrides.estado ?? "POR_HACER",
     motivo_bloqueo: overrides.motivo_bloqueo ?? null,
     cliente: overrides.clienteResponsableId
@@ -466,5 +471,118 @@ describe("DELETE /api/v1/tasks/:id", () => {
     const res = await DELETE(new Request("http://localhost/api/v1/tasks/task-1"), routeContext);
 
     expect(res.status).toBe(204);
+  });
+});
+
+// V2 (odd/tasks/producto-pendientes-2026-11.md, S2): PATCH accepts `proyecto_id` under the same rules
+// as POST, and keeps the consistency rule when only the opportunity changes.
+describe("PATCH /api/v1/tasks/:id with proyecto_id (V2)", () => {
+  it("stores a visible project", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "p-1", oportunidad_id: null, miembros: [] } as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ proyecto_id: "p-1" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ proyecto_id: "p-1" }) }),
+    );
+  });
+
+  it("rejects a missing or deleted project with 400", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+
+    const res = await PATCH(patchRequest({ proyecto_id: "p-gone" }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "El proyecto no existe o fue eliminado.", code: "VALIDATION_ERROR" });
+    expect(db.tarea.update).not.toHaveBeenCalled();
+  });
+
+  // The project follows the opportunity: moving, linking or unlinking a task's opportunity sets its project to that
+  // opportunity's live project, or to none. Before V2 these moves succeeded, so they must not start failing.
+  it("moves a project-linked task to another opportunity and re-links it to that opportunity's project", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }) as never,
+    );
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "p-2" } as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-2" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.proyecto.findFirst).toHaveBeenCalledWith({
+      where: { oportunidad_id: "op-2", deleted_at: null },
+      select: { id: true },
+    });
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-2", proyecto_id: "p-2" }) }),
+    );
+  });
+
+  it("drops the project link when the task moves to an opportunity with no live project", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }) as never,
+    );
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-2" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-2", proyecto_id: null }) }),
+    );
+  });
+
+  it("joins the project when an unlinked task is linked to an already-converted opportunity", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ cliente_id: "c-1" }) as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "c-1" } as never);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "p-9" } as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-9" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-9", proyecto_id: "p-9" }) }),
+    );
+  });
+
+  it("drops the project link when the task's opportunity is removed", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ cliente_id: "c-1", oportunidad_id: "op-1", proyecto_id: "p-1" }) as never,
+    );
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: null }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: null, proyecto_id: null }) }),
+    );
+  });
+
+  it("still updates a task without touching projects when proyecto_id is absent", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(taskRow() as never);
+
+    const res = await PATCH(patchRequest({ titulo: "Otro" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.proyecto.findFirst).not.toHaveBeenCalled();
+    const data = vi.mocked(db.tarea.update).mock.calls[0]![0]!.data as Record<string, unknown>;
+    expect(data).not.toHaveProperty("proyecto_id");
   });
 });

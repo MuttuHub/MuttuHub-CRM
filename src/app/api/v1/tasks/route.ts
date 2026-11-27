@@ -3,7 +3,8 @@
 // global: every role sees every task (no per-role scope on the list).
 // POST /api/v1/tasks — create. Writing keeps the permission model of clients:
 // COLABORADOR can only create tasks with themself as responsable (forced
-// below); full roles can assign to anyone.
+// below); full roles can assign to anyone. V2: an optional `proyecto_id` links
+// the task to a project the caller can see (`checkTaskProyecto`).
 //
 // PR 6 (close-phase-1): prioridad / etiqueta / fecha_entrega_desde /
 // fecha_entrega_hasta are server-side clauses now (synthetic-rabin
@@ -33,6 +34,7 @@ import {
   zodError,
 } from "@/lib/api/crm";
 import { canEditTask } from "@/lib/permissions";
+import { canReadProject, loadProjectScoped } from "@/lib/api/projects";
 
 export const dynamic = "force-dynamic";
 
@@ -183,6 +185,8 @@ export const TASK_SCHEMA = z.object({
   responsable_id: z.string().min(1, "El responsable es obligatorio."),
   cliente_id: z.string().optional(),
   oportunidad_id: z.string().nullable().optional(),
+  // V2 (S2): a task created inside a project. Validated by `checkTaskProyecto`.
+  proyecto_id: z.string().nullable().optional(),
   estado: catalogEnum(ESTADOS, "Estado de tarea no válido.").optional(),
   origen: catalogEnum(ORIGENES, "Origen no válido.").optional(),
   prioridad: catalogEnum(
@@ -203,6 +207,29 @@ export const TASK_SCHEMA = z.object({
     .optional(),
   motivo_bloqueo: z.string().trim().max(2000, "El motivo de bloqueo es muy largo.").nullable().optional(),
 });
+
+/**
+ * V2 (S2): a task may link a project only when the project exists, is not deleted, and the caller may
+ * read it (the ficha's own predicate, `canReadProject`, with membership read from the database). When
+ * the task also names an opportunity, the project must be that opportunity's project.
+ */
+export async function checkTaskProyecto(
+  proyecto_id: string,
+  oportunidad_id: string | null | undefined,
+  usuario: Usuario,
+): Promise<Response | null> {
+  const scoped = await loadProjectScoped(usuario, proyecto_id, { id: true, oportunidad_id: true });
+  if (!scoped) {
+    return apiError("El proyecto no existe o fue eliminado.", 400, "VALIDATION_ERROR");
+  }
+  if (!canReadProject(usuario, scoped.es_miembro)) {
+    return apiError("No tienes acceso a ese proyecto.", 403, "FORBIDDEN");
+  }
+  if (oportunidad_id && scoped.row.oportunidad_id !== oportunidad_id) {
+    return apiError("El proyecto no corresponde a la oportunidad de la tarea.", 400, "VALIDATION_ERROR");
+  }
+  return null;
+}
 
 // motivo_bloqueo is mandatory exactly when the task ends up BLOQUEADA.
 export function bloqueoValido(estado: string | undefined, motivo: string | null | undefined): boolean {
@@ -325,6 +352,15 @@ export const POST = withApiErrorHandling(
       if (invariantError) return invariantError;
     }
 
+    if (parsed.data.proyecto_id) {
+      const proyectoError = await checkTaskProyecto(
+        parsed.data.proyecto_id,
+        parsed.data.oportunidad_id,
+        auth.usuario,
+      );
+      if (proyectoError) return proyectoError;
+    }
+
     const tarea = await db.tarea.create({
       data: {
         titulo: parsed.data.titulo,
@@ -332,6 +368,7 @@ export const POST = withApiErrorHandling(
         responsable_id,
         cliente_id: parsed.data.cliente_id,
         oportunidad_id: parsed.data.oportunidad_id ?? undefined,
+        proyecto_id: parsed.data.proyecto_id ?? undefined,
         estado: parsed.data.estado ?? "POR_HACER",
         origen: parsed.data.origen ?? "KANBAN",
         prioridad: parsed.data.prioridad,

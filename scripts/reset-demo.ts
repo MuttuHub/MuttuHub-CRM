@@ -138,6 +138,12 @@ export type DemoResetClient = {
   proyectoLinea: {
     deleteMany(args: { where: { proyecto_id: { in: string[] } } }): Promise<{ count: number }>
   }
+  tarea: {
+    updateMany(args: {
+      where: { proyecto_id: { in: string[] } }
+      data: { proyecto_id: null }
+    }): Promise<{ count: number }>
+  }
   proyecto: {
     deleteMany(args: { where: { id: { in: string[] } } }): Promise<{ count: number }>
   }
@@ -274,6 +280,9 @@ export async function applyDemoReset(
   const lineas = await tx.proyectoLinea.deleteMany({
     where: { proyecto_id: { in: proyectoIds } },
   })
+  // V2: tasks of a converted opportunity point at its project (tareas.proyecto_id, FK NO ACTION). The tasks stay;
+  // only their project link goes, before the project row is deleted.
+  await tx.tarea.updateMany({ where: { proyecto_id: { in: proyectoIds } }, data: { proyecto_id: null } })
   const proyectos = await tx.proyecto.deleteMany({ where: { id: { in: proyectoIds } } })
 
   let oportunidades = 0
