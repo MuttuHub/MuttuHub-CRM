@@ -25,6 +25,8 @@ const DEFAULTS = {
   resumen_diario: true,
   dias_por_vencer: 3,
   categorias: { vencidos: true, hoy: true, proximos: true },
+  recordar_compromisos: { activo: true, dias: 2 },
+  alertar_sin_contacto: { activo: true, dias: 30 },
 };
 
 function mockAuth() {
@@ -173,9 +175,44 @@ describe("PUT /api/v1/settings/automatizaciones", () => {
 
     expect(json).toEqual({
       automatizaciones: {
-        resumen_diario: true,
-        dias_por_vencer: 3,
+        ...DEFAULTS,
         categorias: { vencidos: true, hoy: false, proximos: true },
+      },
+    });
+  });
+
+  it.each([
+    ["recordar_compromisos.dias out of range", { recordar_compromisos: { dias: 31 } }],
+    ["recordar_compromisos.dias non-integer", { recordar_compromisos: { dias: 1.5 } }],
+    ["alertar_sin_contacto.dias out of range", { alertar_sin_contacto: { dias: 0 } }],
+    ["alertar_sin_contacto.dias too large", { alertar_sin_contacto: { dias: 366 } }],
+    ["a malformed rule switch", { alertar_sin_contacto: { activo: "si" } }],
+    ["an empty rule object", { recordar_compromisos: {} }],
+    ["an unknown rule field", { recordar_compromisos: { horas: 2 } }],
+  ])("rejects %s with 400 (V8)", async (_name, body) => {
+    mockAuth();
+
+    const res = await PUT(putRequest(body));
+
+    expect(res.status).toBe(400);
+    expect(db.setting.upsert).not.toHaveBeenCalled();
+  });
+
+  it("merges the V8 rules field by field (V8)", async () => {
+    mockAuth();
+    vi.mocked(db.setting.findUnique).mockResolvedValue({
+      value: { ...DEFAULTS, recordar_compromisos: { activo: true, dias: 4 } },
+    } as never);
+
+    const json = await (
+      await PUT(putRequest({ recordar_compromisos: { activo: false }, alertar_sin_contacto: { dias: 60 } }))
+    ).json();
+
+    expect(json).toEqual({
+      automatizaciones: {
+        ...DEFAULTS,
+        recordar_compromisos: { activo: false, dias: 4 },
+        alertar_sin_contacto: { activo: true, dias: 60 },
       },
     });
   });

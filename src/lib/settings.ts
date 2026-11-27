@@ -36,6 +36,16 @@ export type Automatizaciones = {
   dias_por_vencer: number;
   /** Categorías del resumen que se incluyen. */
   categorias: AutomatizacionesCategorias;
+  /** V8: remind open commitments `dias` calendar days before their due date. */
+  recordar_compromisos: ReglaAutomatizacion;
+  /** V8: alert a client's owner after `dias` or more days without contact. */
+  alertar_sin_contacto: ReglaAutomatizacion;
+};
+
+/** V8 rule: an on/off switch plus its day threshold. */
+export type ReglaAutomatizacion = {
+  activo: boolean;
+  dias: number;
 };
 
 /** Defaults de fábrica del setting `automatizaciones`. */
@@ -43,22 +53,39 @@ export const AUTOMATIZACIONES_DEFAULT: Automatizaciones = {
   resumen_diario: true,
   dias_por_vencer: 3,
   categorias: { vencidos: true, hoy: true, proximos: true },
+  recordar_compromisos: { activo: true, dias: 2 },
+  alertar_sin_contacto: { activo: true, dias: 30 },
 };
 
 export const DIAS_POR_VENCER_MIN = 1;
 export const DIAS_POR_VENCER_MAX = 30;
 
+/** Bounds of `recordar_compromisos.dias` (same window as dias_por_vencer). */
+export const RECORDAR_COMPROMISOS_DIAS_MIN = 1;
+export const RECORDAR_COMPROMISOS_DIAS_MAX = 30;
+/** Bounds of `alertar_sin_contacto.dias`. */
+export const SIN_CONTACTO_DIAS_MIN = 1;
+export const SIN_CONTACTO_DIAS_MAX = 365;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isIntegerBetween(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
 function isDiasPorVencer(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= DIAS_POR_VENCER_MIN &&
-    value <= DIAS_POR_VENCER_MAX
-  );
+  return isIntegerBetween(value, DIAS_POR_VENCER_MIN, DIAS_POR_VENCER_MAX);
+}
+
+/** Per-field fallback for a V8 rule: a malformed half keeps its default. */
+function parseRegla(raw: unknown, fallback: ReglaAutomatizacion, min: number, max: number): ReglaAutomatizacion {
+  const result = { ...fallback };
+  if (!isRecord(raw)) return result;
+  if (typeof raw.activo === "boolean") result.activo = raw.activo;
+  if (isIntegerBetween(raw.dias, min, max)) result.dias = raw.dias;
+  return result;
 }
 
 /**
@@ -106,6 +133,18 @@ export function parseAutomatizaciones(raw: unknown): Automatizaciones {
     if (typeof categorias.hoy === "boolean") result.categorias.hoy = categorias.hoy;
     if (typeof categorias.proximos === "boolean") result.categorias.proximos = categorias.proximos;
   }
+  result.recordar_compromisos = parseRegla(
+    raw.recordar_compromisos,
+    result.recordar_compromisos,
+    RECORDAR_COMPROMISOS_DIAS_MIN,
+    RECORDAR_COMPROMISOS_DIAS_MAX,
+  );
+  result.alertar_sin_contacto = parseRegla(
+    raw.alertar_sin_contacto,
+    result.alertar_sin_contacto,
+    SIN_CONTACTO_DIAS_MIN,
+    SIN_CONTACTO_DIAS_MAX,
+  );
   return result;
 }
 

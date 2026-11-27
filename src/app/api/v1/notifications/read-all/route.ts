@@ -3,13 +3,14 @@
 // GET (mismo motor, mismas reglas de alcance) y hace updateMany sobre las
 // tarea_id incluidas. Documentado: las filas de alertas que ya salieron del
 // snapshot (tarea completada/borrada) no se tocan — el "todas" es sobre lo
-// visible ahora.
+// visible ahora. V8: incluye los recordatorios y las alertas «sin contacto» visibles.
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { markSnapshotRead } from "@/lib/alerts";
 import { marcarNotificacionesProyectoLeidas } from "@/lib/api/notificaciones-proyecto";
+import { marcarSinContactoLeidas } from "@/lib/automatizaciones/notificaciones";
 import { buildSnapshot } from "@/app/api/v1/notifications/route";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +28,14 @@ export const PATCH = withApiErrorHandling(
       ...snapshot.vencidos,
       ...snapshot.hoy,
       ...snapshot.proximos3,
+      ...snapshot.recordatorios,
     ].map((item) => item.id);
+    const sinContactoIds = snapshot.sin_contacto.map((item) => item.notificacion_id);
 
     const updated =
-      (await markSnapshotRead(auth.usuario, tareaIds)) + (await marcarNotificacionesProyectoLeidas(auth.usuario));
+      (await markSnapshotRead(auth.usuario, tareaIds)) +
+      (await marcarNotificacionesProyectoLeidas(auth.usuario)) +
+      (await marcarSinContactoLeidas(auth.usuario, sinContactoIds));
     return NextResponse.json({ ok: true, updated });
   },
 );

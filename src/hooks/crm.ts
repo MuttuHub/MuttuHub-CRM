@@ -150,11 +150,21 @@ type AutomatizacionesCategorias = {
   proximos: boolean;
 };
 
+/** V8: una regla de aviso — interruptor y umbral en días. */
+export type ReglaAutomatizacion = {
+  activo: boolean;
+  dias: number;
+};
+
 /** v7 C7a: configuración del seguimiento automático que lee el cron diario. */
 export type Automatizaciones = {
   resumen_diario: boolean;
   dias_por_vencer: number;
   categorias: AutomatizacionesCategorias;
+  /** V8: «Recordar compromisos N días antes». */
+  recordar_compromisos: ReglaAutomatizacion;
+  /** V8: «Alertar N días sin contacto». */
+  alertar_sin_contacto: ReglaAutomatizacion;
 };
 
 /** v7 C7a: cuerpo del PUT — actualización parcial de `Automatizaciones`. */
@@ -162,6 +172,8 @@ export type AutomatizacionesInput = {
   resumen_diario?: boolean;
   dias_por_vencer?: number;
   categorias?: Partial<AutomatizacionesCategorias>;
+  recordar_compromisos?: Partial<ReglaAutomatizacion>;
+  alertar_sin_contacto?: Partial<ReglaAutomatizacion>;
 };
 
 export type Oportunidad = {

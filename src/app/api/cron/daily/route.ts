@@ -21,6 +21,14 @@
 // está apagado, porque el outbox lleva otros avisos. Es best-effort: un fallo
 // del outbox nunca cambia la respuesta ni el log del resumen. Se registra en
 // cron_logs como job `email-outbox` solo cuando hubo filas que procesar.
+//
+// V8: antes del outbox corren las reglas «recordar compromisos N días antes» y
+// «alertar N días sin contacto» (src/lib/automatizaciones/reglas.ts). Encolan su
+// propio correo y crean la notificación in-app (idempotentes en un reintento del
+// mismo día), también con el resumen apagado; sus avisos entran además como
+// secciones del resumen. Best-effort: un fallo se registra como job
+// `automation-rules` y el resumen sale sin esas secciones. Con ambas reglas
+// apagadas el flujo y el resumen son exactamente los de antes.
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
@@ -28,15 +36,17 @@ import type { Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { filterBucketsByCategorias, getAlertBuckets, startOfLocalDay } from "@/lib/alerts";
-import { sendDailySummary } from "@/lib/email";
+import { runReglas, type ReglasRun } from "@/lib/automatizaciones/reglas";
+import { sendDailySummary, type DigestReglas } from "@/lib/email";
 import { processOutbox } from "@/lib/email/outbox";
 import { resolveEmailTransport, type EmailSender } from "@/lib/email/sender";
-import { getAutomatizaciones } from "@/lib/settings";
+import { getAutomatizaciones, type Automatizaciones } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export const JOB_NAME = "daily-notifications";
 export const OUTBOX_JOB_NAME = "email-outbox";
+export const RULES_JOB_NAME = "automation-rules";
 /** Emails per cron run; the 8:30 retry run drains the next batch. */
 const OUTBOX_BATCH = 200;
 
@@ -55,6 +65,54 @@ async function recordJobLog(
     // Sin tabla cron_logs no se aborta la corrida: solo log local.
     console.error("[cron] cron_logs write failed:", err);
   }
+}
+
+/** Best-effort V8 rules: null when both are off or the run failed (then logged). */
+async function runReglasBestEffort(automatizaciones: Automatizaciones): Promise<ReglasRun | null> {
+  if (!automatizaciones.recordar_compromisos.activo && !automatizaciones.alertar_sin_contacto.activo) {
+    return null;
+  }
+  try {
+    const run = await runReglas(automatizaciones);
+    await recordJobLog(
+      "OK",
+      `recordatorios=${run.recordatorios?.items.length ?? "off"} ` +
+        `sin_contacto=${run.sinContacto?.items.length ?? "off"} enqueued=${run.enqueued}`,
+      RULES_JOB_NAME,
+    );
+    return run;
+  } catch (err) {
+    console.error("[cron] automation rules failed:", err);
+    await recordJobLog("ERROR", (err as Error).message || String(err), RULES_JOB_NAME);
+    return null;
+  }
+}
+
+/**
+ * The V8 digest sections for one recipient: reminders follow the digest's own
+ * scope (own tasks for COLABORADOR, all for the rest); «sin contacto» lists only
+ * the clients the recipient is responsable for. undefined when no rule ran.
+ */
+function digestReglasPara(
+  run: ReglasRun | null,
+  usuario: CronUsuario,
+  scope: "own" | "all",
+): DigestReglas | undefined {
+  if (!run || (!run.recordatorios && !run.sinContacto)) return undefined;
+  const reglas: DigestReglas = {};
+  if (run.recordatorios) {
+    reglas.recordatorios = {
+      dias: run.recordatorios.dias,
+      items: run.recordatorios.items.filter((it) => scope === "all" || it.responsable_id === usuario.id),
+    };
+  }
+  if (run.sinContacto) {
+    reglas.sinContacto = {
+      dias: run.sinContacto.dias,
+      items: run.sinContacto.items.filter((it) => it.responsable_id === usuario.id),
+    };
+  }
+  return reglas;
 }
 
 /** Best-effort outbox drain: never throws, never touches the summary's result. */
@@ -82,7 +140,12 @@ export async function POST() {
     return apiError("No autorizado.", 401, "UNAUTHORIZED");
   }
 
-  // 1b) Outbox: se vacía con el transporte configurado. Sin transporte no se
+  // 1b) V8: las reglas encolan sus correos antes del vaciado, así salen en
+  // esta misma corrida.
+  const automatizaciones = await getAutomatizaciones();
+  const reglasRun = await runReglasBestEffort(automatizaciones);
+
+  // 1c) Outbox: se vacía con el transporte configurado. Sin transporte no se
   // intenta nada (las filas quedan PENDIENTE sin gastar intentos).
   const transport = resolveEmailTransport();
   if (transport.ok) await drainOutbox(transport.sender);
@@ -90,7 +153,6 @@ export async function POST() {
   // 2) Automatizaciones: si el resumen diario está apagado, no hay nada que
   // mandar. Se registra SKIPPED_DISABLED y se responde 200 sin tocar Resend
   // ni la lista de destinatarios.
-  const automatizaciones = await getAutomatizaciones();
   if (!automatizaciones.resumen_diario) {
     await recordJobLog("SKIPPED_DISABLED", "resumen_diario=false; envío omitido");
     return NextResponse.json({
@@ -168,7 +230,13 @@ export async function POST() {
       const rawBuckets = await getAlertBuckets(scope, usuario, automatizaciones.dias_por_vencer);
       // Omite las categorías que el admin desactivó en Automatizaciones.
       const buckets = filterBucketsByCategorias(rawBuckets, automatizaciones.categorias);
-      const total = buckets.vencidos.length + buckets.hoy.length + buckets.proximos3.length;
+      const reglas = digestReglasPara(reglasRun, usuario, scope);
+      const total =
+        buckets.vencidos.length +
+        buckets.hoy.length +
+        buckets.proximos3.length +
+        (reglas?.recordatorios?.items.length ?? 0) +
+        (reglas?.sinContacto?.items.length ?? 0);
 
       if (total === 0) {
         summary.skipped_empty += 1;
@@ -176,7 +244,10 @@ export async function POST() {
       }
 
       summary.processed += 1;
-      const result = await sendDailySummary(usuario, buckets);
+      // Without V8 sections the call is the pre-V8 one (two arguments).
+      const result = reglas
+        ? await sendDailySummary(usuario, buckets, reglas)
+        : await sendDailySummary(usuario, buckets);
       if (result.ok) {
         summary.sent += 1;
       } else {

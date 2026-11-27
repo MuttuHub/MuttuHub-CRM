@@ -41,6 +41,22 @@ const NotificacionProyectoSchema = registry.register(
   }),
 );
 
+const NotificacionSinContactoSchema = registry.register(
+  "NotificacionSinContacto",
+  z.object({
+    notificacion_id: z.string().uuid(),
+    tipo: z.enum(["SIN_CONTACTO"]),
+    cliente_id: z.string().uuid(),
+    cliente_nombre: z.string(),
+    dias_sin_contacto: z.number().int().openapi({
+      description: "Días desde el último contacto en bitácora, o desde la creación del cliente si no tiene ninguno.",
+    }),
+    mensaje: z.string().openapi({ example: "Fundación Uno lleva 30 días sin contacto" }),
+    leida: z.boolean(),
+    created_at: z.string().datetime(),
+  }),
+);
+
 const NotificationsSnapshotSchema = registry.register(
   "NotificationsSnapshot",
   z.object({
@@ -52,6 +68,14 @@ const NotificationsSnapshotSchema = registry.register(
     proyectos: z.array(NotificacionProyectoSchema).openapi({
       description:
         "v2 (S6/M7): notificaciones de proyecto del propio usuario. SOBREGASTO_RUBRO solo para GERENCIA; GASTO_RECHAZADO para quien registró el gasto rechazado, con cualquier rol. `total` las incluye.",
+    }),
+    recordatorios: z.array(AlertItemSchema).openapi({
+      description:
+        "V8: tareas propias abiertas que vencen dentro de los N días de «Recordar compromisos» y que `proximos3` no muestra (vacío con la regla apagada o N ≤ 3). `total` las incluye.",
+    }),
+    sin_contacto: z.array(NotificacionSinContactoSchema).openapi({
+      description:
+        "V8: alertas «sin contacto» propias cuyo tramo sigue abierto (cliente activo, sin contacto registrado desde la alerta). `total` las incluye.",
     }),
   }),
 );
