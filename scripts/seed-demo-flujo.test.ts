@@ -12,6 +12,9 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("../prisma/require-local-db", () => ({}))
 vi.mock("../src/lib/db", () => ({ db: {} }))
 
+import { cardAction } from "@/components/kanban/board-logic"
+import type { CardTask } from "@/components/kanban/task-card"
+
 import {
   FREE_GANADA_COUNT,
   MARKER_ID_PREFIX,
@@ -34,6 +37,7 @@ const none = (): ExistingIds => ({
   contactos: new Set(),
   oportunidades: new Set(),
   interacciones: new Set(),
+  tareas: new Set(),
 })
 
 function allIds(d: DemoFlujoData): ExistingIds {
@@ -42,6 +46,7 @@ function allIds(d: DemoFlujoData): ExistingIds {
     contactos: new Set(d.contactos.map((c) => c.id)),
     oportunidades: new Set(d.oportunidades.map((o) => o.id)),
     interacciones: new Set(d.interacciones.map((i) => i.id)),
+    tareas: new Set(d.tareas.map((t) => t.id)),
   }
 }
 
@@ -128,6 +133,37 @@ describe("buildDemoFlujoData", () => {
     }
   })
 
+  // D4: the board offers «Pasar a nuevo proyecto →» on a completed commercial task of a GANADA opportunity with no
+  // project; without one the demo cannot show that action (docs/plan-trabajo-restante.md:229).
+  it("leaves a completed commercial task on a free GANADA opportunity, so the board offers «Pasar a nuevo proyecto →»", () => {
+    const libres = new Set(data.oportunidades.filter((o) => o.estado === "GANADA").map((o) => o.id))
+    const acciones = data.tareas.map((t) => {
+      const oportunidad = data.oportunidades.find((o) => o.id === t.oportunidadId)!
+      const card = {
+        estado: t.estado,
+        oportunidad_id: t.oportunidadId,
+        oportunidad_fase: oportunidad.fase,
+        puede_editar: true,
+        proyecto: null,
+      } as unknown as CardTask
+      return cardAction(card, libres)
+    })
+    expect(acciones).toContainEqual({
+      kind: "convert",
+      oportunidadId: expect.any(String),
+      label: "Pasar a nuevo proyecto →",
+    })
+    const comercial = data.tareas.find((t) => t.estado === "COMPLETADA")!
+    expect(comercial.origen).toBe("CRM")
+    expect(comercial.clienteId).toBe(data.oportunidades.find((o) => o.id === comercial.oportunidadId)!.clienteId)
+  })
+
+  it("keeps every task id inside the marker namespace and away from the other kinds", () => {
+    for (const t of data.tareas) expect(t.id.startsWith(MARKER_ID_PREFIX)).toBe(true)
+    const otros = new Set([...data.clientes, ...data.contactos, ...data.oportunidades, ...data.interacciones].map((x) => x.id))
+    for (const t of data.tareas) expect(otros.has(t.id)).toBe(false)
+  })
+
   it("is internally consistent", () => {
     expect(checkDemoFlujoData(data)).toEqual([])
   })
@@ -140,6 +176,10 @@ describe("buildDemoFlujoData", () => {
     expect(checkDemoFlujoData(duplicada).join(" ")).toMatch(/duplicate/i)
     const huerfano: DemoFlujoData = { ...data, contactos: [{ ...data.contactos[0], clienteId: "nope" }, ...data.contactos.slice(1)] }
     expect(checkDemoFlujoData(huerfano).join(" ")).toMatch(/unknown client/)
+    const ajena = data.oportunidades.find((o) => o.clienteId !== data.tareas[0].clienteId)!
+    const cruzada: DemoFlujoData = { ...data, tareas: [{ ...data.tareas[0], oportunidadId: ajena.id }] }
+    expect(checkDemoFlujoData(cruzada).join(" ")).toMatch(/opportunity of another client/)
+    expect(checkDemoFlujoData({ ...data, tareas: [] }).join(" ")).toMatch(/Pasar a nuevo proyecto/)
   })
 })
 
@@ -151,6 +191,7 @@ describe("planDemoFlujo (idempotency)", () => {
     expect(plan.oportunidades).toHaveLength(12)
     expect(plan.contactos).toHaveLength(data.contactos.length)
     expect(plan.interacciones).toHaveLength(data.interacciones.length)
+    expect(plan.tareas).toHaveLength(data.tareas.length)
   })
 
   it("changes nothing when every demo id already exists", () => {
@@ -160,6 +201,16 @@ describe("planDemoFlujo (idempotency)", () => {
     expect(plan.oportunidades).toHaveLength(0)
     expect(plan.contactos).toHaveLength(0)
     expect(plan.interacciones).toHaveLength(0)
+    expect(plan.tareas).toHaveLength(0)
+  })
+
+  it("adds only the commercial task to a database seeded before it existed", () => {
+    const existing = allIds(data)
+    existing.tareas.clear()
+    const plan = planDemoFlujo(data, existing)
+    expect(plan.decision).toBe("top-up")
+    expect(plan.tareas.map((t) => t.id)).toEqual(data.tareas.map((t) => t.id))
+    expect(plan.oportunidades).toHaveLength(0)
   })
 
   it("tops up only what is missing after an interrupted run", () => {
@@ -185,6 +236,7 @@ function fakeClient(existing: ExistingIds): { client: DemoFlujoClient; count: { 
     contacto: finder(existing.contactos),
     oportunidad: finder(existing.oportunidades),
     bitacoraEntrada: finder(existing.interacciones),
+    tarea: finder(existing.tareas),
   } as unknown as DemoFlujoClient
   return { client, count }
 }
