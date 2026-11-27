@@ -197,6 +197,7 @@ export const POST = withApiErrorHandling(
               oportunidad.valor_estimado_cop,
             ),
             beneficiarios_meta: parsed.data.beneficiarios_meta ?? null,
+            etiquetas: parsed.data.etiquetas ?? [],
             lineas: {
               create: parsed.data.lineas.map((linea) => ({
                 linea_id: linea.id,

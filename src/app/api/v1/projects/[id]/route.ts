@@ -1,10 +1,10 @@
 // GET /api/v1/projects/:id — one project ficha (contract E-06, P02).
 // PATCH /api/v1/projects/:id — general data of a BORRADOR project (E-06, P06). An EN_EJECUCION
-// project accepts ONLY `descripcion` and `beneficiarios_meta` (UX-3): the other fields change the
+// project accepts ONLY `descripcion`, `beneficiarios_meta` and `etiquetas` (UX-3, T1): the other fields change the
 // baseline and go through a modification request instead.
 //
 // PATCH accepts nombre, descripcion, origen, fecha_inicio, fecha_fin,
-// beneficiarios_meta, responsable_id, `lineas` (N..N replacement) and
+// beneficiarios_meta, responsable_id, `etiquetas` (full replacement), `lineas` (N..N replacement) and
 // `municipio_ids` (N..N replacement). Every scalar write, both join
 // replacements and all audit rows happen in ONE transaction (ADR-05,
 // REQ-AUD-03); the audit is one row per changed field and per changed line or
@@ -45,16 +45,18 @@ import {
   type ProjectRowV2,
 } from "@/lib/api/projects";
 import { lockProyecto } from "@/lib/api/presupuesto";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 
 const PROYECTO_GENERAL_STATE_MESSAGE =
   "Los datos generales solo se pueden editar en Borrador o en Ejecución.";
 const PROYECTO_GENERAL_CAMBIO_ESTADO_MESSAGE =
   "El proyecto cambió de estado mientras lo editabas. Recarga la ficha e inténtalo de nuevo.";
 const EJECUCION_CAMPOS_MESSAGE =
-  "En un proyecto en ejecución solo se pueden editar la descripción y los beneficiarios. Los demás datos cambian la línea base: solicítalo como modificación.";
+  "En un proyecto en ejecución solo se pueden editar la descripción, los beneficiarios y las etiquetas. Los demás datos cambian la línea base: solicítalo como modificación.";
 
 /** The only fields an EN_EJECUCION project lets the PATCH write (the rest changes the baseline). */
-const EJECUCION_CAMPOS_EDITABLES = ["descripcion", "beneficiarios_meta"] as const;
+// T1 (S1): tags classify the project for reports; they are not part of the baseline.
+const EJECUCION_CAMPOS_EDITABLES = ["descripcion", "beneficiarios_meta", "etiquetas"] as const;
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +102,8 @@ export const PROJECT_PATCH_SCHEMA = z.object({
     .nullable()
     .optional(),
   responsable_id: z.string().min(1, "El responsable no puede estar vacío.").nullable().optional(),
+  // T1 (S1): full replacement of the tags; [] clears them.
+  etiquetas: ETIQUETAS_SCHEMA.optional(),
   lineas: z
     .array(
       z.object({
@@ -247,6 +251,7 @@ export const PATCH = withApiErrorHandling(
     if (parsed.data.beneficiarios_meta !== undefined) {
       patch.beneficiarios_meta = parsed.data.beneficiarios_meta;
     }
+    if (parsed.data.etiquetas !== undefined) patch.etiquetas = parsed.data.etiquetas;
     if (parsed.data.responsable_id !== undefined) {
       patch.responsable_id = parsed.data.responsable_id;
     }
@@ -347,7 +352,11 @@ export const PATCH = withApiErrorHandling(
         });
       }
       if (Object.keys(patch).length > 0) {
-        await tx.proyecto.update({ where: { id }, data: patch });
+        const { etiquetas, ...escalares } = patch;
+        await tx.proyecto.update({
+          where: { id },
+          data: etiquetas === undefined ? escalares : { ...escalares, etiquetas: { set: etiquetas } },
+        });
       }
 
       const fresh = await tx.proyecto.findUniqueOrThrow({

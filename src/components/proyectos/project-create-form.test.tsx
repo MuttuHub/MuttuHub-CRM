@@ -3,7 +3,7 @@
 // what the page relies on: the `onCreated` / `onCreatedWithoutId` callbacks, the optional cancel button,
 // the submit label, the help hints and the absence of dialog chrome in the page variant.
 
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api/http"
@@ -58,6 +58,11 @@ vi.mock("@/hooks/crm", () => ({
 
 vi.mock("@/hooks/kanban", () => ({
   useCurrentUser: useCurrentUserMock,
+}))
+
+// T1 (S1): the tag chips read the live `task_tags` catalogue.
+vi.mock("@/hooks/admin", () => ({
+  useTaskTags: () => ({ data: ["Fábrica Milagro", "Reconstrucción", "Distrito Creativo"] }),
 }))
 
 const USER = { id: "u1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" }
@@ -211,6 +216,31 @@ describe("ProjectCreateForm", () => {
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
     await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
     expect(createProject.mutateAsync.mock.calls[0][0]).toMatchObject({ descripcion: "Alcance del convenio" })
+  })
+
+  it("T1 (S1): sends the chosen tags with the project", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await elegirCliente(user, "Cliente Uno")
+    await user.type(screen.getByLabelText("Nombre"), "Libre")
+    await elegirMunicipio(user)
+    const grupo = screen.getByRole("group", { name: "Etiquetas" })
+    await user.click(within(grupo).getByRole("button", { name: "Reconstrucción" }))
+    await user.click(within(grupo).getByRole("button", { name: "Fábrica Milagro" }))
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
+    expect(createProject.mutateAsync.mock.calls[0][0]).toMatchObject({ etiquetas: ["Reconstrucción", "Fábrica Milagro"] })
+  })
+
+  it("T1 (S1): sends no tags when none is chosen", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await elegirCliente(user, "Cliente Uno")
+    await user.type(screen.getByLabelText("Nombre"), "Libre")
+    await elegirMunicipio(user)
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
+    expect(createProject.mutateAsync.mock.calls[0][0]).not.toHaveProperty("etiquetas")
   })
 
   it("does not send a description when the field is blank", async () => {

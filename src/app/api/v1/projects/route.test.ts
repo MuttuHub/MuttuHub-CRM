@@ -110,6 +110,7 @@ const proyectoRow = {
   valor_total: new Prisma.Decimal("245450000.00"),
   diferencia_valor_oportunidad: null,
   beneficiarios_meta: 120,
+  etiquetas: ["Fábrica Milagro"],
   lineas: [
     { principal: true, linea: { id: "linea-1", codigo: "LE01", nombre: "Empleabilidad" } },
     { principal: false, linea: { id: "linea-2", codigo: "LE02", nombre: "Emprendimiento" } },
@@ -240,6 +241,7 @@ describe("GET /api/v1/projects", () => {
         diferencia_valor_oportunidad: null,
         alertas: [],
         beneficiarios_meta: 120,
+        etiquetas: ["Fábrica Milagro"],
         lineas: [
           { id: "linea-1", codigo: "LE01", nombre: "Empleabilidad", principal: true },
           { id: "linea-2", codigo: "LE02", nombre: "Emprendimiento", principal: false },
@@ -726,6 +728,50 @@ describe("POST /api/v1/projects (E-03)", () => {
     expect(res.status).toBe(400);
     expect(json.code).toBe("VALIDATION_ERROR");
     expect(json.error).toBe("Algún municipio no existe o está suspendido.");
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+});
+
+// T1 (S1): project tags — the same catalogue and rules as clients and tasks.
+describe("project tags (S1)", () => {
+  it("narrows the list to projects carrying the exact ?etiqueta=", async () => {
+    await GET(listRequest("?etiqueta=F%C3%A1brica%20Milagro"));
+
+    expect(mocks.proyectoFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deleted_at: null, etiquetas: { has: "Fábrica Milagro" } },
+      }),
+    );
+  });
+
+  it("ignores a blank ?etiqueta=", async () => {
+    await GET(listRequest("?etiqueta=%20%20"));
+
+    expect(mocks.proyectoFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deleted_at: null } }),
+    );
+  });
+
+  it("stores the trimmed, deduplicated tags at creation and [] when omitted", async () => {
+    await POST(postRequest({ ...createBody, etiquetas: [" Reconstrucción ", "Reconstrucción", "Distrito Creativo"] }));
+    await POST(postRequest(createBody));
+
+    const datas = mocks.txProyectoCreate.mock.calls.map(
+      (call) => (call[0] as { data: { etiquetas: unknown } }).data.etiquetas,
+    );
+    expect(datas).toEqual([["Reconstrucción", "Distrito Creativo"], []]);
+  });
+
+  it.each([
+    ["an empty tag", [" "], "Hay una etiqueta vacía."],
+    ["a tag over 50 characters", ["x".repeat(51)], "Etiqueta muy larga."],
+    ["more than 20 tags", Array.from({ length: 21 }, (_, i) => `t${i}`), "Demasiadas etiquetas (máximo 20)."],
+  ])("rejects %s with 400 and creates nothing", async (_caso, etiquetas, mensaje) => {
+    const res = await POST(postRequest({ ...createBody, etiquetas }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: mensaje });
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 });

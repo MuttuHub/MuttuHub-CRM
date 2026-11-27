@@ -76,6 +76,9 @@ export const ProjectItemV2Schema = registry.register(
           "Avisos no bloqueantes derivados de la diferencia (S2.4). Vacío cuando no hay diferencia o es cero.",
       }),
     beneficiarios_meta: z.number().int().nullable(),
+    etiquetas: z.array(z.string()).openapi({
+      description: "Etiquetas del proyecto (T1, S1), del mismo catálogo que clientes y tareas (setting task_tags). [] si no tiene.",
+    }),
     lineas: z.array(ProjectLineaSchema),
     municipios: z.array(ProjectMunicipioSchema),
   }),
@@ -100,6 +103,10 @@ const ProjectListQuery = z.object({
   linea_id: z.string().uuid().optional(),
   municipio_id: z.string().uuid().optional(),
   responsable_id: z.string().uuid().optional(),
+  etiqueta: z
+    .string()
+    .optional()
+    .openapi({ description: "Filtra por proyectos que llevan esta etiqueta exacta (catálogo task_tags).", example: "Reconstrucción" }),
 });
 
 const SCOPE_NOTE =
@@ -150,7 +157,8 @@ registry.registerPath({
     "`codigo`, `estado`, `oportunidad_id`, `deleted_at`, `valor_total`, `umbrales_override`, `programacion_pendiente`, " +
     "`diferencia_valor_oportunidad` (S2.4) y `alertas` se rechazan con 400. `valor_total` es la suma de las líneas del " +
     "presupuesto (T11 S2): el proyecto nace con `valor_total = 0` y lo actualiza `PUT /projects/{id}/budget`. Las líneas estratégicas y los " +
-    "municipios deben existir y estar activos (V-04); uno suspendido responde 400. 404 si el cliente no existe.",
+    "municipios deben existir y estar activos (V-04); uno suspendido responde 400. 404 si el cliente no existe. " +
+    "`etiquetas` (T1) es opcional: recorta, quita duplicados, 1–50 caracteres y máximo 20; se guarda [] si no llega.",
   security: [{ sessionCookie: [] }],
   request: { body: { content: { "application/json": { schema: PROJECT_CREATE_SCHEMA } } } },
   responses: {
@@ -302,9 +310,9 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Edita los datos generales de un proyecto en Borrador o en Ejecución (P06, solo ADM/GER)",
   description:
-    "Acepta `nombre`, `descripcion` (máx. 2000; vacío guarda null), `origen`, `fecha_inicio`, `fecha_fin`, `beneficiarios_meta`, `responsable_id`, " +
+    "Acepta `nombre`, `descripcion` (máx. 2000; vacío guarda null), `origen`, `fecha_inicio`, `fecha_fin`, `beneficiarios_meta`, `responsable_id`, `etiquetas` (reemplazo completo; [] las quita), " +
     "`lineas` (reemplazo N..N, 1..n con exactamente una principal) y `municipio_ids` (reemplazo N..N). " +
-    "En `EN_EJECUCION` solo acepta `descripcion` y `beneficiarios_meta` (mayor que cero, no se puede vaciar): cualquier otro campo responde 409 INVALID_STATE, porque cambia la línea base y se pide como modificación. " +
+    "En `EN_EJECUCION` solo acepta `descripcion`, `beneficiarios_meta` (mayor que cero, no se puede vaciar) y `etiquetas`: cualquier otro campo responde 409 INVALID_STATE, porque cambia la línea base y se pide como modificación. " +
     "En cualquier otro estado responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +
     "(S2.6), `diferencia_valor_oportunidad` (S2.4) y `valor_total` se rechazan con 400, también en `EN_EJECUCION`. " +

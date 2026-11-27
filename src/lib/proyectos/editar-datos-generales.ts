@@ -1,6 +1,6 @@
 // Pure rules of the "Editar datos generales" dialog (UX-3): which fields are validated, which are sent.
-// In BORRADOR every general field is editable; in EN_EJECUCION only `descripcion` and the number of
-// beneficiaries are, because dates change the baseline (they go through a modification request).
+// In BORRADOR every general field is editable; in EN_EJECUCION only `descripcion`, the number of
+// beneficiaries and the tags (T1, S1) are, because dates change the baseline (they go through a modification request).
 // `valor_total` is not a field here: it is the sum of the budget lines (T11 S2) and only the budget writes it.
 // The validators are the same ones the creation form and the API use: no rule is forked here.
 
@@ -33,6 +33,8 @@ export type DatosGenerales = {
   beneficiarios: string
   lineas: { id: string; principal: boolean }[]
   municipioIds: string[]
+  /** T1 (S1): tags from the `task_tags` catalogue. */
+  etiquetas: string[]
 }
 
 export type ErrorDatosGenerales = { campo: CampoDatosGenerales; mensaje: string }
@@ -83,11 +85,13 @@ export type CuerpoCambios = {
   beneficiarios_meta?: number | null
   lineas?: { id: string; principal: boolean }[]
   municipio_ids?: string[]
+  etiquetas?: string[]
 }
 
 /**
- * The PATCH body: only what changed. In EN_EJECUCION it can only ever carry `descripcion` and
- * `beneficiarios_meta` (the server rejects anything else). A blank description is sent as "" (the server
+ * The PATCH body: only what changed. In EN_EJECUCION it can only ever carry `descripcion`,
+ * `beneficiarios_meta` and `etiquetas` (the server rejects anything else). Tags are a set: a new order alone
+ * is not a change. A blank description is sent as "" (the server
  * stores null); a blank beneficiaries box is sent as null (BORRADOR only: validation blocks it in execution).
  */
 export function cuerpoDeCambios(inicial: DatosGenerales, actual: DatosGenerales, modo: ModoEdicion): CuerpoCambios {
@@ -100,6 +104,7 @@ export function cuerpoDeCambios(inicial: DatosGenerales, actual: DatosGenerales,
   if (beneficiarios !== inicial.beneficiarios.trim()) {
     cuerpo.beneficiarios_meta = beneficiarios === "" ? null : Number(beneficiarios)
   }
+  if (!mismoConjunto(actual.etiquetas, inicial.etiquetas)) cuerpo.etiquetas = actual.etiquetas
 
   if (modo === "BORRADOR") {
     const nombre = actual.nombre.trim()

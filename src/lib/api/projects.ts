@@ -68,6 +68,7 @@ export const PROJECT_SELECT_V2 = {
   valor_total: true,
   diferencia_valor_oportunidad: true,
   beneficiarios_meta: true,
+  etiquetas: true,
   lineas: {
     select: { principal: true, linea: { select: { id: true, codigo: true, nombre: true } } },
   },
@@ -96,6 +97,8 @@ export type ProjectItemV2 = {
   /** Non-blocking alerts derived from the stored difference (S2.4). */
   alertas: AlertaProyecto[];
   beneficiarios_meta: number | null;
+  /** T1 (S1): tags from the `task_tags` catalogue; [] when none. */
+  etiquetas: string[];
   lineas: { id: string; codigo: string; nombre: string; principal: boolean }[];
   municipios: { id: string; nombre: string; departamento: string }[];
 };
@@ -123,6 +126,7 @@ export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
     diferencia_valor_oportunidad: row.diferencia_valor_oportunidad,
     alertas: alertasProyecto(row.diferencia_valor_oportunidad),
     beneficiarios_meta: row.beneficiarios_meta,
+    etiquetas: row.etiquetas,
     lineas: row.lineas.map((link) => ({
       id: link.linea.id,
       codigo: link.linea.codigo,
@@ -385,6 +389,8 @@ export type ProjectListFilters = {
   linea_id?: string;
   municipio_id?: string;
   responsable_id?: string;
+  /** T1 (S1): exact, case-sensitive match, like the clients and tasks filters. */
+  etiqueta?: string;
 };
 
 /**
@@ -412,6 +418,7 @@ export function projectListWhere(
   if (filters.responsable_id) where.responsable_id = filters.responsable_id;
   if (filters.linea_id) where.lineas = { some: { linea_id: filters.linea_id } };
   if (filters.municipio_id) where.municipios = { some: { municipio_id: filters.municipio_id } };
+  if (filters.etiqueta) where.etiquetas = { has: filters.etiqueta };
 
   return where;
 }
@@ -431,6 +438,7 @@ export const AUDITED_PROJECT_FIELDS = [
   "diferencia_valor_oportunidad",
   "beneficiarios_meta",
   "responsable_id",
+  "etiquetas",
 ] as const;
 
 export type ProjectLineaLink = { id: string; principal: boolean };

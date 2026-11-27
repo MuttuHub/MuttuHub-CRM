@@ -32,9 +32,9 @@ import {
 import { canEditClient, canManageAny, canManageOpportunity } from "@/lib/permissions";
 import {
   CLIENT_DETAIL_SELECT,
-  CLIENT_ETIQUETAS_SCHEMA,
   enrichClients,
 } from "@/app/api/v1/clients/route";
+import { ETIQUETAS_SCHEMA } from "@/lib/api/etiquetas";
 import {
   DEPARTAMENTO_NO_VALIDO,
   DEPARTAMENTO_SCHEMA,
@@ -77,7 +77,7 @@ export const PATCH_CLIENT_SCHEMA = z.object({
   resumen_relacion: z.string().nullable().optional(),
   responsable_id: z.string().optional(),
   // 2.6 (S6): replaces the whole tag list; `[]` clears it.
-  etiquetas: CLIENT_ETIQUETAS_SCHEMA.optional(),
+  etiquetas: ETIQUETAS_SCHEMA.optional(),
 });
 
 export const GET = withApiErrorHandling(

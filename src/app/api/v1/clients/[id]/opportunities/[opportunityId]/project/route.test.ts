@@ -273,6 +273,16 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     expect(datas).toEqual(["Alcance", null]);
   });
 
+  it("T1 (S1): stores the deduplicated tags on conversion, and [] when omitted", async () => {
+    await POST(postRequest({ ...prefillBody, etiquetas: ["Reconstrucción", " Reconstrucción "] }), routeContext);
+    await POST(postRequest(prefillBody), routeContext);
+
+    const datas = mocks.txProyectoCreate.mock.calls.map(
+      (call) => (call[0] as { data: { etiquetas: unknown } }).data.etiquetas,
+    );
+    expect(datas).toEqual([["Reconstrucción"], []]);
+  });
+
   it("audits the conversion in one lote and the initial team in its own call", async () => {
     await POST(postRequest(prefillBody), routeContext);
 
