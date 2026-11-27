@@ -92,6 +92,10 @@ export const ProjectItemV2Schema = registry.register(
     }),
     lineas: z.array(ProjectLineaSchema),
     municipios: z.array(ProjectMunicipioSchema),
+    aliados_count: z.number().int().openapi({
+      description:
+        "Aliados del proyecto que no están DESCARTADO (S12). Sin cliente, la etiqueta es «Posición propia · N aliados»; 0 en proyectos con cliente sin aliados.",
+    }),
   }),
 );
 

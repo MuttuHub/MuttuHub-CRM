@@ -70,7 +70,10 @@ export type ProjectListRow = {
   descripcion?: string | null;
   estado: EstadoProyecto;
   origen: OrigenProyecto | null;
-  cliente: { id: string; nombre: string };
+  /** `null` en un proyecto de posición propia (S8): se muestra `etiquetaClienteProyecto`. */
+  cliente: { id: string; nombre: string } | null;
+  /** S12 (L20): aliados no descartados. Opcional en el tipo para no obligar a todos los fixtures. */
+  aliados_count?: number;
   responsable: { id: string; nombre: string } | null;
   /** Columnas `@db.Date`: calendario `YYYY-MM-DD`, no instante ISO. */
   fecha_inicio: string | null;
@@ -2965,7 +2968,10 @@ export type PortfolioProject = {
   codigo: string;
   nombre: string;
   estado: EstadoProyecto;
-  cliente: { id: string; nombre: string };
+  /** `null` en un proyecto de posición propia (S8): se muestra `etiquetaClienteProyecto`. */
+  cliente: { id: string; nombre: string } | null;
+  /** S12 (L20): aliados no descartados. Opcional en el tipo para no obligar a todos los fixtures. */
+  aliados_count?: number;
   responsable: { id: string; nombre: string } | null;
   linea_principal: { id: string; codigo: string; nombre: string } | null;
   fecha_inicio: string | null;

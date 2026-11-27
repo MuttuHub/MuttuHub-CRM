@@ -234,6 +234,16 @@ describe("GET /api/v1/reports/tag/export", () => {
     expect(totalO.getCell(columna(oportunidades, "Valor estimado")).value).toBe(700)
   })
 
+  it("S12 (T6b): the Cliente column reads «Posición propia · N aliados» without a client, the client's name with one", async () => {
+    const base = reporte()
+    // `aliados_count` comes from the portfolio rows, which already leave DESCARTADO allies out.
+    const propia = { ...base.proyectos[0], cliente: null, aliados_count: 2 } as unknown as ReporteEtiqueta["proyectos"][number]
+    vi.mocked(cargarReporteEtiqueta).mockResolvedValue({ ok: true, value: { ...base, proyectos: [propia, base.proyectos[1]] } })
+    const proyectos = (await abrir(await GET(get()))).getWorksheet("Proyectos")!
+    expect(proyectos.getRow(2).getCell(columna(proyectos, "Cliente")).value).toBe("Posición propia · 2 aliados")
+    expect(proyectos.getRow(3).getCell(columna(proyectos, "Cliente")).value).toBe("Acme")
+  })
+
   it("neutralizes user text that a spreadsheet would run as a formula", async () => {
     const wb = await abrir(await GET(get()))
     const proyectos = wb.getWorksheet("Proyectos")!

@@ -114,6 +114,16 @@ describe("FichaHeader", () => {
     expect(screen.getByTestId("ficha-header-cliente")).toHaveTextContent("Responsable: Sin asignar")
   })
 
+  it("shows «Posición propia · 1 aliado» instead of a client on a posición propia project (S12, L20)", () => {
+    mockApi()
+
+    renderHeader({ proyecto: { ...PROYECTO, origen: "POSICION_PROPIA", cliente: null, aliados_count: 1 } })
+
+    expect(screen.getByTestId("ficha-header-cliente")).toHaveTextContent(
+      "Posición propia · 1 aliado · Responsable: Laura Jiménez",
+    )
+  })
+
   it("keeps the semáforo chips by default and leaves them out when asked (the Resumen shows the figures)", async () => {
     mockApi()
 

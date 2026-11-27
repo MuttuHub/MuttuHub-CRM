@@ -48,6 +48,21 @@ describe("ReporteSemanalTab", () => {
     expect(screen.queryByRole("region", { name: "Gastos por validar" })).toBeNull()
   })
 
+  it("labels a posición propia project «Posición propia · N aliados» and keeps a client's name (S12, T6b)", () => {
+    const conCliente = REPORTE_SEMANAL.portafolio.proyectos[0]
+    const propia = { ...conCliente, id: "p2", codigo: "PRY-0002", cliente: null, aliados_count: 2 }
+    useReporteSemanal.mockReturnValue({
+      data: { ...REPORTE_SEMANAL, portafolio: { ...REPORTE_SEMANAL.portafolio, proyectos: [conCliente, propia] } },
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    render(<ReporteSemanalTab />)
+    const proyectos = screen.getByRole("region", { name: "Portafolio por proyecto" })
+    expect(within(within(proyectos).getByRole("row", { name: /PRY-0002/ })).getByText("Posición propia · 2 aliados")).toBeInTheDocument()
+    expect(within(within(proyectos).getByRole("row", { name: /PRY-0001/ })).getByText("Acme")).toBeInTheDocument()
+  })
+
   it("compares closed and overdue tasks with the previous week", () => {
     render(<ReporteSemanalTab />)
 

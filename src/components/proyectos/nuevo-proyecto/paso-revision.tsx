@@ -26,6 +26,7 @@ import {
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 type Conteo = { data: readonly unknown[] | undefined; isError: boolean };
 
@@ -49,7 +50,7 @@ export function PasoRevision({ proyecto }: { proyecto: ProjectListRow }) {
         <SectionHeader>Resumen</SectionHeader>
         <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
           <FieldValue label="Proyecto" value={`${proyecto.codigo} · ${proyecto.nombre}`} />
-          <FieldValue label="Cliente" value={proyecto.cliente.nombre} />
+          <FieldValue label="Cliente" value={etiquetaClienteProyecto(proyecto)} />
           <FieldValue label="Responsable" value={proyecto.responsable?.nombre ?? "Sin asignar"} />
           <FieldValue
             label="Fechas"

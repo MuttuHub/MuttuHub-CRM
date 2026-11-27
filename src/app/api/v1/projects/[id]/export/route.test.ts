@@ -148,6 +148,27 @@ describe("GET projects/:id/export: workbooks", () => {
     expect((await GET(get("?ficha=financiera&corte=2030-01"), ctx)).status).toBe(400)
   })
 
+  it("S12 (T6b): the Cliente cell reads «Posición propia · N aliados» without a client, the client's name with one", async () => {
+    const cliente = async () => {
+      const wb = await abrir(await GET(get(), ctx))
+      const ws = wb.getWorksheet("Proyecto") as ExcelJS.Worksheet
+      const filas: unknown[][] = []
+      ws.eachRow((r) => filas.push([r.getCell(1).value, r.getCell(2).value]))
+      return filas.find(([k]) => k === "Cliente")?.[1]
+    }
+    // 2 active allies; the DESCARTADO one is left out by the count's own `where`, asserted below.
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(
+      proyecto({ origen: "POSICION_PROPIA", cliente: null, _count: { objetivos: 2, actividades: 10, entregables: 30, indicadores: 4, aliados: 2 } }),
+    )
+    expect(await cliente()).toBe("Posición propia · 2 aliados")
+    const select = vi.mocked(db.proyecto.findFirst).mock.calls[0][0]?.select as { _count: { select: Record<string, unknown> } }
+    expect(select._count.select.aliados).toEqual({ where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } })
+    expect(select._count.select.actividades).toEqual({ where: { deleted_at: null } })
+
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto())
+    expect(await cliente()).toBe("Cliente")
+  })
+
   it("ficha=proyecto with base=original feeds the frozen version to the loader", async () => {
     vi.mocked(db.versionProyecto.findFirst).mockResolvedValue({ snapshot: { schema: 1 } } as never)
     expect((await GET(get("?ficha=proyecto&base=original&corte=2026-03-15"), ctx)).status).toBe(200)

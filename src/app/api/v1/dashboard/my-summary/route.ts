@@ -20,14 +20,14 @@
 // - oportunidades_en_prospeccion (S2.7): oportunidades en fase PROSPECCION aún
 //   abiertas (ni GANADA ni PERDIDA) de mis clientes (alcance "own").
 
-import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
+import { ALIADOS_ACTIVOS_COUNT, etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 import { NextResponse } from "next/server";
 import type { OrigenTarea } from "@prisma/client";
 import { db } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { OPEN_TASK_STATES } from "@/lib/api/crm";
-import { canReadProjectList, projectListWhere } from "@/lib/api/projects";
+import { aliadosActivos, canReadProjectList, projectListWhere } from "@/lib/api/projects";
 import { PROJECT_MEMBER_ROLES } from "@/lib/permissions";
 import { addLocalDays, startOfLocalDay } from "@/lib/alerts";
 import {
@@ -87,6 +87,8 @@ export const GET = withApiErrorHandling(
               codigo: true,
               nombre: true,
               cliente: { select: { id: true, nombre: true } },
+              // S12: «Posición propia · N aliados»; DESCARTADO allies do not count.
+              ...ALIADOS_ACTIVOS_COUNT,
             },
             orderBy: { codigo: "asc" },
           })
@@ -135,13 +137,17 @@ export const GET = withApiErrorHandling(
       prioridad: c.prioridad,
     }));
 
-    const proyectos_en_ejecucion = proyectos.map((p) => ({
-      id: p.id,
-      codigo: p.codigo,
-      nombre: p.nombre,
-      cliente_id: p.cliente?.id ?? null,
-      cliente_nombre: nombreClienteProyecto(p.cliente),
-    }));
+    const proyectos_en_ejecucion = proyectos.map((p) => {
+      const aliados_count = aliadosActivos(p);
+      return {
+        id: p.id,
+        codigo: p.codigo,
+        nombre: p.nombre,
+        cliente_id: p.cliente?.id ?? null,
+        cliente_nombre: etiquetaClienteProyecto({ cliente: p.cliente, aliados_count }),
+        aliados_count,
+      };
+    });
     const oportunidades_en_prospeccion = oportunidades.map((o) => ({
       id: o.id,
       nombre: o.nombre,

@@ -248,7 +248,7 @@ describe("GET /api/v1/clients/health", () => {
     const select = vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.select;
     // A DESCARTADO ally is left out by the query itself.
     expect(select).toMatchObject({
-      aliados: { where: { estado: { not: "DESCARTADO" } }, select: { cliente_id: true } },
+      aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } }, select: { cliente_id: true } },
     });
   });
 

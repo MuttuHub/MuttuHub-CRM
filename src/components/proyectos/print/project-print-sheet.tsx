@@ -27,6 +27,7 @@ import {
 } from "@/hooks/projects";
 import { ApiError } from "@/lib/api/http";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { etiquetaClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 const SIN_DATO = "—";
 
@@ -178,7 +179,7 @@ function Encabezado({ proyecto }: { proyecto: ProjectListRow }) {
         </p>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        <Campo label="Cliente" value={proyecto.cliente.nombre} />
+        <Campo label="Cliente" value={etiquetaClienteProyecto(proyecto)} />
         <Campo label="Estado" value={ESTADO_PROYECTO_META[proyecto.estado].label} />
         <Campo label="Responsable" value={proyecto.responsable?.nombre ?? SIN_DATO} />
         <Campo label="Valor total" value={formatMonto(proyecto.valor_total)} mono />

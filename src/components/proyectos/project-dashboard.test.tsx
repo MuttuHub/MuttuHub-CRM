@@ -181,6 +181,25 @@ describe("ProjectDashboard", () => {
     }
   })
 
+  it("shows «Posición propia · N aliados» for a project without a client, on the table and the cards (S12, L20)", () => {
+    const [p1, p2] = PORTAFOLIO.proyectos
+    state.query = {
+      ...state.query,
+      data: { ...PORTAFOLIO, proyectos: [p1, { ...p2, cliente: null, aliados_count: 3 }] },
+    }
+    const { unmount } = render(<ProjectDashboard />)
+    expect(screen.getByTestId("tablero-fila-p2")).toHaveTextContent("Posición propia · 3 aliados")
+    unmount()
+
+    mockViewport(true)
+    try {
+      render(<ProjectDashboard />)
+      expect(screen.getByTestId("tablero-fila-p2")).toHaveTextContent("Posición propia · 3 aliados")
+    } finally {
+      mockViewport(false)
+    }
+  })
+
   it("lists a project that is not measurable with 'Sin medir' and no color", () => {
     render(<ProjectDashboard />)
     const fila = screen.getByTestId("tablero-fila-p2")

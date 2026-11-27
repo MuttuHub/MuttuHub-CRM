@@ -350,6 +350,40 @@ describe("cargarPlantillaInput activity type (export, T13.8)", () => {
   });
 });
 
+describe("cargarPlantillaInput client label (S12, T6b)", () => {
+  const lector = (proyecto: object, selects: unknown[] = []) =>
+    new Proxy({} as Record<string, unknown>, {
+      get: () => ({
+        findFirst: async (args: { select?: unknown }) => {
+          selects.push(args.select);
+          return {
+            codigo: "PRY-1",
+            fecha_inicio: new Date("2026-10-05T00:00:00.000Z"),
+            fecha_fin: new Date("2027-01-29T00:00:00.000Z"),
+            valor_total: null,
+            beneficiarios_meta: null,
+            lineas: [],
+            municipios: [],
+            ...proyecto,
+          };
+        },
+        findMany: async () => [],
+      }),
+    });
+
+  it("a posición propia project reads «Posición propia · N aliados», counting only allies that are not DESCARTADO", async () => {
+    const selects: unknown[] = [];
+    const input = await cargarPlantillaInput(lector({ cliente: null, _count: { aliados: 2 } }, selects) as never, "p1");
+    expect(input.proyecto.cliente).toBe("Posición propia · 2 aliados");
+    expect(selects[0]).toMatchObject({ _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } } });
+  });
+
+  it("a project with a client still reads the client's name", async () => {
+    const input = await cargarPlantillaInput(lector({ cliente: { nombre: "Cliente" }, _count: { aliados: 0 } }) as never, "p1");
+    expect(input.proyecto.cliente).toBe("Cliente");
+  });
+});
+
 // B6 (S1, decision L7 «Bloquear»): the template takes no money on a rubro the project disabled.
 describe("importarPlantilla with a rubro disabled for the project (B6)", () => {
   it("refuses a line with money on a disabled rubro, naming it, and audits nothing", async () => {

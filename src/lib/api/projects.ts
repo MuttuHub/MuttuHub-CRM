@@ -31,6 +31,7 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { parseDate } from "@/lib/api/crm";
+import { ALIADOS_ACTIVOS_COUNT } from "@/lib/proyectos/posicion-propia";
 
 const DESCRIPCION_MAX = 2000;
 
@@ -75,6 +76,8 @@ export const PROJECT_SELECT_V2 = {
   municipios: {
     select: { municipio: { select: { id: true, nombre: true, departamento: true } } },
   },
+  // S12 (L20): «Posición propia · N aliados»; DESCARTADO allies do not count.
+  ...ALIADOS_ACTIVOS_COUNT,
 } as const;
 
 export type ProjectRowV2 = Prisma.ProyectoGetPayload<{ select: typeof PROJECT_SELECT_V2 }>;
@@ -102,6 +105,8 @@ export type ProjectItemV2 = {
   etiquetas: string[];
   lineas: { id: string; codigo: string; nombre: string; principal: boolean }[];
   municipios: { id: string; nombre: string; departamento: string }[];
+  /** S12 (L20): allies that are not DESCARTADO; shown as «Posición propia · N aliados» when there is no client. */
+  aliados_count: number;
 };
 
 /**
@@ -110,7 +115,7 @@ export type ProjectItemV2 = {
  * instead of the driver's midnight-UTC `Date`. `duracion_semanas` is derived on
  * every read (never stored) through `duracionProyecto`.
  */
-export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
+export function toProjectItemV2(row: Omit<ProjectRowV2, "_count"> & { _count?: AliadosCount }): ProjectItemV2 {
   return {
     id: row.id,
     codigo: row.codigo,
@@ -139,7 +144,22 @@ export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
       nombre: link.municipio.nombre,
       departamento: link.municipio.departamento,
     })),
+    aliados_count: aliadosActivos(row),
   };
+}
+
+/**
+ * `_count` as read by `aliadosActivos`: a select may count other relations too (the project export overrides
+ * `_count` with its section counts), so any key is accepted and a missing `aliados` reads as 0.
+ */
+type AliadosCount = Partial<Record<string, number>>;
+
+/**
+ * The non-discarded ally count of a row read with `ALIADOS_ACTIVOS_COUNT`. Typed loosely on purpose: rows
+ * built by hand (test fixtures) or with another `_count` may lack it, and that reads as 0.
+ */
+export function aliadosActivos(row: { _count?: AliadosCount }): number {
+  return row._count?.aliados ?? 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -415,7 +435,14 @@ export function projectListWhere(
   }
 
   if (filters.estado) where.estado = filters.estado as EstadoProyecto;
-  if (filters.cliente_id) where.cliente_id = filters.cliente_id;
+  // S11/S12 (L20): a client matches its own projects and the posición propia projects where it is a
+  // non-discarded ally. Nothing else in this where sets `OR`, so it is assigned directly.
+  if (filters.cliente_id) {
+    where.OR = [
+      { cliente_id: filters.cliente_id },
+      { aliados: { some: { cliente_id: filters.cliente_id, estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } },
+    ];
+  }
   if (filters.responsable_id) where.responsable_id = filters.responsable_id;
   if (filters.linea_id) where.lineas = { some: { linea_id: filters.linea_id } };
   if (filters.municipio_id) where.municipios = { some: { municipio_id: filters.municipio_id } };

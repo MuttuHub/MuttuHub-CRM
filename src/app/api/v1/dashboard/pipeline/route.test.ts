@@ -10,6 +10,11 @@ vi.mock("@/lib/db", () => ({
     oportunidad: {
       findMany: vi.fn(),
     },
+    // S11 regression: present only so a future read of projects is caught, never expected to be called.
+    proyecto: {
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+    },
   },
 }));
 
@@ -168,6 +173,28 @@ describe("GET /api/v1/dashboard/pipeline", () => {
       ganado_historico: 5000,
       ratio: 1.67,
     });
+  });
+
+  // S11 (odd/tasks/reportes-etiqueta-y-posicion-propia.md): «El valor del proyecto no suma al pipeline
+  // comercial». The figures come only from `Oportunidad.valor_estimado_cop`, whatever projects exist.
+  it("never sums project values: every figure comes from the opportunities alone (S11)", async () => {
+    mockAuth(coordinador);
+    vi.mocked(db.proyecto.findMany).mockResolvedValue([
+      { id: "p1", origen: "POSICION_PROPIA", cliente_id: null, valor_total: 900000 },
+    ] as never);
+    vi.mocked(db.proyecto.aggregate).mockResolvedValue({ _sum: { valor_total: 900000 } } as never);
+    vi.mocked(db.oportunidad.findMany).mockResolvedValue([
+      { id: "o1", estado: "PRESENTADA", valor_estimado_cop: 1500, cliente: { id: "c1", nombre: "Aliado A" } },
+      { id: "o2", estado: "EN_NEGOCIACION", valor_estimado_cop: 2500, cliente: { id: "c2", nombre: "Aliado B" } },
+    ] as never);
+
+    const json = await (await GET(get())).json();
+
+    expect(db.proyecto.findMany).not.toHaveBeenCalled();
+    expect(db.proyecto.aggregate).not.toHaveBeenCalled();
+    expect(json.valor_activo).toBe(4000);
+    expect(json.comparativo.potencial_activo).toBe(4000);
+    expect(json.top_clientes.reduce((acc: number, c: { valor_potencial: number }) => acc + c.valor_potencial, 0)).toBe(4000);
   });
 
   // Phase 2 (opportunity-access-control spec, D3): the commercial gate must

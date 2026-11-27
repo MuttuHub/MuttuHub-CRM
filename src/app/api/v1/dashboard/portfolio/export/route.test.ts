@@ -71,6 +71,15 @@ describe("GET dashboard/portfolio/export", () => {
     expect(logChange).toHaveBeenCalled()
   })
 
+  it("S12 (T6b): the Cliente column reads «Posición propia · N aliados» without a client, the client's name with one", async () => {
+    // `_count.aliados` comes from ALIADOS_ACTIVOS_COUNT, which already leaves DESCARTADO allies out.
+    vi.mocked(db.proyecto.findMany).mockResolvedValue([{ ...fila(1), cliente: null, _count: { aliados: 2 } }, fila(2)] as never)
+    const ws = (await abrir(await GET(get()))).getWorksheet("Portafolio") as ExcelJS.Worksheet
+    expect(ws.getRow(1).getCell(3).value).toBe("Cliente")
+    expect(ws.getRow(2).getCell(3).value).toBe("Posición propia · 2 aliados")
+    expect(ws.getRow(3).getCell(3).value).toBe("Cliente")
+  })
+
   it("400 for formato=pdf and for a bad corte", async () => {
     const pdf = await GET(get("?formato=pdf"))
     expect(pdf.status).toBe(400)

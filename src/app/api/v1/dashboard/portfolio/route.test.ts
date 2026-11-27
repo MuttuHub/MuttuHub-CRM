@@ -36,6 +36,7 @@ const fila = (id: string, estado: string) => ({
     { principal: false, linea: { id: "l2", codigo: "L2", nombre: "Secundaria" } },
     { principal: true, linea: { id: "l1", codigo: "L1", nombre: "Principal" } },
   ],
+  _count: { aliados: 0 },
 })
 
 const medible = (estado = "EN_EJECUCION") =>
@@ -173,6 +174,17 @@ describe("GET dashboard/portfolio: por_linea", () => {
 })
 
 describe("GET dashboard/portfolio: payload", () => {
+  it("answers a posición propia project with a null client and its non-discarded ally count (S12, L20)", async () => {
+    vi.mocked(db.proyecto.findMany).mockResolvedValue([
+      { ...fila("1", "EN_EJECUCION"), cliente: null, _count: { aliados: 2 } },
+    ] as never)
+    const body = await (await GET(get())).json()
+    expect(body.proyectos[0]).toMatchObject({ cliente: null, aliados_count: 2 })
+    expect(vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.select).toMatchObject({
+      _count: { select: { aliados: { where: { estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } } },
+    })
+  })
+
   it("returns both semáforos and the state per project, the corte echoed and no territory key", async () => {
     const res = await GET(get())
     const body = await res.json()
@@ -230,7 +242,8 @@ describe("GET dashboard/portfolio: payload", () => {
     await GET(get("?corte=2026-03-15&linea_id=l1&cliente_id=c1&responsable_id=r1&estado=EN_EJECUCION&municipio_id=m1"))
     expect(vi.mocked(db.proyecto.findMany).mock.calls[0][0]?.where).toMatchObject({
       estado: "EN_EJECUCION",
-      cliente_id: "c1",
+      // S11 (L20): the client matches its own projects and the posición propia projects it is an ally of.
+      OR: [{ cliente_id: "c1" }, { aliados: { some: { cliente_id: "c1", estado: { not: "DESCARTADO" }, cliente: { deleted_at: null } } } }],
       responsable_id: "r1",
       lineas: { some: { linea_id: "l1" } },
       municipios: { some: { municipio_id: "m1" } },

@@ -5,7 +5,8 @@
 import { EstadoProyecto, type Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
-import { canReadProjectList, projectListWhere, type ProjectListFilters } from "@/lib/api/projects";
+import { aliadosActivos, canReadProjectList, projectListWhere, type ProjectListFilters } from "@/lib/api/projects";
+import { ALIADOS_ACTIVOS_COUNT } from "@/lib/proyectos/posicion-propia";
 import { PROJECT_MEMBER_ROLES } from "@/lib/permissions";
 import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio";
 import { parseCorteFecha, serializeAgregado, serializeKpis } from "@/lib/api/kpis-http";
@@ -28,6 +29,8 @@ const PORTAFOLIO_SELECT = {
   cliente: { select: { id: true, nombre: true } },
   responsable: { select: { id: true, nombre: true } },
   lineas: { select: { principal: true, linea: { select: { id: true, codigo: true, nombre: true } } } },
+  // S12 (L20): «Posición propia · N aliados»; DESCARTADO allies do not count.
+  ...ALIADOS_ACTIVOS_COUNT,
 } as const;
 
 /** Filters of E-28; an unknown `estado` is a 400 instead of an empty portfolio. */
@@ -87,6 +90,7 @@ export async function cargarPortafolio(usuario: Usuario, url: URL) {
       nombre: row.nombre,
       estado: row.estado,
       cliente: row.cliente,
+      aliados_count: aliadosActivos(row),
       responsable: row.responsable,
       linea_principal: principal,
       fecha_inicio: row.fecha_inicio ? isoDate(row.fecha_inicio) : null,
