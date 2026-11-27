@@ -22,7 +22,7 @@
 import type { Prisma, Usuario } from "@prisma/client"
 import { db } from "@/lib/db"
 import { logChanges, type CambioInput } from "@/lib/api/audit-cambios"
-import { decimalFromCents } from "@/lib/api/presupuesto"
+import { decimalFromCents, deshabilitadoEnProyecto, estaDeshabilitado } from "@/lib/api/presupuesto"
 import { normalizeProjectDate } from "@/lib/api/projects"
 import {
   alertaSobregasto,
@@ -47,7 +47,8 @@ export type ContextoServidor = {
 
 /**
  * The rubros a file may name (the ACTIVE catalog plus the project's own lines, so a line of a rubro suspended
- * later still matches) and, per budget line, the line with its assigned amount.
+ * later still matches) and, per budget line, the line with its assigned amount. B6: each rubro query also reads
+ * whether THIS project disabled it, so a row on a disabled rubro is refused with the reason.
  */
 export async function cargarContextoImport(proyecto: {
   id: string
@@ -55,22 +56,33 @@ export async function cargarContextoImport(proyecto: {
   fecha_fin: Date | null
 }): Promise<ContextoServidor> {
   const [catalogo, lineasRows] = await Promise.all([
-    db.rubro.findMany({ where: { activo: true }, select: { id: true, codigo: true, nombre: true } }),
+    db.rubro.findMany({
+      where: { activo: true },
+      select: { id: true, codigo: true, nombre: true, deshabilitado_en: deshabilitadoEnProyecto(proyecto.id) },
+    }),
     db.lineaPresupuestal.findMany({
       where: { proyecto_id: proyecto.id },
       select: {
         id: true,
         monto_proyectado_cop: true,
-        rubro: { select: { id: true, codigo: true, nombre: true } },
+        rubro: { select: { id: true, codigo: true, nombre: true, deshabilitado_en: deshabilitadoEnProyecto(proyecto.id) } },
         actividad: { select: { codigo: true, nombre: true } },
       },
     }),
   ])
 
-  const rubros = new Map(catalogo.map((r) => [r.id, r]))
+  const deshabilitados = new Set<string>()
+  type RubroLeido = (typeof catalogo)[number]
+  /** The catalogue shape, without the B6 probe (it stays out of the parse context and the audit). */
+  const sinSonda = ({ deshabilitado_en: _sonda, ...rubro }: RubroLeido) => {
+    if (estaDeshabilitado({ deshabilitado_en: _sonda })) deshabilitados.add(rubro.id)
+    return rubro
+  }
+  const rubros = new Map(catalogo.map((r) => [r.id, sinSonda(r)]))
   const lineas = new Map<string, LineaGasto>()
   const delProyecto: LineaPresupuestoImport[] = []
-  for (const linea of lineasRows) {
+  for (const lineaLeida of lineasRows) {
+    const linea = { ...lineaLeida, rubro: sinSonda(lineaLeida.rubro) }
     rubros.set(linea.rubro.id, linea.rubro)
     const asignado = tieneAsignado(linea.monto_proyectado_cop)
     delProyecto.push({
@@ -87,6 +99,7 @@ export async function cargarContextoImport(proyecto: {
       proyecto,
       rubros: [...rubros.values()],
       lineas: delProyecto,
+      deshabilitados,
     },
     lineas,
   }

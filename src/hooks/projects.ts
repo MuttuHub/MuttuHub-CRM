@@ -1544,6 +1544,8 @@ export type ProjectBudget = {
   /** S2: cada rubro es la suma de sus líneas. */
   rubros: ProjectBudgetRubro[];
   lineas: ProjectBudgetLinea[];
+  /** B6: rubros deshabilitados para ESTE proyecto (no salen en `rubros` ni en `lineas`). Ausente en respuestas viejas. */
+  rubros_deshabilitados?: { rubro_id: string; codigo: string | null; nombre: string }[];
   suma: string;
   valor_total: string | null;
   /** Σ A − valor_total; nulo sin valor total. */
@@ -1614,6 +1616,21 @@ function useRefreshPresupuesto(projectId: string) {
       void qc.invalidateQueries({ queryKey: key });
     }
   };
+}
+
+/**
+ * B6: habilita o deshabilita un rubro solo para este proyecto. La API rechaza (409) deshabilitar un rubro con
+ * dinero o gastos en el proyecto y explica por qué; el mensaje se muestra en línea.
+ */
+export function useToggleRubroProyecto(
+  projectId: string,
+): UseMutationResult<{ rubro_id: string; habilitado: boolean }, Error, { rubroId: string; habilitado: boolean }> {
+  const refresh = useRefreshPresupuesto(projectId);
+  return useMutation({
+    mutationFn: ({ rubroId, habilitado }) =>
+      apiPut<{ rubro_id: string; habilitado: boolean }>(`/api/v1/projects/${projectId}/rubros/${rubroId}`, { habilitado }),
+    onSuccess: refresh,
+  });
 }
 
 /** Reemplaza el presupuesto (cubre todos los rubros activos). El 400/409 se muestra en línea. */

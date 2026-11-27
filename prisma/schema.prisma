@@ -698,6 +698,8 @@ model Rubro {
   updated_at DateTime @updatedAt
 
   lineas LineaPresupuestal[]
+  // B6: the projects that switched this rubro off for themselves.
+  deshabilitado_en ProyectoRubroDeshabilitado[]
 
   @@map("rubros")
 }
@@ -819,6 +821,8 @@ model Proyecto {
   // opportunity to this project's opportunity (target: `@@unique([id, oportunidad_id])`).
   tareas                Tarea[] @relation("TareaProyecto")
   tareas_oportunidad    Tarea[] @relation("TareaProyectoOportunidad")
+  // B6: catalogue rubros switched off for this project only.
+  rubros_deshabilitados ProyectoRubroDeshabilitado[]
 
   @@unique([oportunidad_id, cliente_id])
   // V2: target of `Tarea.proyecto_oportunidad`. `id` alone is already unique; this key exists only so
@@ -1236,6 +1240,25 @@ model LineaPresupuestal {
   // siguiente migración generada.
   @@index([actividad_id])
   @@map("lineas_presupuestales")
+}
+
+// B6 (odd/tasks/producto-pendientes-2026-11.md, S1, decision L7 «Bloquear») — a catalogue rubro switched
+// off for ONE project. The global catalogue (`Rubro.activo`) and every other project are untouched. A row
+// may exist only while the rubro's lines in the project are at $0 and it has no expenses there; the
+// application checks that under the project row lock. Re-enabling deletes the row. `created_by_id` is an
+// audit pointer without FK, like `AuditoriaCambio.usuario_id`.
+model ProyectoRubroDeshabilitado {
+  proyecto_id   String
+  rubro_id      String
+  created_at    DateTime @default(now())
+  created_by_id String
+
+  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
+  rubro    Rubro    @relation(fields: [rubro_id], references: [id])
+
+  @@id([proyecto_id, rubro_id])
+  @@index([rubro_id])
+  @@map("proyecto_rubros_deshabilitados")
 }
 
 // v2 projects module (S5, SDD §3.7, REQ-BUD-03) — programmed amount (P) of one

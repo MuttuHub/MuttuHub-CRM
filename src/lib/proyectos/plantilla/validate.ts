@@ -31,6 +31,7 @@ import {
   type Fila,
   type ParsedTemplate,
 } from "./parse"
+import { rechazoPorRubroDeshabilitado } from "@/lib/api/rubros-proyecto"
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "../money"
 import { durationWeeks } from "../weeks"
 import { validarSemanas, type TipoActividad } from "../actividad"
@@ -38,7 +39,8 @@ import { validarSemanas, type TipoActividad } from "../actividad"
 /** The catalog data a template's project is validated against. */
 export type ContextoValidacion = {
   proyecto: { codigo: string; estado: string }
-  rubros: { codigo: string; activo: boolean }[]
+  /** B6: `nombre` and `deshabilitado` (disabled for THIS project) come from the server loader; older fakes omit them. */
+  rubros: { codigo: string; activo: boolean; nombre?: string; deshabilitado?: boolean }[]
   lineas: { id: string; codigo: string; nombre: string; activo: boolean }[]
   municipios: { id: string; nombre: string; departamento: string; codigoDane: string | null; activo: boolean }[]
   usuarios: { id: string; email: string }[]
@@ -940,6 +942,7 @@ export function codigoRubroDe(valor: Celda["valor"] | undefined): string {
 export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] {
   if (!estructuraOk(p, "presupuesto")) return []
   const activos = new Set(c.rubros.filter((rubro) => rubro.activo).map((rubro) => rubro.codigo))
+  const porCodigo = new Map(c.rubros.map((rubro) => [rubro.codigo, rubro]))
   /** Activity + rubro -> the first row that carries it. */
   const vistas = new Map<string, number>()
   const errores: ErrorPlantilla[] = []
@@ -988,6 +991,14 @@ export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] 
       errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, valor.dec, "El valor no puede ser negativo."))
     } else if (valor.cents > MONTO_MAXIMO_CENTS) {
       errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, valor.dec, "El valor es demasiado alto."))
+    } else if (activos.has(codigo)) {
+      // B6: the same rule the apply path enforces under the lock, so the dry run never says «válida» first.
+      const rubro = porCodigo.get(codigo)!
+      const rechazo = rechazoPorRubroDeshabilitado(
+        { codigo, nombre: rubro.nombre ?? codigo, deshabilitado: rubro.deshabilitado ?? false },
+        valor.cents,
+      )
+      if (rechazo) errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, codigo, rechazo))
     }
   }
 

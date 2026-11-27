@@ -11,6 +11,8 @@
  * a year's sequence row survives while any project of that year survives, and a
  * dry run issues zero mutating calls.
  */
+import { readFileSync } from "node:fs"
+
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../prisma/require-local-db", () => ({}))
@@ -402,5 +404,35 @@ describe("runDemoReset", () => {
 
     expect(result.mode).toBe("help")
     expect(output.join("\n")).toContain("--apply")
+  })
+})
+
+// Two FKs to `proyectos` (tareas.proyecto_id in V2, proyecto_rubros_deshabilitados in B6) broke the reset because
+// nobody added them here. Every RESTRICT / NO ACTION FK to Proyecto in the schema must be emptied by the reset or be
+// excluded below for a stated reason, so the next one fails this test instead of a demo.
+describe("DEMO_CHILD_TABLES covers every blocking FK to proyectos", () => {
+  const HANDLED_APART: Record<string, string> = {
+    proyectoLinea: "deleted explicitly before the projects",
+    proyectoMunicipio: "deleted explicitly before the projects",
+    tarea: "its proyecto_id is cleared before the projects (the task stays)",
+    versionProyecto: "append-only and only exists after BORRADOR",
+    solicitudModificacion: "only exists after the baseline (never on a BORRADOR project)",
+    reporteActividad: "progress reports are only written on EN_EJECUCION projects",
+  }
+
+  it("lists or explicitly excludes each model whose FK to Proyecto does not cascade", () => {
+    const schema = readFileSync("prisma/schema.prisma", "utf8")
+    const blocking: string[] = []
+    for (const [, model, body] of schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)) {
+      for (const line of body.split("\n")) {
+        if (!/^\s+\w+\s+Proyecto\??\s+@relation\(/.test(line) || !line.includes("fields:")) continue
+        const onDelete = /onDelete:\s*(\w+)/.exec(line)?.[1]
+        if (onDelete === "Cascade" || onDelete === "SetNull") continue
+        blocking.push(model.charAt(0).toLowerCase() + model.slice(1))
+      }
+    }
+    const handled = new Set<string>([...DEMO_CHILD_TABLES, ...Object.keys(HANDLED_APART)])
+    expect([...new Set(blocking)].filter((m) => !handled.has(m))).toEqual([])
+    expect(blocking.length).toBeGreaterThan(10)
   })
 })

@@ -321,6 +321,35 @@ describe("POST /projects/:id/import — dry run", () => {
     expect(mocks.importarPlantilla).not.toHaveBeenCalled();
   });
 
+  // B6: the dry run reports money on a disabled rubro, so «válida» is never followed by a failed apply.
+  it("modo=validar reports money on a rubro disabled for the project, with the apply message, and writes nothing", async () => {
+    const contexto = fixtureContextoFX1();
+    contexto.rubros = contexto.rubros.map((r) => (r.codigo === "R06" ? { ...r, nombre: "Viáticos", deshabilitado: true } : r));
+    mocks.cargarContexto.mockResolvedValue(contexto);
+    const response = await POST(subida(valido, { modo: "validar" }), ctx);
+    expect(response.status).toBe(400);
+    const { reporte } = await response.json();
+    expect(reporte.errores).toEqual([
+      expect.objectContaining({ regla: "V-11", hoja: "7. Presupuesto", columna: "B", valor: "R06", mensaje: "El rubro R06 Viáticos está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos." }),
+    ]);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("modo=validar of a valid template is unchanged when no rubro is disabled", async () => {
+    const contexto = fixtureContextoFX1();
+    contexto.rubros = contexto.rubros.map((r) => ({ ...r, nombre: r.codigo, deshabilitado: false }));
+    mocks.cargarContexto.mockResolvedValue(contexto);
+    const response = await POST(subida(valido, { modo: "validar" }), ctx);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      importado: false,
+      valido: true,
+      resumen: { objetivos: 1, actividades: 4, entregables: 7, indicadores: 2, rubros: 8, celdas_programacion: 10 },
+      reemplaza: { objetivos: 2, actividades: 3, entregables: 4, indicadores: 1 },
+      advertencias: [],
+    });
+  });
+
   it("?dry_run=1 is the same dry run", async () => {
     const response = await POST(subida(valido, { query: "?dry_run=1" }), ctx);
     expect(response.status).toBe(200);

@@ -18,6 +18,7 @@ import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/p
 import type { GateResult } from "@/lib/api/estructura";
 import { MONTO_MAXIMO_CENTS, decimalFromCents, parseMonto } from "@/lib/api/presupuesto";
 import { PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
+import { rubroDeshabilitado, rubroDeshabilitadoMessage } from "@/lib/api/rubros-proyecto";
 import { excederiaAsignado } from "@/lib/proyectos/ficha-financiera";
 import {
   ESTADOS_EJECUTADOS,
@@ -357,6 +358,15 @@ export function tieneAsignado(monto: { toString(): string }): boolean {
 }
 
 /**
+ * B6: why a rubro takes no expense here, when the reason is that the project disabled it. Only asked on the
+ * refusal path (a disabled rubro has every line at $0, so it never reaches a successful write).
+ */
+async function rechazoPorDeshabilitado(proyectoId: string, rubroId: string): Promise<Response | null> {
+  const rubro = await rubroDeshabilitado(db, proyectoId, rubroId);
+  return rubro ? apiError(rubroDeshabilitadoMessage(rubro), 400, "VALIDATION_ERROR") : null;
+}
+
+/**
  * The budget line of a rubro in the project; the rubro needs an assigned amount above zero.
  *
  * S9/T14.1: with `lineaId` the line has to be one of that rubro's lines in this project — never an arbitrary
@@ -379,6 +389,10 @@ export async function resolverLinea(
       rubro: { select: { id: true, codigo: true, nombre: true } },
     },
   });
+  if (!linea || !tieneAsignado(linea.monto_proyectado_cop)) {
+    const deshabilitado = await rechazoPorDeshabilitado(proyectoId, rubroId);
+    if (deshabilitado) return { ok: false, response: deshabilitado };
+  }
   if (!linea) {
     return {
       ok: false,
@@ -421,7 +435,8 @@ export async function resolverRepartos(
   for (const fila of repartos) {
     const linea = porId.get(fila.linea_id);
     if (!linea || !tieneAsignado(linea.monto_proyectado_cop)) {
-      return { ok: false, response: apiError(REPARTO_LINEA_MESSAGE, 400, "VALIDATION_ERROR") };
+      const deshabilitado = linea ? await rechazoPorDeshabilitado(proyectoId, linea.rubro.id) : null;
+      return { ok: false, response: deshabilitado ?? apiError(REPARTO_LINEA_MESSAGE, 400, "VALIDATION_ERROR") };
     }
     value.push({
       linea: {

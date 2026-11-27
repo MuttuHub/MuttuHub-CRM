@@ -36,6 +36,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     proyecto: { findFirst: vi.fn() },
     lineaPresupuestal: { findFirst: vi.fn(), findMany: vi.fn() },
+    proyectoRubroDeshabilitado: { findUnique: vi.fn() },
     gasto: { findMany: vi.fn() },
     proyectoMiembro: { findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -284,6 +285,30 @@ describe("POST expenses: registration", () => {
     const res = await POST(post(valido), ctx);
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("Solo puedes registrar gastos en rubros con valor asignado.");
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  // B6: a rubro disabled for the project names the reason instead of «sin valor asignado».
+  it("refuses an expense on a rubro disabled for the project, with the reason, and writes nothing", async () => {
+    vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(db.proyectoRubroDeshabilitado.findUnique).mockResolvedValueOnce({ rubro: { codigo: "R12", nombre: "Transporte" } } as never);
+    const res = await POST(post(valido), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "El rubro R12 Transporte está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+    );
+    expect(db.proyectoRubroDeshabilitado.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { proyecto_id_rubro_id: { proyecto_id: "pry-1", rubro_id: "rub-1" } } }),
+    );
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a distribution row on a $0 line of a disabled rubro, with the reason", async () => {
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue(lineas("0") as never);
+    vi.mocked(db.proyectoRubroDeshabilitado.findUnique).mockResolvedValueOnce({ rubro: { codigo: "R12", nombre: "Transporte" } } as never);
+    const res = await POST(post(facturaRepartida([{ linea_id: "lin-12", valor: "1000000" }])), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("El rubro R12 Transporte está deshabilitado para este proyecto.");
     expect(mocks.create).not.toHaveBeenCalled();
   });
 

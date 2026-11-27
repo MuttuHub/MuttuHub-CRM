@@ -32,6 +32,8 @@ vi.mock("@/lib/db", () => ({
   db: {
     proyecto: { findFirst: vi.fn() },
     lineaPresupuestal: { findFirst: vi.fn(), findMany: vi.fn() },
+    // B6: asked only when a rubro is refused, to name a disabled rubro.
+    proyectoRubroDeshabilitado: { findUnique: vi.fn() },
     gasto: { findFirst: vi.fn(), findMany: vi.fn() },
     proyectoMiembro: { findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -665,6 +667,17 @@ describe("PATCH expenses/:expenseId", () => {
     } as never);
     expect((await PATCH(patch({ rubro_id: "rub-9" }), ctx)).status).toBe(200);
     expect(updatedData().linea_id).toBe("lin-9");
+  });
+
+  // B6: moving an expense onto a rubro the project disabled names the reason.
+  it("refuses a correction onto a rubro disabled for the project, with the reason", async () => {
+    vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(db.proyectoRubroDeshabilitado.findUnique).mockResolvedValueOnce({ rubro: { codigo: "R09", nombre: "Equipos" } } as never);
+    const res = await PATCH(patch({ rubro_id: "rub-9" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "El rubro R09 Equipos está deshabilitado para este proyecto. Habilítalo en el presupuesto antes de asignarle dinero o registrarle gastos.",
+    );
   });
 
   // S9 / T14.1: the expense keeps the exact line it already has when the correction does not change the

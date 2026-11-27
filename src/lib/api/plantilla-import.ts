@@ -23,6 +23,8 @@ import { logChanges, diffFields, type CambioInput } from "@/lib/api/audit-cambio
 import {
   RespuestaAbortada,
   decimalFromCents,
+  deshabilitadoEnProyecto,
+  estaDeshabilitado,
   limpiarConfirmacion,
   lockProyectoBorrador,
   PROYECTO_NO_EXISTE,
@@ -35,6 +37,7 @@ import type { PlantillaInput } from "@/lib/proyectos/plantilla/generate";
 import type { PlanImportacion } from "@/lib/proyectos/plantilla/mapear";
 import type { ContextoValidacion } from "@/lib/proyectos/plantilla/validate";
 import { lineasTienenGastos } from "./lineas-con-gastos";
+import { rechazoPorRubroDeshabilitado } from "./rubros-proyecto";
 
 /** Zip guard limits (a template is a few dozen KB; the 4 MB upload cap binds first). */
 export const ZIP_MAX_ENTRADAS = 200;
@@ -111,7 +114,10 @@ export async function cargarContexto(client: ContextoReader, proyectoId: string)
   if (!proyecto) throw new RespuestaAbortada(apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND"));
 
   const [rubros, lineas, municipios, usuarios] = await Promise.all([
-    client.rubro.findMany({ where: { codigo: { not: null } }, select: { codigo: true, activo: true } }),
+    client.rubro.findMany({
+      where: { codigo: { not: null } },
+      select: { codigo: true, nombre: true, activo: true, deshabilitado_en: deshabilitadoEnProyecto(proyectoId) },
+    }),
     client.lineaEstrategicaCatalogo.findMany({ select: { id: true, codigo: true, nombre: true, activo: true } }),
     client.municipio.findMany({
       select: { id: true, nombre: true, departamento: true, codigo_dane: true, activo: true },
@@ -121,7 +127,13 @@ export async function cargarContexto(client: ContextoReader, proyectoId: string)
 
   return {
     proyecto: { codigo: proyecto.codigo, estado: proyecto.estado },
-    rubros: rubros.map((rubro) => ({ codigo: rubro.codigo as string, activo: rubro.activo })),
+    // B6: V-11 refuses money on a rubro disabled for this project, so the dry run reports it too.
+    rubros: rubros.map((rubro) => ({
+      codigo: rubro.codigo as string,
+      nombre: rubro.nombre,
+      activo: rubro.activo,
+      deshabilitado: estaDeshabilitado(rubro),
+    })),
     lineas,
     municipios: municipios.map((municipio) => ({
       id: municipio.id,
@@ -228,8 +240,9 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
           objetivo: { select: { codigo: true } },
         },
       }),
+      // B6: a rubro disabled for this project is neither prefilled nor offered in the catalogue sheet.
       client.lineaPresupuestal.findMany({
-        where: { proyecto_id: proyectoId },
+        where: { proyecto_id: proyectoId, rubro: { deshabilitado_en: { none: { proyecto_id: proyectoId } } } },
         select: {
           monto_proyectado_cop: true,
           actividad: { select: { codigo: true } },
@@ -237,7 +250,7 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
         },
       }),
       client.rubro.findMany({
-        where: { activo: true, codigo: { not: null } },
+        where: { activo: true, codigo: { not: null }, deshabilitado_en: { none: { proyecto_id: proyectoId } } },
         orderBy: [{ orden: "asc" }, { nombre: "asc" }],
         select: { codigo: true, nombre: true },
       }),
@@ -613,8 +626,15 @@ export async function importarPlantilla(
   const cero = BigInt(0);
   const rubros = await tx.rubro.findMany({
     where: { codigo: { in: [...new Set(plan.presupuesto.map((linea) => linea.rubroCodigo))] } },
-    select: { id: true, codigo: true },
+    select: { id: true, codigo: true, nombre: true, deshabilitado_en: deshabilitadoEnProyecto(id) },
   });
+  // B6: the V-11 rule again, under the project lock (a rubro disabled after the validation): the import rolls back.
+  const porCodigo = new Map(rubros.map((rubro) => [rubro.codigo, { ...rubro, deshabilitado: estaDeshabilitado(rubro) }]));
+  for (const linea of plan.presupuesto) {
+    const rubro = porCodigo.get(linea.rubroCodigo);
+    const rechazo = rubro ? rechazoPorRubroDeshabilitado(rubro, linea.cents) : null;
+    if (rechazo) throw new RespuestaAbortada(apiError(rechazo, 400, "VALIDATION_ERROR"));
+  }
   const rubroIds = new Map(rubros.map((rubro) => [rubro.codigo as string, rubro.id]));
   const lineasExistentes = await tx.lineaPresupuestal.findMany({
     where: { proyecto_id: id },
