@@ -12,6 +12,11 @@
 // (T11 S2): it is the sum of the budget lines, so a new project starts at $ 0 and the form only shows
 // the opportunity's estimate as the reference.
 //
+// T5a (S8, S9): when the form opens without an opportunity or a client, the user may choose
+// «Posición propia» instead. The client, its card and the opportunity select are then replaced by the
+// initial allies list, and the project is created with `origen: "POSICION_PROPIA"`, its allies and no
+// `cliente_id`.
+//
 // The form owns its state, validation and submit. What happens after a successful creation is the
 // caller's decision (`onCreated`): the dialog shows its confirmation, the page moves to step 2.
 
@@ -24,6 +29,13 @@ import { EtiquetasField, alternarEtiqueta } from "@/components/crm/etiquetas-fie
 import { CampoLineas, CampoMunicipios } from "@/components/proyectos/nuevo-proyecto/campos-proyecto";
 import { ClienteCombobox } from "@/components/proyectos/cliente-combobox";
 import { ClienteResumen } from "@/components/proyectos/nuevo-proyecto/cliente-resumen";
+import {
+  AliadosIniciales,
+  aliadosParaEnviar,
+  validarAliados,
+  type AliadoInicial,
+} from "@/components/proyectos/aliados-iniciales";
+import { ORIGEN_PROYECTO_META } from "@/components/proyectos/project-display";
 import { CAPTURE_TEXTAREA } from "@/components/proyectos/ui";
 import { HelpHint } from "@/components/ui/help-hint";
 import { Button } from "@/components/ui/button";
@@ -58,7 +70,7 @@ const SIN_OPORTUNIDAD = "sin-oportunidad";
 /** Mirrors the server cap (`DESCRIPCION_MAX` in `src/lib/api/projects.ts`, which is server-only). */
 const DESCRIPCION_MAX = 2000;
 
-type OrigenForm = "OPORTUNIDAD" | "INDEPENDIENTE";
+type OrigenForm = "OPORTUNIDAD" | "INDEPENDIENTE" | "POSICION_PROPIA";
 
 type CuerpoCreacion = {
   descripcion?: string;
@@ -159,6 +171,8 @@ export function ProjectCreateForm({
   const [principalIdsEstado, setPrincipalIdsEstado] = useState<string[] | null>(null);
   const [municipioIds, setMunicipioIds] = useState<string[]>([]);
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
+  const [posicionPropia, setPosicionPropia] = useState(false);
+  const [aliados, setAliados] = useState<AliadoInicial[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [prefillAplicado, setPrefillAplicado] = useState(false);
   // El error se pinta junto al botón de envío (el diálogo hace scroll y el pie queda fuera de la vista).
@@ -168,8 +182,14 @@ export function ProjectCreateForm({
     if (error) errorRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [error]);
 
-  // El origen no se pregunta: lo decide la oportunidad elegida.
-  const origen: OrigenForm = oportunidad ? "OPORTUNIDAD" : "INDEPENDIENTE";
+  // Posición propia solo se ofrece cuando el formulario no llega atado a una oportunidad o a un cliente.
+  const ofrecerPosicionPropia = !initialOportunidadId && !initialClienteId;
+  // Fuera de posición propia, el origen no se pregunta: lo decide la oportunidad elegida.
+  const origen: OrigenForm = posicionPropia
+    ? "POSICION_PROPIA"
+    : oportunidad
+      ? "OPORTUNIDAD"
+      : "INDEPENDIENTE";
   const createProject = useCreateProject();
   const createFromOpportunity = useCreateProjectFromOpportunity(
     oportunidad?.cliente_id ?? "",
@@ -197,6 +217,18 @@ export function ProjectCreateForm({
     if (id === clienteId) return;
     setClienteId(id);
     // Lo que vino de la oportunidad anterior ya no corresponde a este cliente.
+    if (oportunidad) {
+      setOportunidad(null);
+      setNombre("");
+    }
+    setError(null);
+  }
+
+  function elegirPosicionPropia(siguiente: boolean) {
+    setPosicionPropia(siguiente);
+    // El cliente y su oportunidad no aplican a posición propia (ni los aliados al proyecto de un cliente).
+    setClienteId("");
+    setAliados([]);
     if (oportunidad) {
       setOportunidad(null);
       setNombre("");
@@ -260,7 +292,7 @@ export function ProjectCreateForm({
 
   /** Validación previa al submit: nunca se dispara una petición inválida. */
   function validar(): string | null {
-    if (clienteId === "") return "Selecciona el cliente.";
+    if (origen !== "POSICION_PROPIA" && clienteId === "") return "Selecciona el cliente.";
     const validacion = validarLineas(
       lineaIds.map((id) => ({ id, principal: principalIds.includes(id) })),
     );
@@ -269,7 +301,8 @@ export function ProjectCreateForm({
     if (responsableEfectivo === "") return "Selecciona el responsable.";
     if (fechaInicio === "" || fechaFin === "") return "Completa las fechas de inicio y fin.";
     if (!rangoFechasValido(fechaInicio, fechaFin)) return MENSAJE_RANGO_FECHAS;
-    if (origen === "INDEPENDIENTE" && nombre.trim() === "") return "El nombre del proyecto es obligatorio.";
+    if (origen !== "OPORTUNIDAD" && nombre.trim() === "") return "El nombre del proyecto es obligatorio.";
+    if (origen === "POSICION_PROPIA") return validarAliados(aliados);
     return null;
   }
 
@@ -291,6 +324,13 @@ export function ProjectCreateForm({
         resultado = await createFromOpportunity.mutateAsync({
           ...cuerpo,
           ...(nombreLimpio ? { nombre: nombreLimpio } : {}),
+        });
+      } else if (origen === "POSICION_PROPIA") {
+        resultado = await createProject.mutateAsync({
+          ...cuerpo,
+          nombre: nombre.trim(),
+          origen: "POSICION_PROPIA",
+          aliados: aliadosParaEnviar(aliados),
         });
       } else {
         resultado = await createProject.mutateAsync({
@@ -330,72 +370,106 @@ export function ProjectCreateForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <Etiqueta
-          htmlFor="proyecto-cliente"
-          ayuda={{
-            label: "Cliente",
-            texto:
-              "El proyecto pertenece a un cliente. Al elegirlo ves sus datos y sus oportunidades ganadas sin proyecto.",
-          }}
-        >
-          Cliente
-        </Etiqueta>
-        <ClienteCombobox
-          id="proyecto-cliente"
-          clientes={clientes}
-          value={clienteId}
-          onChange={elegirCliente}
-        />
-      </div>
-
-      {clienteId !== "" && <ClienteResumen clienteId={clienteId} />}
-
-      <div className="flex flex-col gap-2">
-        <Etiqueta
-          htmlFor="proyecto-oportunidad"
-          ayuda={{
-            label: "Oportunidad",
-            texto:
-              "Opcional. Si eliges una, el proyecto toma su nombre y queda vinculado a ella. Sin oportunidad, el proyecto es independiente.",
-          }}
-        >
-          Oportunidad
-        </Etiqueta>
-        <Select
-          value={oportunidad?.id ?? SIN_OPORTUNIDAD}
-          disabled={clienteId === ""}
-          onValueChange={(value) =>
-            elegirOportunidad(
-              value === SIN_OPORTUNIDAD
-                ? null
-                : (oportunidadesDelCliente.find((op) => op.id === value) ?? null),
-            )
-          }
-        >
-          <SelectTrigger id="proyecto-oportunidad" aria-label="Oportunidad" className="w-full px-3">
-            <SelectValue placeholder="Selecciona primero el cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SIN_OPORTUNIDAD}>Sin oportunidad (proyecto independiente)</SelectItem>
-            {oportunidadesDelCliente.map((op) => (
-              <SelectItem key={op.id} value={op.id}>
-                {op.nombre}
-                {op.valor_estimado_cop ? ` · ${formatCOP(toCents(op.valor_estimado_cop))}` : ""}
-              </SelectItem>
+      {ofrecerPosicionPropia && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 flex items-center gap-1 text-sm leading-none font-medium">
+            Tipo de proyecto
+            <HelpHint label="Tipo de proyecto">
+              Un proyecto para un cliente pertenece a ese cliente. Un proyecto de posición propia es una
+              iniciativa de la organización: no tiene cliente y se le vinculan varios clientes como aliados.
+            </HelpHint>
+          </legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              { valor: false, label: "Para un cliente" },
+              { valor: true, label: ORIGEN_PROYECTO_META.POSICION_PROPIA },
+            ].map((opcion) => (
+              <label key={opcion.label} className="surface-inner flex cursor-pointer items-center gap-3 p-3">
+                <input
+                  type="radio"
+                  name="proyecto-tipo"
+                  checked={posicionPropia === opcion.valor}
+                  onChange={() => elegirPosicionPropia(opcion.valor)}
+                />
+                <span className="text-[13px] font-semibold text-ink-900">{opcion.label}</span>
+              </label>
             ))}
-          </SelectContent>
-        </Select>
-        {clienteId !== "" && oportunidadesDelCliente.length === 0 && (
-          <p className="text-[12px] text-ink-600">
-            {oportunidadesTotales > 0
-              ? `Este cliente tiene ${oportunidadesTotales} oportunidad${
-                  oportunidadesTotales === 1 ? "" : "es"
-                }, pero solo se pueden convertir las que están GANADAS y sin proyecto.`
-              : "Este cliente no tiene oportunidades ganadas sin proyecto."}
-          </p>
-        )}
-      </div>
+          </div>
+        </fieldset>
+      )}
+
+      {posicionPropia ? (
+        <AliadosIniciales clientes={clientes} aliados={aliados} onChange={setAliados} />
+      ) : (
+        <>
+          <div className="flex flex-col gap-2">
+            <Etiqueta
+              htmlFor="proyecto-cliente"
+              ayuda={{
+                label: "Cliente",
+                texto:
+                  "El proyecto pertenece a un cliente. Al elegirlo ves sus datos y sus oportunidades ganadas sin proyecto.",
+              }}
+            >
+              Cliente
+            </Etiqueta>
+            <ClienteCombobox
+              id="proyecto-cliente"
+              clientes={clientes}
+              value={clienteId}
+              onChange={elegirCliente}
+            />
+          </div>
+
+          {clienteId !== "" && <ClienteResumen clienteId={clienteId} />}
+
+          <div className="flex flex-col gap-2">
+            <Etiqueta
+              htmlFor="proyecto-oportunidad"
+              ayuda={{
+                label: "Oportunidad",
+                texto:
+                  "Opcional. Si eliges una, el proyecto toma su nombre y queda vinculado a ella. Sin oportunidad, el proyecto es independiente.",
+              }}
+            >
+              Oportunidad
+            </Etiqueta>
+            <Select
+              value={oportunidad?.id ?? SIN_OPORTUNIDAD}
+              disabled={clienteId === ""}
+              onValueChange={(value) =>
+                elegirOportunidad(
+                  value === SIN_OPORTUNIDAD
+                    ? null
+                    : (oportunidadesDelCliente.find((op) => op.id === value) ?? null),
+                )
+              }
+            >
+              <SelectTrigger id="proyecto-oportunidad" aria-label="Oportunidad" className="w-full px-3">
+                <SelectValue placeholder="Selecciona primero el cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_OPORTUNIDAD}>Sin oportunidad (proyecto independiente)</SelectItem>
+                {oportunidadesDelCliente.map((op) => (
+                  <SelectItem key={op.id} value={op.id}>
+                    {op.nombre}
+                    {op.valor_estimado_cop ? ` · ${formatCOP(toCents(op.valor_estimado_cop))}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {clienteId !== "" && oportunidadesDelCliente.length === 0 && (
+              <p className="text-[12px] text-ink-600">
+                {oportunidadesTotales > 0
+                  ? `Este cliente tiene ${oportunidadesTotales} oportunidad${
+                      oportunidadesTotales === 1 ? "" : "es"
+                    }, pero solo se pueden convertir las que están GANADAS y sin proyecto.`
+                  : "Este cliente no tiene oportunidades ganadas sin proyecto."}
+              </p>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2 sm:col-span-2">
