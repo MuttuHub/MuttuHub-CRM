@@ -68,7 +68,7 @@ const ReporteProyectoSchema = registry.register(
         }),
       )
       .nullable()
-      .openapi({ description: "La oportunidad del proyecto y las abiertas de sus aliados no descartados; null sin acceso comercial." }),
+      .openapi({ description: "La oportunidad que originó el proyecto (vinculo PROYECTO); los aportes de los aliados van en aliados. null sin acceso comercial." }),
     bitacora: z
       .array(
         z.object({

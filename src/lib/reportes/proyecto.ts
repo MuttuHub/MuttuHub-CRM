@@ -9,8 +9,8 @@
 //   `aporte_cop` of COMPROMETIDO / EN_GESTION allies, summed in cents; sin cubrir never below 0.
 // - Aliados: every ally of the project (DESCARTADO included) whose client is not soft-deleted (the same rule as
 //   `ALIADOS_ACTIVOS_COUNT`), with its last interaction about this project (`bitacora_entradas.proyecto_id`).
-// - Oportunidades (L26, until D1): the project's own opportunity plus the open ones of its non-DESCARTADO
-//   allies; only with commercial access, otherwise `null` (hidden, S5).
+// - Oportunidades (D1, L31): only the project's own opportunity; the allies' contributions live on their ally
+//   rows. Only with commercial access, otherwise `null` (hidden, S5).
 // - Bitácora (S16): the latest entries linked to this project.
 // - Tareas: the project's tasks (`tareaScopeWhere`), progress = completed / (all − cancelled), overdue and
 //   upcoming open tasks.
@@ -18,7 +18,7 @@
 import type { EstadoAliado, EstadoOportunidad, EstadoProyecto, EstadoTarea, FaseOportunidad, OrigenProyecto, Prisma, RolAliado, TipoInteraccion, Usuario } from "@prisma/client"
 import { db } from "@/lib/db"
 import { apiError } from "@/lib/api/errors"
-import { OPEN_OPPORTUNITY_STATES, clienteFeedScope } from "@/lib/api/crm"
+import { clienteFeedScope } from "@/lib/api/crm"
 import { EJECUCION_FORBIDDEN_MESSAGE, PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion"
 import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio"
 import { canReadProject, loadProjectScoped } from "@/lib/api/projects"
@@ -148,10 +148,9 @@ export async function cargarReporteProyecto(
   const aliadoIds = aliadosRows.map((a) => a.cliente.id)
   const aliadoActivoIds = aliadosRows.filter((a) => a.estado !== "DESCARTADO").map((a) => a.cliente.id)
 
-  const vinculos: Prisma.OportunidadWhereInput[] = [
-    ...(proyecto.oportunidad_id ? [{ id: proyecto.oportunidad_id }] : []),
-    ...(aliadoActivoIds.length > 0 ? [{ cliente_id: { in: aliadoActivoIds }, estado: { in: [...OPEN_OPPORTUNITY_STATES] } }] : []),
-  ]
+  // D1 (L31): an ally's contribution lives on its ally row, not in a client opportunity, so the only opportunity
+  // linked to the project is its own (`oportunidad_id`).
+  const vinculos: Prisma.OportunidadWhereInput[] = proyecto.oportunidad_id ? [{ id: proyecto.oportunidad_id }] : []
 
   const [kpis, ultimas, oportunidades, bitacora, tareas] = await Promise.all([
     getSemaforoParametrosV2().then((parametros) => loadKpisPortafolio({ proyectos: [proyecto], corte: hoy, parametros })),

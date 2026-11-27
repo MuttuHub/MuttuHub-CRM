@@ -7,4 +7,4 @@ export const NOTA_COMPROMETIDO =
 export const NOTA_SIN_CUBRIR =
   "Sin cubrir es la meta menos lo comprometido y lo que está en gestión; nunca es menor que cero."
 export const NOTA_OPORTUNIDADES =
-  "Las oportunidades son la del propio proyecto y las abiertas de sus aliados, hasta que se decida cómo se vinculan las oportunidades con el proyecto."
+  "La oportunidad es la que originó el proyecto; los aportes de los aliados se registran en la sección de aliados."

@@ -252,28 +252,24 @@ describe("GET /api/v1/reports/project", () => {
     expect(vi.mocked(db.oportunidad.findMany).mock.calls[0][0]?.where).toMatchObject({ deleted_at: null, OR: [{ id: "o9" }] })
   })
 
-  it("links the project's own opportunity and the open ones of its non-DESCARTADO allies (L26)", async () => {
+  it("links only the project's own opportunity, never the allies' opportunities (D1, L31)", async () => {
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({ oportunidad_id: "o1" }) as never)
     vi.mocked(db.oportunidad.findMany).mockResolvedValue([
-      { id: "o2", nombre: "Aporte Acme", estado: "PRESENTADA", fase: "PROSPECCION", valor_estimado_cop: "50000.00", cliente: { id: "c2", nombre: "Acme" } },
       { id: "o1", nombre: "Origen", estado: "GANADA", fase: "EJECUCION", valor_estimado_cop: null, cliente: { id: "c2", nombre: "Acme" } },
     ] as never)
     const body = await (await GET(get(QS))).json()
     const where = vi.mocked(db.oportunidad.findMany).mock.calls[0][0]?.where
-    expect(where).toMatchObject({
-      deleted_at: null,
-      OR: [
-        { id: "o1" },
-        {
-          cliente_id: { in: ["c3", "c2", "c4", "c5"] },
-          estado: { in: ["DISENANDO_PROPUESTA", "PRESENTADA", "EN_REVISION", "EN_NEGOCIACION", "STANDBY"] },
-        },
-      ],
-    })
+    expect(where).toEqual(expect.objectContaining({ deleted_at: null, OR: [{ id: "o1" }] }))
     expect(body.oportunidades).toEqual([
       { id: "o1", nombre: "Origen", estado: "GANADA", fase: "EJECUCION", valor_estimado_cop: null, cliente: { id: "c2", nombre: "Acme" }, vinculo: "PROYECTO" },
-      { id: "o2", nombre: "Aporte Acme", estado: "PRESENTADA", fase: "PROSPECCION", valor_estimado_cop: "50000.00", cliente: { id: "c2", nombre: "Acme" }, vinculo: "ALIADO" },
     ])
+  })
+
+  it("returns no opportunities for a posición propia project without its own opportunity, even with allies (D1)", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({ oportunidad_id: null }) as never)
+    const body = await (await GET(get(QS))).json()
+    expect(db.oportunidad.findMany).not.toHaveBeenCalled()
+    expect(body.oportunidades).toEqual([])
   })
 
   it("hides the opportunities without commercial access (S5)", async () => {
