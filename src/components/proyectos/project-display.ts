@@ -29,6 +29,7 @@ export const ESTADO_PROYECTO_META: Record<EstadoProyecto, { label: string; tone:
 export const ORIGEN_PROYECTO_META: Record<OrigenProyecto, string> = {
   OPORTUNIDAD: "Desde una oportunidad ganada",
   INDEPENDIENTE: "Proyecto independiente",
+  POSICION_PROPIA: "Posición propia",
 };
 
 /** Etiqueta humana de cada acción del libro (`auditoria_cambios`). */

@@ -87,7 +87,8 @@ export type ProjectItemV2 = {
   descripcion: string | null;
   estado: EstadoProyecto;
   origen: OrigenProyecto | null;
-  cliente: { id: string; nombre: string };
+  /** Null for a posición propia project (S8). */
+  cliente: { id: string; nombre: string } | null;
   responsable: { id: string; nombre: string } | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;

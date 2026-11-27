@@ -28,6 +28,7 @@ import {
 import type { ColorSemaforo } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { desplazarSemana, semanaActual, semanaDe } from "@/lib/reportes/semana";
+import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
 
 const ERROR_REPORTE = "No pudimos generar el reporte semanal. Inténtalo de nuevo.";
 
@@ -151,7 +152,7 @@ export function ReporteSemanalContenido({ data }: { data: ReporteSemanal }) {
                   <TableCell className="font-mono text-[12px] font-semibold tabular-nums ">{p.codigo}</TableCell>
                   <TableCell className="max-w-[220px]">
                     <p className="truncate font-semibold text-ink-950" title={p.nombre}>{p.nombre}</p>
-                    <p className="truncate text-[11.5px] text-ink-600">{p.cliente.nombre}</p>
+                    <p className="truncate text-[11.5px] text-ink-600">{nombreClienteProyecto(p.cliente)}</p>
                   </TableCell>
                   <TableCell><Semaforo color={p.semaforo_tecnico} /></TableCell>
                   <TableCell>
@@ -191,7 +192,7 @@ export function ReporteSemanalContenido({ data }: { data: ReporteSemanal }) {
             </TableHeader>
             <TableBody>
               {data.portafolio.por_cliente.map((c) => (
-                <TableRow key={c.cliente.id}>
+                <TableRow key={c.cliente.id ?? "posicion-propia"}>
                   <TableCell className="font-semibold text-ink-950">{c.cliente.nombre}</TableCell>
                   <Numero>{c.proyectos}</Numero>
                   <Numero>{formatPct(c.tecnico.avance_real)}</Numero>

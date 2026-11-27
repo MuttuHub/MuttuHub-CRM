@@ -20,6 +20,7 @@
 // - oportunidades_en_prospeccion (S2.7): oportunidades en fase PROSPECCION aún
 //   abiertas (ni GANADA ni PERDIDA) de mis clientes (alcance "own").
 
+import { nombreClienteProyecto } from "@/lib/proyectos/posicion-propia";
 import { NextResponse } from "next/server";
 import type { OrigenTarea } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -138,8 +139,8 @@ export const GET = withApiErrorHandling(
       id: p.id,
       codigo: p.codigo,
       nombre: p.nombre,
-      cliente_id: p.cliente.id,
-      cliente_nombre: p.cliente.nombre,
+      cliente_id: p.cliente?.id ?? null,
+      cliente_nombre: nombreClienteProyecto(p.cliente),
     }));
     const oportunidades_en_prospeccion = oportunidades.map((o) => ({
       id: o.id,
