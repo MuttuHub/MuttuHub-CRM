@@ -85,6 +85,7 @@ describe("FichaResumen", () => {
         return Promise.resolve(jsonResponse({ estado: "BORRADOR", rubros: [], suma, valor_total: null, diferencia: null }))
       }
       if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
+      if (url.endsWith("/allies")) return Promise.resolve(jsonResponse({ aliados: [] }))
       return Promise.resolve(jsonResponse({}))
     })
   }
@@ -103,6 +104,28 @@ describe("FichaResumen", () => {
   })
 
   afterEach(() => vi.unstubAllGlobals())
+
+  // S9: only a posición propia project has allies, so only its Resumen shows the «Aliados» tile.
+  it("shows the «Aliados» tile, after the team, for a posición propia project", async () => {
+    mockApi()
+    renderResumen({ ...PROYECTO, origen: "POSICION_PROPIA", cliente: null })
+
+    expect(await screen.findByRole("heading", { name: "Aliados · 0" })).toBeInTheDocument()
+    const equipo = screen.getByTestId("equipo")
+    const aliados = screen.getByTestId("aliados")
+    expect(equipo.compareDocumentPosition(aliados) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/allies", expect.any(Object))
+  })
+
+  it("does not show the «Aliados» tile nor ask for allies for another origin", async () => {
+    mockApi()
+    renderResumen()
+
+    await screen.findByTestId("equipo")
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
+    expect(screen.queryByTestId("aliados")).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/allies", expect.any(Object))
+  })
 
   it.each([
     ["verde", "Verde · al día"],
