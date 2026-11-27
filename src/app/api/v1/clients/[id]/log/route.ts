@@ -39,7 +39,21 @@ export const LOG_ENTRY_SCHEMA = z.object({
     .max(2000, "El próximo paso no puede superar los 2000 caracteres.")
     .nullable()
     .optional(),
+  // T8 (S16): optional project the interaction was about; only a project where this client is an ally.
+  proyecto_id: z.string().min(1, "El proyecto no es válido.").nullable().optional(),
 });
+
+const ENTRADA_SELECT = {
+  id: true,
+  autor_id: true,
+  autor: { select: { nombre: true } },
+  texto: true,
+  oportunidad_id: true,
+  proyecto_id: true,
+  tipo: true,
+  proximo_paso: true,
+  created_at: true,
+} as const;
 
 export const GET = withApiErrorHandling(
   "log",
@@ -56,16 +70,7 @@ export const GET = withApiErrorHandling(
     const entradas = await db.bitacoraEntrada.findMany({
       where: { cliente_id: id },
       orderBy: { created_at: "asc" },
-      select: {
-        id: true,
-        autor_id: true,
-        autor: { select: { nombre: true } },
-        texto: true,
-        oportunidad_id: true,
-        tipo: true,
-        proximo_paso: true,
-        created_at: true,
-      },
+      select: ENTRADA_SELECT,
     });
     return NextResponse.json({
       entradas: entradas.map(({ autor, ...entrada }) => ({
@@ -105,6 +110,16 @@ export const POST = withApiErrorHandling(
       if (invariantError) return invariantError;
     }
 
+    if (parsed.data.proyecto_id) {
+      const aliado = await db.proyectoCliente.findFirst({
+        where: { proyecto_id: parsed.data.proyecto_id, cliente_id: id, proyecto: { deleted_at: null } },
+        select: { id: true },
+      });
+      if (!aliado) {
+        return apiError("Este cliente no es aliado del proyecto.", 400, "VALIDATION_ERROR");
+      }
+    }
+
     // autor is always the session user — never a client-providable field.
     const entrada = await db.bitacoraEntrada.create({
       data: {
@@ -112,19 +127,11 @@ export const POST = withApiErrorHandling(
         autor_id: auth.usuario.id,
         texto: parsed.data.texto,
         oportunidad_id: parsed.data.oportunidad_id ?? undefined,
+        proyecto_id: parsed.data.proyecto_id ?? undefined,
         tipo: parsed.data.tipo ?? "OTRO",
         proximo_paso: parsed.data.proximo_paso?.trim() || undefined,
       },
-      select: {
-        id: true,
-        autor_id: true,
-        autor: { select: { nombre: true } },
-        texto: true,
-        oportunidad_id: true,
-        tipo: true,
-        proximo_paso: true,
-        created_at: true,
-      },
+      select: ENTRADA_SELECT,
     });
     return NextResponse.json(
       { entrada: { ...entrada, autor_nombre: entrada.autor.nombre } },

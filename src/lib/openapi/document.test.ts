@@ -417,6 +417,11 @@ describe("buildOpenApiDocument", () => {
     const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
     expect(schema).toContain("TipoInteraccion")
     expect(schema).toContain("proximo_paso")
+    // T8 (S16): the entry names the project the interaction was about.
+    const entrada = buildOpenApiDocument().components?.schemas?.BitacoraEntrada as { properties?: object }
+    expect(Object.keys(entrada.properties ?? {})).toContain("proyecto_id")
+    const body = JSON.stringify(paths["/api/v1/clients/{id}/log"]?.post?.requestBody)
+    expect(body).toContain("proyecto_id")
   })
   it("registers the C4a global contacts feed and the extended Contacto schema", () => {
     const paths = buildOpenApiDocument().paths ?? {}

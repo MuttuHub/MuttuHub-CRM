@@ -349,9 +349,14 @@ export const projectQueryKeys = {
 /* ── Queries ───────────────────────────────────────────────────────────── */
 
 /** E-02: sin paginación — el server devuelve todo lo que el alcance permita. */
-export function useProjects(filters: ProjectFilters): UseQueryResult<ProjectListResponse> {
+/** `enabled: false` holds the request until its filters are ready (T8: the interaction dialog's client). */
+export function useProjects(
+  filters: ProjectFilters,
+  options?: { enabled?: boolean },
+): UseQueryResult<ProjectListResponse> {
   return useQuery({
     queryKey: projectQueryKeys.list(filters),
+    enabled: options?.enabled ?? true,
     queryFn: () => {
       const sp = new URLSearchParams();
       for (const [key, value] of Object.entries(filters)) {
